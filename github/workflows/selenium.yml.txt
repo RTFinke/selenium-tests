@@ -1,0 +1,18 @@
+name: Selenium
+
+on:
+push:
+branches: ["main"]
+
+jobs:
+selenium:
+runs-on: ubuntu-latest
+
+steps:
+- name: Checkout code
+uses: actions/checkout@v4
+
+- name: Run selenium
+run: |
+chmod +x run_selenium.sh
+./run_selenium.sh
