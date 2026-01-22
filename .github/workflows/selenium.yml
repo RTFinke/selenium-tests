@@ -1,0 +1,65 @@
+name: Siz3r Model Tests
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'  # Codziennie o 2 AM UTC
+
+jobs:
+  test-all-models:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180  # 3 godziny max (62 testy * ~2 min)
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: pip install selenium
+    
+    - name: Start Selenium Grid
+      run: |
+        docker-compose -f docker-compose.cloud.yml up -d
+        sleep 20
+    
+    - name: Wait for Grid to be ready
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:4444/status; do sleep 2; done'
+        echo "Grid is ready!"
+    
+    - name: Run ALL model tests
+      env:
+        SELENIUM_GRID_URL: http://localhost:4444
+        HEADLESS: true
+      run: |
+        python test_business.py
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: siz3r-test-results
+        path: test_results/
+        retention-days: 30
+    
+    - name: Stop Selenium Grid
+      if: always()
+      run: docker-compose -f docker-compose.cloud.yml down
+    
+    # OPCJONALNIE: Trigger do LLM analysis (jeśli współpracownik ma swój workflow)
+    - name: Trigger LLM analysis
+      if: always()
+      uses: peter-evans/repository-dispatch@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        event-type: test-results-ready
+        client-payload: '{"run_id": "${{ github.run_id }}"}'
