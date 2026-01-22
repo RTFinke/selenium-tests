@@ -1,0 +1,12 @@
+{
+  "test_number": 2,
+  "test_id": "test_2_women_0c529e5f228a4680878451449acc9085",
+  "gender": "women",
+  "model_filename": "0c529e5f228a4680878451449acc9085.webp",
+  "user_email": "biztest_nja2yy1a@test.com",
+  "timestamp": "2026-01-22 22:17:40",
+  "headless": true,
+  "garment_filename": "e768650783e345fe86304ca2cad626fe.webp",
+  "status": "success",
+  "result_path": "/Users/rafalfinke/Desktop/zalando-plugin-test/selenium-tests/test_results/test_2_women_0c529e5f228a4680878451449acc9085/result/result.png"
+}
