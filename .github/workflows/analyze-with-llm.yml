@@ -1,0 +1,53 @@
+name: Analyze with LLM
+
+on:
+  workflow_run:
+    workflows: ["Siz3r Model Tests"]
+    types: [completed]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download test results
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: selenium.yml
+        name: siz3r-test-results
+        path: test_results/
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Install dependencies
+      run: npm install dotenv
+    
+    - name: Convert structure
+      run: |
+        mkdir -p images
+        for test_dir in test_results/test_*; do
+          if [ -d "$test_dir" ]; then
+            test_name=$(basename "$test_dir")
+            target_dir="images/$test_name"
+            mkdir -p "$target_dir"
+            find "$test_dir/garment" -type f -exec cp {} "$target_dir/garment.jpg" \; 2>/dev/null || true
+            find "$test_dir/result" -type f -exec cp {} "$target_dir/result.png" \; 2>/dev/null || true
+          fi
+        done
+    
+    - name: Run analysis
+      env:
+        LOCAL_LLM_BASE_URL: http://pielman.callcenteronline.pl:8001
+        LOCAL_LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        LOCAL_LLM_MODEL: gpt-3.5-turbo
+      run: node analyze_quality.js
+    
+    - name: Upload results
+      uses: actions/upload-artifact@v4
+      with:
+        name: llm-quality-analysis
+        path: outputs/
