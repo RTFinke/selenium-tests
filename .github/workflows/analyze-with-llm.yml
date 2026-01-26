@@ -1,9 +1,7 @@
 name: Analyze with LLM
 
 on:
-  workflow_run:
-    workflows: ["Siz3r Model Tests"]
-    types: [completed]
+  workflow_dispatch:
 
 jobs:
   analyze:

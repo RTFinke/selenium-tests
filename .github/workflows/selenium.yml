@@ -1,10 +1,6 @@
 name: Siz3r Model Tests
 
 on:
-  push:
-    branches: [ main, master, develop ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
