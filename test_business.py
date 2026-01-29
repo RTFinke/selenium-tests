@@ -103,7 +103,6 @@ def test_single_model(test_num, model_info):
     model_name_clean = Path(model_info['person_name']).stem
     test_id = f"test_{test_num}_{model_info['gender']}_{model_name_clean}"
     
-    # Metadata podstawowe
     metadata = {
         "test_number": test_num,
         "test_id": test_id,
@@ -138,23 +137,22 @@ def test_single_model(test_num, model_info):
         shutil.copy2(garment_path, os.path.join(garment_folder, f"garment{garment_ext}"))
         shutil.copy2(model_info['person_path'], os.path.join(model_folder, f"model{model_ext}"))
         
-        # Setup driver z większymi timeoutami dla headless
         opts = webdriver.ChromeOptions()
         if HEADLESS:
-            opts.add_argument('--headless=new')  # Nowy headless mode
+            opts.add_argument('--headless=new')
             opts.add_argument('--disable-gpu')
-            opts.add_argument('--window-size=1920,1080')  # Ważne dla headless!
+            opts.add_argument('--window-size=1920,1080')
         opts.add_argument('--no-sandbox')
         opts.add_argument('--disable-dev-shm-usage')
         
         driver = webdriver.Remote(GRID_URL, options=opts)
-        driver.set_page_load_timeout(60)  # Zwiększone z 40
-        wait = WebDriverWait(driver, 40)  # Zwiększone z 30
+        driver.set_page_load_timeout(60)
+        wait = WebDriverWait(driver, 40)
         
         # REJESTRACJA
         print(f"  📝 Rejestracja...")
         driver.get("https://siz3r.com/business/register")
-        time.sleep(5)  # Zwiększone z 3 dla headless
+        time.sleep(5)
         
         try:
             email_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='email']")))
@@ -188,17 +186,29 @@ def test_single_model(test_num, model_info):
             raise Exception("Brak przycisku rejestracji")
         
         driver.execute_script("arguments[0].click();", register_btn)
-        time.sleep(7)  # Zwiększone z 5
+        time.sleep(7)
         
-        no_thanks = find_button_safe(driver, ['nie, dziękuję', 'no, thanks', 'no thanks'])
-        if no_thanks:
-            driver.execute_script("arguments[0].click();", no_thanks)
+        # ============= NOWY FIX: HANDLE CREDITS MODAL =============
+        print(f"  💳 Sprawdzam modal kredytów...")
+        try:
+            skip_button = WebDriverWait(driver, 15).until(
+                EC.element_to_be_clickable((By.XPATH, 
+                    "//button[contains(@class, 'MuiButton') and contains(text(), 'Nie, dziękuję')]"))
+            )
+            print(f"  ✓ Znalazłem 'Nie, dziękuję', klikam...")
+            driver.execute_script("arguments[0].click();", skip_button)
             time.sleep(3)
+            print(f"  ✓ Modal pominięty")
+        except TimeoutException:
+            print(f"  ⚠ Modal nie pojawił się (lub już zamknięty)")
+        except Exception as e:
+            print(f"  ⚠ Błąd przy modal: {e}")
+        # ============= KONIEC MODAL FIX =============
         
         # PLAYGROUND
         print(f"  ⏳ Playground...")
         driver.get("https://siz3r.com/business/playground")
-        time.sleep(7)  # Zwiększone z 5
+        time.sleep(7)
         
         try:
             wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "input[type='file']")))
@@ -210,16 +220,13 @@ def test_single_model(test_num, model_info):
         if len(file_inputs) < 2:
             raise Exception(f"Za mało file inputs: {len(file_inputs)}")
         
-        # Upload person
         file_inputs[0].send_keys(model_info['person_path'])
-        time.sleep(4)  # Zwiększone z 3
+        time.sleep(4)
         
-        # Upload garment
         file_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
         file_inputs[1].send_keys(garment_path)
         time.sleep(4)
         
-        # Generate
         generate_btn = find_button_safe(driver, ['generuj', 'generate'])
         if not generate_btn:
             raise Exception("Brak przycisku Generuj")
@@ -227,7 +234,6 @@ def test_single_model(test_num, model_info):
         driver.execute_script("arguments[0].click();", generate_btn)
         print(f"  ⏳ Generacja...")
         
-        # Wait for result z dłuższym timeoutem
         def result_image_present(driver):
             try:
                 imgs = driver.find_elements(By.TAG_NAME, "img")
@@ -244,13 +250,12 @@ def test_single_model(test_num, model_info):
             return False
         
         try:
-            result_img = WebDriverWait(driver, 30).until(result_image_present)  # Zwiększone z 20
+            result_img = WebDriverWait(driver, 30).until(result_image_present)
         except TimeoutException:
             raise Exception("Timeout: nie znaleziono wyniku generacji po 30s")
         
         time.sleep(2)
         
-        # Save result
         print(f"  📥 Zapisuję wynik...")
         result_path = os.path.join(result_folder, "result.png")
         if download_image_from_element(driver, result_img, result_path):
@@ -283,7 +288,6 @@ def test_single_model(test_num, model_info):
         
         if driver:
             try:
-                # Screenshot dla debugowania
                 screenshot_path = os.path.join(test_folder, "error_screenshot.png")
                 driver.save_screenshot(screenshot_path)
                 print(f"  📸 Screenshot zapisany: error_screenshot.png")
