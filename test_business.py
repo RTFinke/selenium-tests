@@ -67,7 +67,7 @@ def get_random_garment(clothes_folder):
     images = [f for f in os.listdir(clothes_folder) 
               if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and not f.startswith('.')]
     if not images:
-        raise Exception(f"Brak ubrań w: {clothes_folder}")
+        raise Exception(f"Brak ubran w: {clothes_folder}")
     return os.path.join(clothes_folder, random.choice(images))
 
 def download_image_from_element(driver, img_element, filepath):
@@ -119,8 +119,8 @@ def test_single_model(test_num, model_info):
         metadata["garment_filename"] = garment_name
         
         print(f"\n[{test_num}] {user['email']} | {model_info['gender']}")
-        print(f"  👤 Model: {model_info['person_name'][:40]}")
-        print(f"  👔 Garment: {garment_name[:40]}")
+        print(f"  Model: {model_info['person_name'][:40]}")
+        print(f"  Garment: {garment_name[:40]}")
         
         test_folder = os.path.join(RESULTS_FOLDER, test_id)
         garment_folder = os.path.join(test_folder, "garment")
@@ -150,7 +150,7 @@ def test_single_model(test_num, model_info):
         wait = WebDriverWait(driver, 40)
         
         # REJESTRACJA
-        print(f"  📝 Rejestracja...")
+        print(f"  Rejestracja...")
         driver.get("https://siz3r.com/business/register")
         time.sleep(5)
         
@@ -162,7 +162,7 @@ def test_single_model(test_num, model_info):
         
         password_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='password']")
         if len(password_inputs) < 2:
-            raise Exception(f"Za mało pól hasła: {len(password_inputs)}")
+            raise Exception(f"Za malo pol hasla: {len(password_inputs)}")
         
         password_inputs[0].send_keys(user['password'])
         password_inputs[1].send_keys(user['password'])
@@ -188,37 +188,54 @@ def test_single_model(test_num, model_info):
         driver.execute_script("arguments[0].click();", register_btn)
         time.sleep(7)
         
-        # ============= NOWY FIX: HANDLE CREDITS MODAL =============
-        print(f"  💳 Sprawdzam modal kredytów...")
+        # ============= HANDLE CREDITS MODAL =============
+        print(f"  Sprawdzam modal kredytow...")
         try:
             skip_button = WebDriverWait(driver, 15).until(
                 EC.element_to_be_clickable((By.XPATH, 
                     "//button[contains(@class, 'MuiButton') and contains(text(), 'Nie, dziękuję')]"))
             )
-            print(f"  ✓ Znalazłem 'Nie, dziękuję', klikam...")
+            print(f"  OK Znalazlem 'Nie, dziekuje', klikam...")
             driver.execute_script("arguments[0].click();", skip_button)
             time.sleep(3)
-            print(f"  ✓ Modal pominięty")
+            print(f"  OK Modal pominiety")
         except TimeoutException:
-            print(f"  ⚠ Modal nie pojawił się (lub już zamknięty)")
+            try:
+                skip_button = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, 
+                        "//button[contains(text(), 'No, thank')]"))
+                )
+                print(f"  OK Znalazlem 'No, thanks', klikam...")
+                driver.execute_script("arguments[0].click();", skip_button)
+                time.sleep(3)
+                print(f"  OK Modal pominiety (EN)")
+            except TimeoutException:
+                print(f"  WARN Modal nie pojawil sie (lub juz zamkniety)")
         except Exception as e:
-            print(f"  ⚠ Błąd przy modal: {e}")
-        # ============= KONIEC MODAL FIX =============
+            print(f"  WARN Blad przy modal: {e}")
         
-        # PLAYGROUND
-        print(f"  ⏳ Playground...")
+        # ============= PLAYGROUND =============
+        print(f"  Playground...")
         driver.get("https://siz3r.com/business/playground")
-        time.sleep(7)
+        time.sleep(10)
         
-        try:
-            wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "input[type='file']")))
-        except TimeoutException:
-            raise Exception("Timeout: nie znaleziono file inputs")
+        for attempt in range(3):
+            try:
+                wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "input[type='file']")))
+                break
+            except TimeoutException:
+                if attempt < 2:
+                    print(f"  Retry {attempt+1} - odswiezam strone...")
+                    driver.refresh()
+                    time.sleep(7)
+                else:
+                    driver.save_screenshot(os.path.join(test_folder, "debug_playground.png"))
+                    raise Exception("Timeout: nie znaleziono file inputs po 3 probach")
         
         file_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
         
         if len(file_inputs) < 2:
-            raise Exception(f"Za mało file inputs: {len(file_inputs)}")
+            raise Exception(f"Za malo file inputs: {len(file_inputs)}")
         
         file_inputs[0].send_keys(model_info['person_path'])
         time.sleep(4)
@@ -232,7 +249,7 @@ def test_single_model(test_num, model_info):
             raise Exception("Brak przycisku Generuj")
         
         driver.execute_script("arguments[0].click();", generate_btn)
-        print(f"  ⏳ Generacja...")
+        print(f"  Generacja...")
         
         def result_image_present(driver):
             try:
@@ -256,7 +273,7 @@ def test_single_model(test_num, model_info):
         
         time.sleep(2)
         
-        print(f"  📥 Zapisuję wynik...")
+        print(f"  Zapisuje wynik...")
         result_path = os.path.join(result_folder, "result.png")
         if download_image_from_element(driver, result_img, result_path):
             metadata["status"] = "success"
@@ -265,17 +282,17 @@ def test_single_model(test_num, model_info):
             with open(os.path.join(test_folder, "metadata.json"), 'w') as f:
                 json.dump(metadata, f, indent=2)
             
-            print(f"  ✅ OK - {test_id}")
+            print(f"  OK - {test_id}")
             driver.quit()
             return True
         else:
-            raise Exception("Nie udało się pobrać wyniku")
+            raise Exception("Nie udalo sie pobrac wyniku")
         
     except Exception as e:
         error_msg = str(e)
         error_trace = traceback.format_exc()
         
-        print(f"  ❌ FAIL: {error_msg}")
+        print(f"  FAIL: {error_msg}")
         
         metadata["status"] = "failed"
         metadata["error"] = error_msg
@@ -290,7 +307,7 @@ def test_single_model(test_num, model_info):
             try:
                 screenshot_path = os.path.join(test_folder, "error_screenshot.png")
                 driver.save_screenshot(screenshot_path)
-                print(f"  📸 Screenshot zapisany: error_screenshot.png")
+                print(f"  Screenshot zapisany: error_screenshot.png")
             except:
                 pass
             
@@ -302,29 +319,29 @@ def test_single_model(test_num, model_info):
         return False
 
 if __name__ == "__main__":
-    print("🧪 SIZ3R BUSINESS TESTS - ALL MODELS")
+    print("SIZ3R BUSINESS TESTS - ALL MODELS")
     print(f"Headless mode: {HEADLESS}")
     
     missing = [k for k, v in FOLDERS.items() if not os.path.exists(v)]
     if missing:
-        print(f"❌ Brakuje: {', '.join(missing)}")
+        print(f"Brakuje: {', '.join(missing)}")
         sys.exit(1)
     
     for key, path in FOLDERS.items():
         count = len([f for f in os.listdir(path) 
                     if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and not f.startswith('.')])
-        print(f"  {key}: {count} zdjęć")
+        print(f"  {key}: {count} zdjec")
     
     all_models = get_all_models()
     
     if MAX_TESTS:
         max_tests_int = int(MAX_TESTS)
-        print(f"\n⚠️  MAX_TESTS={max_tests_int} - ograniczam do {max_tests_int} pierwszych modeli")
+        print(f"\nMAX_TESTS={max_tests_int} - ograniczam do {max_tests_int} pierwszych modeli")
         all_models = all_models[:max_tests_int]
     
     total_tests = len(all_models)
     
-    print(f"\n📊 Testowanie {total_tests} modeli")
+    print(f"\nTestowanie {total_tests} modeli")
     print(f"  Women: {len([m for m in all_models if m['gender'] == 'women'])}")
     print(f"  Men: {len([m for m in all_models if m['gender'] == 'men'])}")
     
@@ -346,16 +363,16 @@ if __name__ == "__main__":
         elapsed = time.time() - start_time
         avg_per_test = elapsed / i
         remaining = (total_tests - i) * avg_per_test
-        print(f"  📊 Progress: {i}/{total_tests} | ETA: {int(remaining/60)}min")
+        print(f"  Progress: {i}/{total_tests} | ETA: {int(remaining/60)}min")
     
     elapsed_total = time.time() - start_time
     print(f"\n{'='*60}")
-    print(f"📊 PODSUMOWANIE")
+    print(f"PODSUMOWANIE")
     print(f"{'='*60}")
-    print(f"✅ Sukces: {success}/{total_tests} ({success/total_tests*100:.1f}%)")
-    print(f"❌ Błędy: {failed}/{total_tests}")
-    print(f"⏱️  Czas: {int(elapsed_total/60)}min {int(elapsed_total%60)}s")
-    print(f"📁 Wyniki: {RESULTS_FOLDER}")
+    print(f"Sukces: {success}/{total_tests} ({success/total_tests*100:.1f}%)")
+    print(f"Bledy: {failed}/{total_tests}")
+    print(f"Czas: {int(elapsed_total/60)}min {int(elapsed_total%60)}s")
+    print(f"Wyniki: {RESULTS_FOLDER}")
     
     summary = {
         "total_tests": total_tests,
@@ -371,6 +388,6 @@ if __name__ == "__main__":
     with open(os.path.join(RESULTS_FOLDER, "summary.json"), 'w') as f:
         json.dump(summary, f, indent=2)
     
-    print(f"\n💾 Summary zapisane w: {RESULTS_FOLDER}/summary.json")
+    print(f"\nSummary zapisane w: {RESULTS_FOLDER}/summary.json")
     
     sys.exit(0 if success > 0 else 1)
