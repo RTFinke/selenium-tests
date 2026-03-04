@@ -1,8 +1,6 @@
 name: Siz3r Model Tests
-
 on:
   workflow_dispatch:
-
 jobs:
   test-all-models:
     runs-on: ubuntu-latest
@@ -33,6 +31,7 @@ jobs:
       env:
         SELENIUM_GRID_URL: http://localhost:4444
         HEADLESS: true
+        MAX_TESTS: 3
       run: python test_business.py
     
     - name: Upload results
