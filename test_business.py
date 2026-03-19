@@ -256,7 +256,7 @@ def test_single_model(test_num, model_info):
                 imgs = driver.find_elements(By.TAG_NAME, "img")
                 for img in imgs:
                     src = img.get_attribute('src') or ''
-                    if ('gradio_api' in src or 'demo.siz3r.com' in src):
+                    if ('gradio_api' in src or 'demo.siz3r.com' in src or 'data:image' in src):
                         rect = img.rect
                         width = rect['width']
                         height = rect['height']
