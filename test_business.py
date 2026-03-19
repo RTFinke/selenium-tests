@@ -151,7 +151,7 @@ def test_single_model(test_num, model_info):
         
         # REJESTRACJA
         print(f"  Rejestracja...")
-        driver.get("https://siz3r.com/business/register")
+        driver.get("https://siz3r-dev.vercel.app/business/register")
         time.sleep(5)
         
         try:
@@ -216,7 +216,7 @@ def test_single_model(test_num, model_info):
         
         # ============= PLAYGROUND =============
         print(f"  Playground...")
-        driver.get("https://siz3r.com/business/playground")
+        driver.get("https://siz3r-dev.vercel.app/business/playground")
         time.sleep(10)
         
         for attempt in range(3):

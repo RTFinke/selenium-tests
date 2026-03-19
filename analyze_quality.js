@@ -2,21 +2,6 @@ import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
 
-/**
- * Universal virtual try-on QA evaluator.
- * Handles ALL garment types: tops, pants, dresses, jackets, etc.
- * Auto-detects garment type and evaluates accordingly.
- * Special attention to wide/loose fit preservation.
- *
- * Required env:
- * - LOCAL_LLM_BASE_URL   e.g. http://127.0.0.1:8001
- * - LOCAL_LLM_MODEL      e.g. gpt-4o, qwen2.5-vl, minicpm-v, etc.
- *
- * Optional env:
- * - LOCAL_LLM_API_KEY    if your server requires Authorization Bearer
- * - LOCAL_LLM_TIMEOUT_MS default 180000
- */
-
 function normalizeBaseUrlToV1(baseUrl) {
   if (!baseUrl) return null;
   const trimmed = String(baseUrl).trim().replace(/\/+$/, "");
@@ -38,90 +23,96 @@ if (!MODEL) {
 
 const ENDPOINT = `${BASE_URL}/chat/completions`;
 
-const PROMPT = `You are a universal QA evaluator for virtual try-on quality.
+const PROMPT = `You are a practical QA evaluator for virtual try-on quality.
 You evaluate ALL garment types: tops, pants, jackets, dresses, skirts, etc.
-You are a fair judge. Details and shape of the clothing matter more than photo quality.
+You are a FAIR and REALISTIC judge. You understand how clothing works on real bodies.
 
 You will receive EXACTLY TWO images:
-1) TARGET_GARMENT — the product/garment reference image. Study its shape, details, fit type.
+1) TARGET_GARMENT — the product/garment reference image (often a FLATLAY or product photo on white background)
 2) GENERATED_RESULT — the try-on result (person wearing the target garment — THIS IS WHAT YOU JUDGE)
+
+CRITICAL UNDERSTANDING — FLATLAY vs ON-BODY:
+The TARGET_GARMENT is usually a FLATLAY photo (garment laid flat or on mannequin). When any garment is put on a real person:
+- It NATURALLY becomes narrower/more fitted because a body has shape and gravity pulls fabric down
+- Sleeves drape differently on arms than when laid flat
+- The overall width ALWAYS decreases compared to flatlay — this is PHYSICS, not an error
+- An oversized garment on a person will still look more fitted than on a flatlay — THIS IS NORMAL AND EXPECTED
+- ONLY flag silhouette issues if the garment becomes CLEARLY SKIN-TIGHT when it should be loose/oversized
+- A garment looking "slightly narrower on body than flatlay" is NEVER an error
 
 STEP 1 — AUTO-DETECT GARMENT TYPE:
 Look at TARGET_GARMENT and determine:
 - garment_category: "top" | "pants" | "dress" | "skirt" | "outerwear" | "other"
 - intended_fit: "tight" | "regular" | "loose" | "oversized"
-Base intended_fit on the TARGET_GARMENT shape — if it's visibly wide, flowy, oversized, or loose-fitting, mark it accordingly.
 
-STEP 2 — SILHOUETTE & FIT PRESERVATION (CRITICAL FOR WIDE/LOOSE GARMENTS):
-This is a NEW top-priority check:
-- Compare the overall silhouette width of TARGET_GARMENT vs GENERATED_RESULT
-- If TARGET_GARMENT is loose/oversized/wide: did GENERATED_RESULT preserve that width, or was it shrunk/tightened to the body?
-- A wide garment that became skin-tight on the model is a MAJOR FAIL
-- A tight garment that stayed tight is fine
-- Score silhouette_preserved: "YES" | "PARTIAL" | "NO"
-  - YES = width/looseness matches the original garment
-  - PARTIAL = somewhat preserved but noticeably tighter or different
-  - NO = garment was clearly shrunk/tightened/changed silhouette
+STEP 2 — SILHOUETTE & FIT PRESERVATION:
+Compare TARGET_GARMENT vs GENERATED_RESULT, keeping flatlay-vs-body difference in mind:
+- silhouette_preserved: "YES" | "PARTIAL" | "NO"
+  - YES = garment looks like the same garment on the person (even if slightly narrower than flatlay)
+  - PARTIAL = garment shape is recognizable but noticeably different (e.g. loose became regular)
+  - NO = garment is COMPLETELY different silhouette (e.g. oversized hoodie became skin-tight bodysuit)
+- Default to YES if the garment is recognizably the same item on the person
 
-STEP 3 — EVALUATE BY GARMENT CATEGORY:
+STEP 3 — EVALUATE:
 
-For ALL garment types, check in order of priority:
+Check in order of priority:
 
 1) Garment structure & shape fidelity (HIGHEST PRIORITY)
-- Correct garment type preserved (jacket stays jacket, not sweater)
-- Sleeve type and length correct (if applicable)
-- Collar/neckline type correct (if applicable)
-- Overall silhouette and proportions match TARGET_GARMENT
-- Presence and correct placement of structural elements: zippers, buttons, pockets, seams, panels, stripes, pleats, belt loops, etc.
-- Added elements that do NOT exist on TARGET_GARMENT are a MAJOR issue
-- Fully MISSING visible elements (not obstructed) are a MAJOR issue
-- Shape changes due to body type, pose, lighting are NOT judged harshly
-- For striped/patterned garments: missing stripes or patterns are MAJOR
-- Prints may distort slightly; ONLY unrecognizable prints are MAJOR
-- Rolled up sleeves are NOT an issue
-- Slight hood differences are NOT an issue
-- Collar tags are allowed to be missing
+- Is it the SAME TYPE of garment? (jacket stays jacket, not sweater)
+- Sleeve type and length roughly correct?
+- Collar/neckline type roughly correct?
+- Key structural elements present: zippers, buttons, pockets, seams, panels, stripes, pleats
+- ADDED elements that don't exist on TARGET_GARMENT = MAJOR issue
+- FULLY MISSING key visible elements (not obstructed) = MAJOR issue
+- Shape changes due to body type, pose, gravity, lighting = NOT an error
+- Rolled up sleeves = NOT an issue
+- Slight hood/collar differences = NOT an issue
+- Collar tags missing = NOT an issue
+- Prints slightly distorted = MINOR (only MAJOR if completely unrecognizable)
 
 2) Construction details & alignment
-- Zippers/buttons exist where expected and align correctly
-- Seams, stripes, panels follow correct direction and symmetry
-- No duplicated, floating, or broken garment parts
+- Zippers/buttons exist where expected (if visible)
+- Seams, stripes, panels roughly follow correct direction
+- No duplicated or floating garment parts
 
 3) Fit & placement on the body
-- Correct placement on shoulders/waist/hips (depending on garment type)
-- Correct scaling relative to the person
+- Garment is on the correct body part
+- Reasonable scaling
 - Plausible drape and folds
 
 4) Occlusion & layering realism
-- Garment correctly layers over body/hair/other clothing
+- Garment layers correctly over body/hair
 - No unnatural merging with arms, hair, background
-- OTHER clothing obstructing parts of TARGET garment is NOT a failure
+- Other clothing obstructing parts of TARGET garment = NOT a failure
 
 5) Color & texture (LOW PRIORITY)
 - Only penalize if color clearly indicates a DIFFERENT garment
-- Only penalize texture if it indicates a DIFFERENT garment type
+- Resolution differences, slight color shifts = NOT an error
 
 6) Artifacts
 - Warping, melting, ghosting, broken boundaries
-- Artifacts that break garment shape are MAJOR
-- Minor warping or resolution loss are MINOR
+- Artifacts that break garment shape = MAJOR
+- Minor warping or resolution loss = MINOR
+- Small artifacts at edges = MINOR
 
 CATEGORY-SPECIFIC RULES:
 
 IF garment_category is "pants":
-- Judge ONLY pants in GENERATED_RESULT, ignore tops/shoes
-- Determine pants_visibility: FULL | PARTIAL | NOT_VISIBLE
-- If PARTIAL, judge only visible elements
-- Elements obstructed by other clothing (shirts, jackets, hands) are NOT missing — count as correctly generated
-- If person is clearly wearing pants, visibility CANNOT be NOT_VISIBLE
+- Judge ONLY pants, ignore tops/shoes
+- Elements obstructed by other clothing = NOT missing, count as correct
+- Pants partially visible due to crop/pose = judge only visible parts
 
 IF garment_category is "top" or "outerwear":
 - Judge ONLY the top/outerwear, ignore pants/shoes
-- Focus on collar, sleeves, front closure, hem
 
 IF garment_category is "dress":
-- Judge the full garment from neckline to hem
-- Check both top and bottom portions
+- Judge full garment from neckline to hem
+
+TOLERANCE GUIDELINES — BE FAIR:
+- This is virtual try-on, NOT photo editing. Some imperfection is expected.
+- If you can look at the result and say "yes, that person is wearing that garment" = it's a pass
+- Focus on: is the garment RECOGNIZABLE as the same item?
+- Don't nitpick minor differences that any reasonable person would accept
 
 Label assignment (choose ONE per category):
 - garment_structure_error: NONE | MINOR | MAJOR
@@ -133,15 +124,15 @@ Label assignment (choose ONE per category):
 Scoring (mechanical, fixed penalties):
 Start score = 100
 Subtract:
-- garment_structure_error: MINOR -15, MAJOR -40
-- construction_alignment_error: MINOR -10, MAJOR -30
-- fit_error: MINOR -10, MAJOR -25
-- artifact_error: MINOR -10, MAJOR -35
-- silhouette_error: MINOR -15, MAJOR -40
+- garment_structure_error: MINOR -10, MAJOR -35
+- construction_alignment_error: MINOR -5, MAJOR -20
+- fit_error: MINOR -5, MAJOR -20
+- artifact_error: MINOR -10, MAJOR -30
+- silhouette_error: MINOR -10, MAJOR -35
 Clamp score to 0..100.
 
 Decision rule:
-- YES if score >= 70 AND garment_structure_error != MAJOR AND artifact_error != MAJOR AND silhouette_error != MAJOR
+- YES if score >= 65 AND garment_structure_error != MAJOR AND silhouette_error != MAJOR
 - Otherwise NO
 
 Output requirements:
@@ -150,7 +141,7 @@ Return ONLY valid JSON (no markdown, no commentary) exactly in this schema:
   "successful": "YES" | "NO",
   "quality_percent": number,
   "garment_category": "top" | "pants" | "dress" | "skirt" | "outerwear" | "other",
-  "garment_type": string (e.g. "blue oversized hoodie", "black slim jeans", "red flowy dress"),
+  "garment_type": string (e.g. "black oversized longsleeve", "blue slim jeans"),
   "intended_fit": "tight" | "regular" | "loose" | "oversized",
   "silhouette_preserved": "YES" | "PARTIAL" | "NO",
   "critical_issues": [string],
@@ -171,15 +162,8 @@ Hard limits:
 - minor_issues: max 6 items
 - positives: max 6 items
 - notes: max 350 characters, no repetition
-If repetition begins, STOP and output JSON immediately.
 Begin with "{" and end with "}".
-No trailing text after the final "}".
-
-Constraints:
-- Be STRICT about shape, silhouette preservation, and element details.
-- Be TOLERANT of color shifts and minor texture variation.
-- Do NOT invent details that are not visible.
-- Wide/loose garments that became tight are a MAJOR silhouette failure.`.trim();
+No trailing text after the final "}".`.trim();
 
 function guessMimeType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -425,18 +409,15 @@ async function main() {
       if (r.successful === "YES") summary.successful++;
       else summary.failed++;
 
-      // Track by category
       const cat = r.garment_category || "unknown";
       if (!summary.by_category[cat]) summary.by_category[cat] = { total: 0, pass: 0, fail: 0 };
       summary.by_category[cat].total++;
       if (r.successful === "YES") summary.by_category[cat].pass++;
       else summary.by_category[cat].fail++;
 
-      // Track silhouette preservation
       const sil = r.silhouette_preserved || "unknown";
       if (summary.silhouette_stats[sil] !== undefined) summary.silhouette_stats[sil]++;
 
-      // Track by fit type
       const fit = r.intended_fit || "regular";
       if (summary.by_fit[fit]) {
         summary.by_fit[fit].total++;
@@ -465,7 +446,6 @@ async function main() {
     fs.writeFileSync(perFolderPath, JSON.stringify(perFolderPayload, null, 2), "utf8");
   }
 
-  // Save summary
   const summaryPath = path.join(outDir, "analysis_summary.json");
   fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2), "utf8");
 
