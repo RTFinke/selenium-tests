@@ -31,7 +31,6 @@ jobs:
       env:
         SELENIUM_GRID_URL: http://localhost:4444
         HEADLESS: true
-        MAX_TESTS: ""
       run: python test_business.py
     
     - name: Upload results
