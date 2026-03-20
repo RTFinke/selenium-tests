@@ -13,6 +13,8 @@ const BASE_URL = normalizeBaseUrlToV1(process.env.LOCAL_LLM_BASE_URL);
 const MODEL = String(process.env.LOCAL_LLM_MODEL || "").trim();
 const API_KEY = String(process.env.LOCAL_LLM_API_KEY || "").trim();
 const TIMEOUT_MS = Number(process.env.LOCAL_LLM_TIMEOUT_MS || 180000);
+const DELAY_MS   = Number(process.env.LOCAL_LLM_DELAY_MS   || 2000);
+const MAX_RETRIES = Number(process.env.LOCAL_LLM_MAX_RETRIES || 3);
 
 if (!BASE_URL) {
   throw new Error("Missing LOCAL_LLM_BASE_URL (e.g. http://127.0.0.1:8001).");
@@ -252,14 +254,14 @@ function extractAssistantText(resp) {
   return "";
 }
 
-async function postChatCompletions(payload) {
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function postChatCompletionsOnce(payload) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const headers = {
-      "Content-Type": "application/json",
-    };
+    const headers = { "Content-Type": "application/json" };
     if (API_KEY) headers["Authorization"] = `Bearer ${API_KEY}`;
 
     const res = await fetch(ENDPOINT, {
@@ -281,6 +283,23 @@ async function postChatCompletions(payload) {
   } finally {
     clearTimeout(t);
   }
+}
+
+async function postChatCompletions(payload) {
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await postChatCompletionsOnce(payload);
+    } catch (err) {
+      lastErr = err;
+      const isRetryable = !err.status || err.status >= 500 || err.message === "fetch failed";
+      if (!isRetryable || attempt === MAX_RETRIES) throw err;
+      const backoff = DELAY_MS * attempt;
+      console.warn(`  ⚠ Attempt ${attempt}/${MAX_RETRIES} failed (${err.message}). Retrying in ${backoff}ms...`);
+      await sleep(backoff);
+    }
+  }
+  throw lastErr;
 }
 
 async function evaluateFolder(folderName, folderPath) {
@@ -429,6 +448,8 @@ async function main() {
     }
 
     fs.appendFileSync(outPath, JSON.stringify(record) + "\n", "utf8");
+
+    await sleep(DELAY_MS);
 
     const perFolderPath = path.join(folderPath, "quality.json");
     const perFolderPayload = {
