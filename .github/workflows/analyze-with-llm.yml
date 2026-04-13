@@ -43,8 +43,10 @@ jobs:
     - name: Run analysis
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        OPENAI_CONCURRENCY: 4
-        OPENAI_DELAY_MS: 0
+        OPENAI_CONCURRENCY: 1
+        OPENAI_DELAY_MS: 750
+        OPENAI_MIN_RETRY_DELAY_MS: 1000
+        OPENAI_RATE_LIMIT_JITTER_MS: 250
         OPENAI_TIMEOUT_MS: 120000
       run: node analyze_quality.js
 

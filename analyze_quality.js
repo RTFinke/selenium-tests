@@ -9,6 +9,8 @@ const TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 180000);
 const DELAY_MS = Number(process.env.OPENAI_DELAY_MS || 2000);
 const MAX_RETRIES = Number(process.env.OPENAI_MAX_RETRIES || 3);
 const CONCURRENCY = Math.max(1, Number(process.env.OPENAI_CONCURRENCY || 4));
+const MIN_RETRY_DELAY_MS = Math.max(250, Number(process.env.OPENAI_MIN_RETRY_DELAY_MS || 1000));
+const RATE_LIMIT_JITTER_MS = Math.max(0, Number(process.env.OPENAI_RATE_LIMIT_JITTER_MS || 250));
 
 if (!OPENAI_API_KEY) {
   throw new Error("Missing OPENAI_API_KEY.");
@@ -138,6 +140,7 @@ const SCORE_PENALTIES = {
   artifact_error: { NONE: 0, MINOR: 10, MAJOR: 30 },
   silhouette_error: { NONE: 0, MINOR: 10, MAJOR: 35 },
 };
+let globalCooldownUntil = 0;
 
 function guessMimeType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -227,6 +230,56 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function parseDurationMs(text) {
+  if (!text) return null;
+
+  const trimmed = String(text).trim();
+  if (/^\d+ms$/i.test(trimmed)) return Number.parseInt(trimmed, 10);
+  if (/^\d+(\.\d+)?s$/i.test(trimmed)) return Math.ceil(Number.parseFloat(trimmed) * 1000);
+  if (/^\d+(\.\d+)?m$/i.test(trimmed)) return Math.ceil(Number.parseFloat(trimmed) * 60_000);
+
+  const composite = trimmed.match(/(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?/i);
+  if (composite && (composite[1] || composite[2])) {
+    const minutes = composite[1] ? Number.parseInt(composite[1], 10) : 0;
+    const seconds = composite[2] ? Number.parseFloat(composite[2]) : 0;
+    return Math.ceil(minutes * 60_000 + seconds * 1000);
+  }
+
+  return null;
+}
+
+function parseRetryAfterMs(err) {
+  const headerValue = err?.headers?.["retry-after-ms"] || err?.headers?.["retry-after"];
+  const headerMs = parseDurationMs(headerValue);
+  if (headerMs !== null) return headerMs;
+
+  const resetTokenMs = parseDurationMs(err?.headers?.["x-ratelimit-reset-tokens"]);
+  const resetRequestMs = parseDurationMs(err?.headers?.["x-ratelimit-reset-requests"]);
+  const resetMs = Math.max(resetTokenMs ?? 0, resetRequestMs ?? 0);
+  if (resetMs > 0) return resetMs;
+
+  const message = `${err?.message ?? ""}\n${err?.body ?? ""}`;
+  const match = message.match(/try again in\s+(\d+)\s*ms/i);
+  if (match) return Number.parseInt(match[1], 10);
+
+  const secondsMatch = message.match(/try again in\s+(\d+(?:\.\d+)?)\s*s/i);
+  if (secondsMatch) return Math.ceil(Number.parseFloat(secondsMatch[1]) * 1000);
+
+  return null;
+}
+
+function setGlobalCooldown(ms) {
+  const jitter = Math.floor(Math.random() * (RATE_LIMIT_JITTER_MS + 1));
+  globalCooldownUntil = Math.max(globalCooldownUntil, Date.now() + ms + jitter);
+}
+
+async function waitForGlobalCooldown() {
+  const remaining = globalCooldownUntil - Date.now();
+  if (remaining > 0) {
+    await sleep(remaining);
+  }
+}
+
 function validateAndNormalizeRating(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return { ok: false, error: "Response JSON is not an object." };
@@ -254,7 +307,10 @@ function validateAndNormalizeRating(raw) {
 
   const normalizedLabels = {};
   for (const key of LABEL_KEYS) {
-    const value = normalizeString(labels[key]);
+    let value = normalizeString(labels[key]);
+    if (key === "silhouette_error" && value === "PARTIAL") {
+      value = "MINOR";
+    }
     if (!ALLOWED_SEVERITIES.has(value)) {
       return { ok: false, error: `Invalid label for ${key}: ${JSON.stringify(labels[key])}` };
     }
@@ -311,6 +367,7 @@ function extractAssistantText(resp) {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function postChatCompletionsOnce(payload) {
+  await waitForGlobalCooldown();
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -330,6 +387,7 @@ async function postChatCompletionsOnce(payload) {
       const err = new Error(`HTTP ${res.status}: ${text}`);
       err.status = res.status;
       err.body = text;
+      err.headers = Object.fromEntries(res.headers.entries());
       throw err;
     }
 
@@ -355,7 +413,17 @@ async function postChatCompletions(payload) {
 
       if (!isRetryable || attempt === MAX_RETRIES) throw err;
 
-      const backoff = DELAY_MS * attempt;
+      const retryAfterMs = parseRetryAfterMs(err);
+      const backoff = Math.max(
+        MIN_RETRY_DELAY_MS * attempt,
+        DELAY_MS * attempt,
+        retryAfterMs ?? 0,
+      );
+
+      if (err.status === 429 && backoff > 0) {
+        setGlobalCooldown(backoff);
+      }
+
       console.warn(`  Attempt ${attempt}/${MAX_RETRIES} failed (${err.message}). Retrying in ${backoff}ms...`);
       await sleep(backoff);
     }
