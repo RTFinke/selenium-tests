@@ -8,130 +8,95 @@ const ENDPOINT = "https://api.openai.com/v1/chat/completions";
 const TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 180000);
 const DELAY_MS = Number(process.env.OPENAI_DELAY_MS || 2000);
 const MAX_RETRIES = Number(process.env.OPENAI_MAX_RETRIES || 3);
+const CONCURRENCY = Math.max(1, Number(process.env.OPENAI_CONCURRENCY || 4));
 
 if (!OPENAI_API_KEY) {
   throw new Error("Missing OPENAI_API_KEY.");
 }
 
 const PROMPT = `You are a practical QA evaluator for virtual try-on quality.
-You evaluate ALL garment types: tops, pants, jackets, dresses, skirts, etc.
-You are a FAIR and REALISTIC judge. You understand how clothing works on real bodies.
+You evaluate all garment types: tops, pants, jackets, dresses, skirts, outerwear, and others.
+You are fair, realistic, and conservative. You understand how clothing behaves on real bodies.
 
-You will receive EXACTLY TWO images:
-1) TARGET_GARMENT — the product/garment reference image (often a FLATLAY or product photo on white background)
-2) GENERATED_RESULT — the try-on result (person wearing the target garment — THIS IS WHAT YOU JUDGE)
+You will receive exactly two labeled images:
+1) TARGET_GARMENT: the product or garment reference image, often a flatlay or product photo
+2) GENERATED_RESULT: the try-on result showing a person wearing the garment
 
-CRITICAL UNDERSTANDING — FLATLAY vs ON-BODY:
-The TARGET_GARMENT is usually a FLATLAY photo (garment laid flat or on mannequin). When any garment is put on a real person:
-- It NATURALLY becomes narrower/more fitted because a body has shape and gravity pulls fabric down
-- Sleeves drape differently on arms than when laid flat
-- The overall width ALWAYS decreases compared to flatlay — this is PHYSICS, not an error
-- An oversized garment on a person will still look more fitted than on a flatlay — THIS IS NORMAL AND EXPECTED
-- ONLY flag silhouette issues if the garment becomes CLEARLY SKIN-TIGHT when it should be loose/oversized
-- A garment looking "slightly narrower on body than flatlay" is NEVER an error
+Core rule:
+Judge whether GENERATED_RESULT still shows the same garment as TARGET_GARMENT on a real person.
 
-STEP 1 — AUTO-DETECT GARMENT TYPE:
-Look at TARGET_GARMENT and determine:
+Critical understanding: flatlay vs on-body
+- A garment on a body naturally looks narrower or more fitted than when laid flat.
+- Sleeves and hems drape differently on a person because of pose, gravity, and body shape.
+- Slight narrowing from flatlay to on-body is expected and is not a silhouette failure.
+- Only flag a major silhouette issue if the garment becomes clearly wrong, such as loose becoming skin-tight.
+
+General evaluation rules:
+- Judge only visible evidence.
+- Do not infer missing details from hidden, cropped, or obstructed areas.
+- Do not penalize differences caused by pose, lighting, gravity, body shape, or normal fabric drape.
+- If unsure between two severities, choose the lower severity unless garment identity is clearly broken.
+- If the same garment is still clearly recognizable, be tolerant.
+
+Step 1: detect the garment
+Determine:
 - garment_category: "top" | "pants" | "dress" | "skirt" | "outerwear" | "other"
+- garment_type: short plain description of the item
 - intended_fit: "tight" | "regular" | "loose" | "oversized"
 
-STEP 2 — SILHOUETTE & FIT PRESERVATION:
-Compare TARGET_GARMENT vs GENERATED_RESULT, keeping flatlay-vs-body difference in mind:
+Step 2: judge silhouette preservation
+Compare TARGET_GARMENT vs GENERATED_RESULT:
 - silhouette_preserved: "YES" | "PARTIAL" | "NO"
-  - YES = garment looks like the same garment on the person (even if slightly narrower than flatlay)
-  - PARTIAL = garment shape is recognizable but noticeably different (e.g. loose became regular)
-  - NO = garment is COMPLETELY different silhouette (e.g. oversized hoodie became skin-tight bodysuit)
-- Default to YES if the garment is recognizably the same item on the person
+- YES = clearly the same garment silhouette on a person
+- PARTIAL = recognizable, but noticeably changed
+- NO = clearly a different silhouette or garment behavior
+- Default to YES if the item is still recognizably the same garment
 
-STEP 3 — EVALUATE:
+Step 3: assign severity labels
+Choose one value for each:
+- garment_structure_error: "NONE" | "MINOR" | "MAJOR"
+- construction_alignment_error: "NONE" | "MINOR" | "MAJOR"
+- fit_error: "NONE" | "MINOR" | "MAJOR"
+- artifact_error: "NONE" | "MINOR" | "MAJOR"
+- silhouette_error: "NONE" | "MINOR" | "MAJOR"
 
-Check in order of priority:
+How to assign labels:
+1) Garment structure and identity
+- Check whether it is the same garment type.
+- Sleeve type, sleeve length, collar, neckline, and major structural features should match when visible.
+- Added features that materially change garment identity are major.
+- Missing visible key features are major.
+- Small print distortion or tiny detail loss is minor.
 
-1) Garment structure & shape fidelity (HIGHEST PRIORITY)
-- Is it the SAME TYPE of garment? (jacket stays jacket, not sweater)
-- Sleeve type and length roughly correct?
-- Collar/neckline type roughly correct?
-- Key structural elements present: zippers, buttons, pockets, seams, panels, stripes, pleats
-- ADDED elements that don't exist on TARGET_GARMENT = MAJOR issue
-- FULLY MISSING key visible elements (not obstructed) = MAJOR issue
-- Shape changes due to body type, pose, gravity, lighting = NOT an error
-- Rolled up sleeves = NOT an issue
-- Slight hood/collar differences = NOT an issue
-- Collar tags missing = NOT an issue
-- Prints slightly distorted = MINOR (only MAJOR if completely unrecognizable)
+2) Construction and alignment
+- Seams, stripes, panels, zippers, buttons, pleats, and pockets should be roughly correct when visible.
+- Duplicated, floating, or badly misaligned garment parts are errors.
 
-2) Construction details & alignment
-- Zippers/buttons exist where expected (if visible)
-- Seams, stripes, panels roughly follow correct direction
-- No duplicated or floating garment parts
+3) Fit and drape
+- The garment should be on the correct body area with plausible scale and drape.
+- Do not penalize normal changes from flatlay to worn appearance.
+- Do not penalize missing cuffs, waistband, hem, or similar parts when they are cropped out or occluded.
 
-3) Fit & placement on the body
-- Garment is on the correct body part
-- Reasonable scaling
-- Plausible drape and folds
+4) Artifacts and layering realism
+- Check for warping, melting, ghosting, broken boundaries, or bad merging with skin, hair, or background.
+- Small edge artifacts are minor.
+- Artifacts that break garment identity or realism are major.
 
-4) Occlusion & layering realism
-- Garment layers correctly over body/hair
-- No unnatural merging with arms, hair, background
-- Other clothing obstructing parts of TARGET garment = NOT a failure
+5) Color and texture
+- Penalize only if color or texture changes make it look like a different item.
+- Slight color shift or resolution loss is not enough by itself.
 
-5) Color & texture (LOW PRIORITY)
-- Only penalize if color clearly indicates a DIFFERENT garment
-- Resolution differences, slight color shifts = NOT an error
-
-6) Artifacts
-- Warping, melting, ghosting, broken boundaries
-- Artifacts that break garment shape = MAJOR
-- Minor warping or resolution loss = MINOR
-- Small artifacts at edges = MINOR
-
-CATEGORY-SPECIFIC RULES:
-
-IF garment_category is "pants":
-- Judge ONLY pants, ignore tops/shoes
-- Elements obstructed by other clothing = NOT missing, count as correct
-- Pants partially visible due to crop/pose = judge only visible parts
-
-IF garment_category is "top" or "outerwear":
-- Judge ONLY the top/outerwear, ignore pants/shoes
-
-IF garment_category is "dress":
-- Judge full garment from neckline to hem
-
-TOLERANCE GUIDELINES — BE FAIR:
-- This is virtual try-on, NOT photo editing. Some imperfection is expected.
-- If you can look at the result and say "yes, that person is wearing that garment" = it's a pass
-- Focus on: is the garment RECOGNIZABLE as the same item?
-- Don't nitpick minor differences that any reasonable person would accept
-
-Label assignment (choose ONE per category):
-- garment_structure_error: NONE | MINOR | MAJOR
-- construction_alignment_error: NONE | MINOR | MAJOR
-- fit_error: NONE | MINOR | MAJOR
-- artifact_error: NONE | MINOR | MAJOR
-- silhouette_error: NONE | MINOR | MAJOR
-
-Scoring (mechanical, fixed penalties):
-Start score = 100
-Subtract:
-- garment_structure_error: MINOR -10, MAJOR -35
-- construction_alignment_error: MINOR -5, MAJOR -20
-- fit_error: MINOR -5, MAJOR -20
-- artifact_error: MINOR -10, MAJOR -30
-- silhouette_error: MINOR -10, MAJOR -35
-Clamp score to 0..100.
-
-Decision rule:
-- YES if score >= 65 AND garment_structure_error != MAJOR AND silhouette_error != MAJOR
-- Otherwise NO
+Category-specific rules:
+- If garment_category is "pants", judge only the pants and ignore tops and shoes.
+- If garment_category is "top" or "outerwear", judge only that garment and ignore pants and shoes.
+- If garment_category is "dress", judge the full dress from neckline to hem, but do not penalize areas that are not visible.
 
 Output requirements:
-Return ONLY valid JSON (no markdown, no commentary) exactly in this schema:
+Return only valid JSON with no markdown and no extra text.
+Use exactly this schema:
 {
-  "successful": "YES" | "NO",
-  "quality_percent": number,
   "garment_category": "top" | "pants" | "dress" | "skirt" | "outerwear" | "other",
-  "garment_type": string (e.g. "black oversized longsleeve", "blue slim jeans"),
+  "garment_type": string,
   "intended_fit": "tight" | "regular" | "loose" | "oversized",
   "silhouette_preserved": "YES" | "PARTIAL" | "NO",
   "critical_issues": [string],
@@ -151,9 +116,28 @@ Hard limits:
 - critical_issues: max 6 items
 - minor_issues: max 6 items
 - positives: max 6 items
-- notes: max 350 characters, no repetition
+- notes: max 350 characters, avoid repetition
 Begin with "{" and end with "}".
 No trailing text after the final "}".`.trim();
+
+const ALLOWED_CATEGORIES = new Set(["top", "pants", "dress", "skirt", "outerwear", "other"]);
+const ALLOWED_FITS = new Set(["tight", "regular", "loose", "oversized"]);
+const ALLOWED_SILHOUETTES = new Set(["YES", "PARTIAL", "NO"]);
+const ALLOWED_SEVERITIES = new Set(["NONE", "MINOR", "MAJOR"]);
+const LABEL_KEYS = [
+  "garment_structure_error",
+  "construction_alignment_error",
+  "fit_error",
+  "artifact_error",
+  "silhouette_error",
+];
+const SCORE_PENALTIES = {
+  garment_structure_error: { NONE: 0, MINOR: 10, MAJOR: 35 },
+  construction_alignment_error: { NONE: 0, MINOR: 5, MAJOR: 20 },
+  fit_error: { NONE: 0, MINOR: 5, MAJOR: 20 },
+  artifact_error: { NONE: 0, MINOR: 10, MAJOR: 30 },
+  silhouette_error: { NONE: 0, MINOR: 10, MAJOR: 35 },
+};
 
 function guessMimeType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -227,13 +211,95 @@ function safeJsonParse(text) {
   }
 }
 
+function normalizeString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeStringList(value, maxItems) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => normalizeString(item))
+    .filter(Boolean)
+    .slice(0, maxItems);
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function validateAndNormalizeRating(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { ok: false, error: "Response JSON is not an object." };
+  }
+
+  const garmentCategory = normalizeString(raw.garment_category);
+  if (!ALLOWED_CATEGORIES.has(garmentCategory)) {
+    return { ok: false, error: `Invalid garment_category: ${JSON.stringify(raw.garment_category)}` };
+  }
+
+  const intendedFit = normalizeString(raw.intended_fit);
+  if (!ALLOWED_FITS.has(intendedFit)) {
+    return { ok: false, error: `Invalid intended_fit: ${JSON.stringify(raw.intended_fit)}` };
+  }
+
+  const silhouettePreserved = normalizeString(raw.silhouette_preserved);
+  if (!ALLOWED_SILHOUETTES.has(silhouettePreserved)) {
+    return { ok: false, error: `Invalid silhouette_preserved: ${JSON.stringify(raw.silhouette_preserved)}` };
+  }
+
+  const labels = raw.labels;
+  if (!labels || typeof labels !== "object" || Array.isArray(labels)) {
+    return { ok: false, error: "Missing or invalid labels object." };
+  }
+
+  const normalizedLabels = {};
+  for (const key of LABEL_KEYS) {
+    const value = normalizeString(labels[key]);
+    if (!ALLOWED_SEVERITIES.has(value)) {
+      return { ok: false, error: `Invalid label for ${key}: ${JSON.stringify(labels[key])}` };
+    }
+    normalizedLabels[key] = value;
+  }
+
+  let score = 100;
+  for (const key of LABEL_KEYS) {
+    score -= SCORE_PENALTIES[key][normalizedLabels[key]];
+  }
+  score = clamp(score, 0, 100);
+
+  const successful =
+    score >= 65 &&
+    normalizedLabels.garment_structure_error !== "MAJOR" &&
+    normalizedLabels.silhouette_error !== "MAJOR"
+      ? "YES"
+      : "NO";
+
+  return {
+    ok: true,
+    rating: {
+      successful,
+      quality_percent: score,
+      garment_category: garmentCategory,
+      garment_type: normalizeString(raw.garment_type),
+      intended_fit: intendedFit,
+      silhouette_preserved: silhouettePreserved,
+      critical_issues: normalizeStringList(raw.critical_issues, 6),
+      minor_issues: normalizeStringList(raw.minor_issues, 6),
+      positives: normalizeStringList(raw.positives, 6),
+      notes: normalizeString(raw.notes).slice(0, 350),
+      labels: normalizedLabels,
+    },
+  };
+}
+
 function extractAssistantText(resp) {
   const msg = resp?.choices?.[0]?.message;
   if (!msg) return "";
   if (typeof msg.content === "string") return msg.content;
 
   if (Array.isArray(msg.content)) {
-    const texts = msg.content
+    const texts = msg
+      .content
       .map((p) => (p && typeof p.text === "string" ? p.text : ""))
       .filter(Boolean);
     return texts.join("\n");
@@ -349,8 +415,10 @@ async function evaluateFolder(folderName, folderPath) {
         role: "user",
         content: [
           { type: "text", text: PROMPT },
+          { type: "text", text: "IMAGE 1: TARGET_GARMENT" },
           { type: "image_url", image_url: { url: garmentUrl } },
-          { type: "image_url", image_url: { url: resultUrl } }
+          { type: "text", text: "IMAGE 2: GENERATED_RESULT" },
+          { type: "image_url", image_url: { url: resultUrl } },
         ],
       },
     ],
@@ -359,14 +427,38 @@ async function evaluateFolder(folderName, folderPath) {
   const resp = await postChatCompletions(payload);
   const raw = extractAssistantText(resp);
   const parsed = safeJsonParse(raw);
+  const validated = parsed.ok ? validateAndNormalizeRating(parsed.json) : null;
 
   return {
     folder: folderName,
-    ok: true,
-    rating: parsed.ok ? parsed.json : null,
-    raw_output_text: parsed.ok ? null : raw,
-    parse_error: parsed.ok ? null : parsed.error,
+    ok: Boolean(parsed.ok && validated?.ok),
+    rating: validated?.ok ? validated.rating : null,
+    raw_output_text: parsed.ok && validated?.ok ? null : raw,
+    parse_error: parsed.ok ? validated?.error ?? null : parsed.error,
+    finish_reason: resp?.choices?.[0]?.finish_reason ?? null,
   };
+}
+
+async function mapWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  async function runWorker() {
+    while (true) {
+      const currentIndex = nextIndex;
+      nextIndex++;
+
+      if (currentIndex >= items.length) {
+        return;
+      }
+
+      results[currentIndex] = await worker(items[currentIndex], currentIndex);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => runWorker());
+  await Promise.all(workers);
+  return results;
 }
 
 async function main() {
@@ -385,6 +477,7 @@ async function main() {
   console.log(`OpenAI endpoint: ${ENDPOINT}`);
   console.log(`Model: ${MODEL}`);
   console.log(`Folders: ${folders.length}`);
+  console.log(`Concurrency: ${CONCURRENCY}`);
 
   const summary = {
     total: 0,
@@ -401,7 +494,7 @@ async function main() {
     },
   };
 
-  for (const folderName of folders) {
+  const records = await mapWithConcurrency(folders, CONCURRENCY, async (folderName) => {
     const folderPath = path.join(imagesDir, folderName);
     console.log(`\n=== Evaluating: ${folderName} ===`);
 
@@ -419,6 +512,26 @@ async function main() {
       };
     }
 
+    const perFolderPath = path.join(folderPath, "quality.json");
+    const perFolderPayload = {
+      folder: folderName,
+      timestamp: new Date().toISOString(),
+      ok: record.ok,
+      rating: record.rating ?? null,
+      error: record.error ?? null,
+      status: record.status ?? null,
+      message: record.message ?? null,
+      parse_error: record.parse_error ?? null,
+      raw_output_text: record.raw_output_text ?? null,
+      finish_reason: record.finish_reason ?? null,
+      body: record.body ?? null,
+    };
+    fs.writeFileSync(perFolderPath, JSON.stringify(perFolderPayload, null, 2), "utf8");
+
+    return record;
+  });
+
+  for (const record of records) {
     summary.total++;
 
     if (record.ok && record.rating) {
@@ -448,23 +561,6 @@ async function main() {
     }
 
     fs.appendFileSync(outPath, JSON.stringify(record) + "\n", "utf8");
-
-    await sleep(DELAY_MS);
-
-    const perFolderPath = path.join(folderPath, "quality.json");
-    const perFolderPayload = {
-      folder: folderName,
-      timestamp: new Date().toISOString(),
-      ok: record.ok,
-      rating: record.rating ?? null,
-      error: record.error ?? null,
-      status: record.status ?? null,
-      message: record.message ?? null,
-      parse_error: record.parse_error ?? null,
-      raw_output_text: record.raw_output_text ?? null,
-      body: record.body ?? null,
-    };
-    fs.writeFileSync(perFolderPath, JSON.stringify(perFolderPayload, null, 2), "utf8");
   }
 
   const summaryPath = path.join(outDir, "analysis_summary.json");
