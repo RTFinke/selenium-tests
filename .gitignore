@@ -1,3 +1,7 @@
 
 # Test results
 test_results/
+.env
+.env.*
+node_modules
+outputs

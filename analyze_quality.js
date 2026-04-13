@@ -2,28 +2,16 @@ import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
 
-function normalizeBaseUrlToV1(baseUrl) {
-  if (!baseUrl) return null;
-  const trimmed = String(baseUrl).trim().replace(/\/+$/, "");
-  if (trimmed.endsWith("/v1")) return trimmed;
-  return `${trimmed}/v1`;
-}
+const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || "").trim();
+const MODEL = "gpt-4o-mini";
+const ENDPOINT = "https://api.openai.com/v1/chat/completions";
+const TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 180000);
+const DELAY_MS = Number(process.env.OPENAI_DELAY_MS || 2000);
+const MAX_RETRIES = Number(process.env.OPENAI_MAX_RETRIES || 3);
 
-const BASE_URL = normalizeBaseUrlToV1(process.env.LOCAL_LLM_BASE_URL);
-const MODEL = String(process.env.LOCAL_LLM_MODEL || "").trim();
-const API_KEY = String(process.env.LOCAL_LLM_API_KEY || "").trim();
-const TIMEOUT_MS = Number(process.env.LOCAL_LLM_TIMEOUT_MS || 180000);
-const DELAY_MS   = Number(process.env.LOCAL_LLM_DELAY_MS   || 2000);
-const MAX_RETRIES = Number(process.env.LOCAL_LLM_MAX_RETRIES || 3);
-
-if (!BASE_URL) {
-  throw new Error("Missing LOCAL_LLM_BASE_URL (e.g. http://127.0.0.1:8001).");
+if (!OPENAI_API_KEY) {
+  throw new Error("Missing OPENAI_API_KEY.");
 }
-if (!MODEL) {
-  throw new Error("Missing LOCAL_LLM_MODEL.");
-}
-
-const ENDPOINT = `${BASE_URL}/chat/completions`;
 
 const PROMPT = `You are a practical QA evaluator for virtual try-on quality.
 You evaluate ALL garment types: tops, pants, jackets, dresses, skirts, etc.
@@ -261,12 +249,12 @@ async function postChatCompletionsOnce(payload) {
   const t = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const headers = { "Content-Type": "application/json" };
-    if (API_KEY) headers["Authorization"] = `Bearer ${API_KEY}`;
-
     const res = await fetch(ENDPOINT, {
       method: "POST",
-      headers,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
@@ -292,10 +280,17 @@ async function postChatCompletions(payload) {
       return await postChatCompletionsOnce(payload);
     } catch (err) {
       lastErr = err;
-      const isRetryable = !err.status || err.status >= 500 || err.message === "fetch failed";
+      const isRetryable =
+        !err.status ||
+        err.status >= 500 ||
+        err.status === 429 ||
+        err.name === "AbortError" ||
+        err.message === "fetch failed";
+
       if (!isRetryable || attempt === MAX_RETRIES) throw err;
+
       const backoff = DELAY_MS * attempt;
-      console.warn(`  ⚠ Attempt ${attempt}/${MAX_RETRIES} failed (${err.message}). Retrying in ${backoff}ms...`);
+      console.warn(`  Attempt ${attempt}/${MAX_RETRIES} failed (${err.message}). Retrying in ${backoff}ms...`);
       await sleep(backoff);
     }
   }
@@ -348,7 +343,7 @@ async function evaluateFolder(folderName, folderPath) {
     top_p: 1,
     presence_penalty: 0,
     n: 1,
-    response_format: { "type": "json_object" },
+    response_format: { type: "json_object" },
     messages: [
       {
         role: "user",
@@ -387,7 +382,7 @@ async function main() {
   const outPath = path.join(outDir, "evals.jsonl");
   fs.writeFileSync(outPath, "", "utf8");
 
-  console.log(`Local endpoint: ${ENDPOINT}`);
+  console.log(`OpenAI endpoint: ${ENDPOINT}`);
   console.log(`Model: ${MODEL}`);
   console.log(`Folders: ${folders.length}`);
 
@@ -398,7 +393,12 @@ async function main() {
     errors: 0,
     by_category: {},
     silhouette_stats: { YES: 0, PARTIAL: 0, NO: 0 },
-    by_fit: { tight: { total: 0, pass: 0 }, regular: { total: 0, pass: 0 }, loose: { total: 0, pass: 0 }, oversized: { total: 0, pass: 0 } },
+    by_fit: {
+      tight: { total: 0, pass: 0 },
+      regular: { total: 0, pass: 0 },
+      loose: { total: 0, pass: 0 },
+      oversized: { total: 0, pass: 0 },
+    },
   };
 
   for (const folderName of folders) {
