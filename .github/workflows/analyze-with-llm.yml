@@ -10,7 +10,18 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Download test results
+    - name: Download triggered test results
+      if: ${{ github.event_name == 'workflow_run' }}
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: selenium.yml
+        run_id: ${{ github.event.workflow_run.id }}
+        name: siz3r-test-results
+        path: test_results/
+        if_no_artifact_found: fail
+
+    - name: Download latest test results
+      if: ${{ github.event_name == 'workflow_dispatch' }}
       uses: dawidd6/action-download-artifact@v6
       with:
         workflow: selenium.yml
