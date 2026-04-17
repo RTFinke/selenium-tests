@@ -243,6 +243,13 @@ def test_single_model(test_num, model_info):
         file_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
         file_inputs[1].send_keys(garment_path)
         time.sleep(4)
+
+        pre_generate_screenshot = os.path.join(test_folder, "before_generate.png")
+        try:
+            driver.save_screenshot(pre_generate_screenshot)
+            metadata["before_generate_screenshot"] = pre_generate_screenshot
+        except Exception as screenshot_error:
+            metadata["before_generate_screenshot_error"] = str(screenshot_error)
         
         generate_btn = find_button_safe(driver, ['generuj', 'generate'])
         if not generate_btn:
