@@ -16,29 +16,35 @@ if (!OPENAI_API_KEY) {
   throw new Error("Missing OPENAI_API_KEY.");
 }
 
-const PROMPT = `You are a practical QA evaluator for virtual try-on quality.
+const PROMPT = `You are a strict commercial QA evaluator for virtual try-on quality.
 You evaluate all garment types: tops, pants, jackets, dresses, skirts, outerwear, and others.
-You are fair, realistic, and conservative. You understand how clothing behaves on real bodies.
+Your job is not to decide whether the result is "pretty good for AI".
+Your job is to decide whether a paying fashion retailer would be satisfied using GENERATED_RESULT as a standard customer-facing virtual try-on result.
 
 You will receive exactly two labeled images:
 1) TARGET_GARMENT: the product or garment reference image, often a flatlay or product photo
 2) GENERATED_RESULT: the try-on result showing a person wearing the garment
 
-Core rule:
-Judge whether GENERATED_RESULT still shows the same garment as TARGET_GARMENT on a real person.
+Commercial standard:
+- A pass means the result is accurate enough for a normal online shopper to trust it as a representation of that product.
+- "Recognizable as roughly the same item" is NOT enough for a pass.
+- If visible differences would make a merchant hesitate to show this on a product page, mark it down.
+- If a shopper could reasonably think they are seeing a meaningfully different garment, the result should fail.
+- Be objective, skeptical, and commercially minded.
 
 Critical understanding: flatlay vs on-body
 - A garment on a body naturally looks narrower or more fitted than when laid flat.
 - Sleeves and hems drape differently on a person because of pose, gravity, and body shape.
 - Slight narrowing from flatlay to on-body is expected and is not a silhouette failure.
-- Only flag a major silhouette issue if the garment becomes clearly wrong, such as loose becoming skin-tight.
+- However, visible retail-relevant differences in length, volume, neckline, sleeve shape, or overall proportion still matter.
 
 General evaluation rules:
 - Judge only visible evidence.
 - Do not infer missing details from hidden, cropped, or obstructed areas.
-- Do not penalize differences caused by pose, lighting, gravity, body shape, or normal fabric drape.
-- If unsure between two severities, choose the lower severity unless garment identity is clearly broken.
-- If the same garment is still clearly recognizable, be tolerant.
+- Do not penalize differences caused only by pose, lighting, gravity, body shape, or normal fabric drape.
+- Do not let "overall resemblance" cancel out visible structural errors.
+- If a visible feature is important for product identity, treat mistakes seriously.
+- If you are unsure whether a visible mismatch matters to a merchant, assume it probably does.
 
 Step 1: detect the garment
 Determine:
@@ -49,10 +55,10 @@ Determine:
 Step 2: judge silhouette preservation
 Compare TARGET_GARMENT vs GENERATED_RESULT:
 - silhouette_preserved: "YES" | "PARTIAL" | "NO"
-- YES = clearly the same garment silhouette on a person
-- PARTIAL = recognizable, but noticeably changed
-- NO = clearly a different silhouette or garment behavior
-- Default to YES if the item is still recognizably the same garment
+- YES = commercially faithful silhouette and proportion
+- PARTIAL = recognizable but merchant-visible silhouette differences
+- NO = clearly wrong silhouette, length, volume, or overall garment behavior
+- Do NOT default to YES just because the item is recognizable
 
 Step 3: assign severity labels
 Choose one value for each:
@@ -65,28 +71,33 @@ Choose one value for each:
 How to assign labels:
 1) Garment structure and identity
 - Check whether it is the same garment type.
-- Sleeve type, sleeve length, collar, neckline, and major structural features should match when visible.
-- Added features that materially change garment identity are major.
-- Missing visible key features are major.
-- Small print distortion or tiny detail loss is minor.
+- Sleeve type, sleeve length, collar, neckline, closure type, hem shape, major panels, pockets, and major structural features should match when visible.
+- Visible text, logo, print motif, stripe layout, or graphic placement differences matter.
+- Added or missing visible features that change customer perception are major.
+- If a visible structural detail is clearly wrong but the garment is still mostly the same item, mark at least minor.
 
 2) Construction and alignment
-- Seams, stripes, panels, zippers, buttons, pleats, and pockets should be roughly correct when visible.
-- Duplicated, floating, or badly misaligned garment parts are errors.
+- Seams, stripes, panels, pleats, buttons, zippers, quilting lines, and pocket placement should be consistent when visible.
+- Misaligned or distorted pattern/layout that a shopper would notice is an error, not a harmless variation.
+- Duplicated, floating, or broken garment parts are errors.
 
 3) Fit and drape
-- The garment should be on the correct body area with plausible scale and drape.
-- Do not penalize normal changes from flatlay to worn appearance.
+- The garment should sit on the correct body area with commercially believable scale and drape.
+- Wrong length, wrong tightness, wrong sleeve volume, or wrong crop level are merchant-relevant.
 - Do not penalize missing cuffs, waistband, hem, or similar parts when they are cropped out or occluded.
 
 4) Artifacts and layering realism
 - Check for warping, melting, ghosting, broken boundaries, or bad merging with skin, hair, or background.
-- Small edge artifacts are minor.
-- Artifacts that break garment identity or realism are major.
+- If artifacts would reduce shopper trust or make the image look low-quality, penalize them.
 
 5) Color and texture
-- Penalize only if color or texture changes make it look like a different item.
-- Slight color shift or resolution loss is not enough by itself.
+- Penalize visible color, texture, pattern scale, or material changes when they alter the product impression.
+- Slight lighting-driven color shift alone is not enough, but merchant-visible changes are important.
+
+Scoring mindset:
+- Reserve perfect or near-perfect judgment only for outputs that look commercially reliable.
+- Multiple minor issues should usually mean the result is not merchant-satisfactory.
+- Do not inflate scores because the result looks plausible overall.
 
 Category-specific rules:
 - If garment_category is "pants", judge only the pants and ignore tops and shoes.
@@ -134,12 +145,14 @@ const LABEL_KEYS = [
   "silhouette_error",
 ];
 const SCORE_PENALTIES = {
-  garment_structure_error: { NONE: 0, MINOR: 10, MAJOR: 35 },
-  construction_alignment_error: { NONE: 0, MINOR: 5, MAJOR: 20 },
-  fit_error: { NONE: 0, MINOR: 5, MAJOR: 20 },
-  artifact_error: { NONE: 0, MINOR: 10, MAJOR: 30 },
-  silhouette_error: { NONE: 0, MINOR: 10, MAJOR: 35 },
+  garment_structure_error: { NONE: 0, MINOR: 15, MAJOR: 45 },
+  construction_alignment_error: { NONE: 0, MINOR: 10, MAJOR: 25 },
+  fit_error: { NONE: 0, MINOR: 10, MAJOR: 25 },
+  artifact_error: { NONE: 0, MINOR: 15, MAJOR: 35 },
+  silhouette_error: { NONE: 0, MINOR: 15, MAJOR: 40 },
 };
+const PASS_SCORE_THRESHOLD = Math.max(0, Math.min(100, Number(process.env.OPENAI_PASS_SCORE_THRESHOLD || 85)));
+const MAX_MINOR_LABELS_FOR_PASS = Math.max(0, Number(process.env.OPENAI_MAX_MINOR_LABELS_FOR_PASS || 1));
 let globalCooldownUntil = 0;
 
 function guessMimeType(filePath) {
@@ -323,10 +336,15 @@ function validateAndNormalizeRating(raw) {
   }
   score = clamp(score, 0, 100);
 
+  const minorCount = LABEL_KEYS.filter((key) => normalizedLabels[key] === "MINOR").length;
+  const majorCount = LABEL_KEYS.filter((key) => normalizedLabels[key] === "MAJOR").length;
+
   const successful =
-    score >= 65 &&
-    normalizedLabels.garment_structure_error !== "MAJOR" &&
-    normalizedLabels.silhouette_error !== "MAJOR"
+    score >= PASS_SCORE_THRESHOLD &&
+    majorCount === 0 &&
+    minorCount <= MAX_MINOR_LABELS_FOR_PASS &&
+    normalizedLabels.garment_structure_error === "NONE" &&
+    normalizedLabels.silhouette_error === "NONE"
       ? "YES"
       : "NO";
 
