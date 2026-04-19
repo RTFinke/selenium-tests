@@ -23,6 +23,12 @@ const PROMPT = `You are a practical QA evaluator for virtual try-on quality.
 You evaluate ALL garment types: tops, pants, jackets, dresses, skirts, etc.
 You are a FAIR and REALISTIC judge. You understand how clothing works on real bodies.
 
+IMPORTANT ABOUT STYLED REFERENCE IMAGES:
+- TARGET_GARMENT may be shown on a model together with non-target items such as pants, skirts, shoes, or accessories
+- Only judge the actual target garment, not the rest of the styled outfit in the reference image
+- A different skirt, pants, shoes, or other non-target item in GENERATED_RESULT is NOT a mismatch by itself
+- Non-target items matter only if the try-on visibly damages, recolors, warps, erases, duplicates, or incorrectly merges them
+
 You will receive EXACTLY TWO images:
 1) TARGET_GARMENT — the product/garment reference image (often a FLATLAY or product photo on white background)
 2) GENERATED_RESULT — the try-on result (person wearing the target garment — THIS IS WHAT YOU JUDGE)
@@ -56,6 +62,11 @@ Compare TARGET_GARMENT vs GENERATED_RESULT, keeping flatlay-vs-body difference i
   - NO = garment is COMPLETELY different silhouette (e.g. oversized hoodie became skin-tight bodysuit)
 - Default to YES if the garment is recognizably the same item on the person
 
+STEP 2B â€” MANDATORY ARTIFACT SWEEP:
+- Before scoring, scan GENERATED_RESULT specifically for residual old clothing, neck remnants, leftover collars or hoods, damaged body parts, merged hair, broken boundaries, and corrupted non-target clothing
+- If any visible artifact exists anywhere in the image, artifact_error cannot be "NONE"
+- If any visible artifact exists anywhere in the image, the result cannot receive 100 or "no significant issues"
+
 STEP 3 — EVALUATE:
 
 Check in order of priority:
@@ -65,6 +76,8 @@ Check in order of priority:
 - Sleeve type and length roughly correct?
 - Collar/neckline type roughly correct?
 - Key structural elements present: zippers, buttons, pockets, seams, panels, stripes, pleats
+- For cardigans, shirts, polos, jackets, or any closure-based top, visible buttons or closure elements must still be present when they are visible in TARGET_GARMENT
+- If clearly visible buttons are fully missing from a closure-based garment, treat that as at least MINOR and often MAJOR when it changes the garment identity
 - ADDED elements that don't exist on TARGET_GARMENT = MAJOR issue
 - Invented sleeves, straps, panels, trims, closures, graphics, or extra layers are errors, not harmless variation
 - FULLY MISSING key visible elements (not obstructed) = MAJOR issue
@@ -76,6 +89,7 @@ Check in order of priority:
 
 2) Construction details & alignment
 - Zippers/buttons exist where expected (if visible)
+- Missing visible buttons, missing button placket detail, or a closure that disappears when clearly visible in TARGET_GARMENT is an error and should not be ignored
 - Seams, stripes, panels roughly follow correct direction
 - No duplicated or floating garment parts
 
@@ -116,8 +130,9 @@ IF garment_category is "pants":
 
 IF garment_category is "top" or "outerwear":
 - Judge ONLY the top/outerwear for garment identity, ignore whether pants or shoes match the reference garment
+- Do NOT penalize GENERATED_RESULT for having a skirt instead of pants, or pants instead of a skirt, when those bottoms are not the target garment
 - If a longer top or outerwear naturally covers pants or inner layers, that is GOOD and not a failure
-- Visible damage or recoloring to the person's body or other garments is still an error
+- Visible damage or recoloring to the person's body, skirt, pants, or other garments is still an error
 
 IF garment_category is "dress":
 - Judge full garment from neckline to hem
@@ -131,6 +146,7 @@ TOLERANCE GUIDELINES — BE FAIR:
 - Don't nitpick minor differences that any reasonable person would accept
 - Do NOT ignore obvious body damage, recolored non-target clothing, or invented non-existent elements just because the target garment is recognizable
 - Do NOT call something a MAJOR artifact unless it is an actual artifact without reasonable doubt
+- Never give a perfect score if any visible artifact, leftover clothing remnant, or collateral damage exists anywhere in GENERATED_RESULT
 
 Label assignment (choose ONE per category):
 - garment_structure_error: NONE | MINOR | MAJOR
@@ -183,11 +199,49 @@ Hard limits:
 Begin with "{" and end with "}".
 No trailing text after the final "}".`.trim();
 
+const ARTIFACT_AUDIT_PROMPT = `You are a strict artifact auditor for virtual try-on images.
+Your ONLY job is to detect visible artifacts or collateral damage in GENERATED_RESULT.
+
+You may receive:
+1) MODEL_ORIGINAL - the original person before try-on
+2) TARGET_GARMENT - the intended garment reference
+3) GENERATED_RESULT - the final try-on image to audit
+
+Focus especially on:
+- leftover collars, hoods, scarves, sleeves, hems, outlines, masks, or fragments from the original clothing
+- residual padded jacket shapes, neck wraps, or old garment pieces that remain after the try-on
+- damaged body parts, merged hair, broken hands, warped anatomy
+- damaged, recolored, duplicated, erased, or melted non-target clothing
+- obvious boundaries or ghost remnants from the source outfit
+
+Rules:
+- If there is any visible artifact, artifact_present must be "YES"
+- If a large or obvious leftover-clothing artifact is clearly visible without reasonable doubt, artifact_severity must be "MAJOR"
+- If something could plausibly be normal shadow, fold, drape, or natural occlusion, do NOT call it MAJOR
+- Never return a perfect clean result if any visible artifact or collateral damage exists
+
+Return ONLY valid JSON in this exact schema:
+{
+  "artifact_present": "YES" | "NO",
+  "artifact_severity": "NONE" | "MINOR" | "MAJOR",
+  "artifact_reasons": [string],
+  "notes": string
+}
+
+Hard limits:
+- artifact_reasons: max 4 items
+- notes: max 240 characters
+- If artifact_present is "NO", artifact_severity must be "NONE"
+- If artifact_present is "YES", artifact_severity must be "MINOR" or "MAJOR"
+Begin with "{" and end with "}".
+No trailing text after the final "}".`.trim();
+
 
 const ALLOWED_CATEGORIES = new Set(["top", "pants", "dress", "skirt", "outerwear", "other"]);
 const ALLOWED_FITS = new Set(["tight", "regular", "loose", "oversized"]);
 const ALLOWED_SILHOUETTES = new Set(["YES", "PARTIAL", "NO"]);
 const ALLOWED_SEVERITIES = new Set(["NONE", "MINOR", "MAJOR"]);
+const ALLOWED_YES_NO = new Set(["YES", "NO"]);
 const LABEL_KEYS = [
   "garment_structure_error",
   "construction_alignment_error",
@@ -390,6 +444,64 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function severityRank(value) {
+  if (value === "MAJOR") return 2;
+  if (value === "MINOR") return 1;
+  return 0;
+}
+
+function calculateQualityScore(labels) {
+  let score = 100;
+  for (const key of LABEL_KEYS) {
+    score -= SCORE_PENALTIES[key][labels[key]];
+  }
+  return clamp(score, 0, 100);
+}
+
+function determineSuccessful(score, labels) {
+  return score >= PASS_SCORE_THRESHOLD &&
+    labels.garment_structure_error !== "MAJOR" &&
+    labels.artifact_error !== "MAJOR" &&
+    labels.silhouette_error !== "MAJOR"
+      ? "YES"
+      : "NO";
+}
+
+function finalizeRating(rating) {
+  const qualityPercent = calculateQualityScore(rating.labels);
+  return {
+    ...rating,
+    quality_percent: qualityPercent,
+    successful: determineSuccessful(qualityPercent, rating.labels),
+  };
+}
+
+function appendUniqueStrings(existing, incoming, maxItems) {
+  const result = [];
+  const seen = new Set();
+
+  for (const item of [...existing, ...incoming]) {
+    const normalized = normalizeString(item);
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(normalized);
+    if (result.length >= maxItems) break;
+  }
+
+  return result;
+}
+
+function mergeNotes(baseNotes, extraNotes) {
+  const base = normalizeString(baseNotes);
+  const extra = normalizeString(extraNotes);
+  if (!extra) return base.slice(0, 350);
+  if (!base) return extra.slice(0, 350);
+  if (base.toLowerCase().includes(extra.toLowerCase())) return base.slice(0, 350);
+  return `${base} ${extra}`.slice(0, 350);
+}
+
 function parseDurationMs(text) {
   if (!text) return null;
 
@@ -440,6 +552,40 @@ async function waitForGlobalCooldown() {
   }
 }
 
+function validateArtifactAudit(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { ok: false, error: "Artifact audit JSON is not an object." };
+  }
+
+  const artifactPresent = normalizeString(raw.artifact_present);
+  if (!ALLOWED_YES_NO.has(artifactPresent)) {
+    return { ok: false, error: `Invalid artifact_present: ${JSON.stringify(raw.artifact_present)}` };
+  }
+
+  const artifactSeverity = normalizeString(raw.artifact_severity);
+  if (!ALLOWED_SEVERITIES.has(artifactSeverity)) {
+    return { ok: false, error: `Invalid artifact_severity: ${JSON.stringify(raw.artifact_severity)}` };
+  }
+
+  if (artifactPresent === "NO" && artifactSeverity !== "NONE") {
+    return { ok: false, error: "artifact_present=NO requires artifact_severity=NONE." };
+  }
+
+  if (artifactPresent === "YES" && artifactSeverity === "NONE") {
+    return { ok: false, error: "artifact_present=YES requires artifact_severity=MINOR or MAJOR." };
+  }
+
+  return {
+    ok: true,
+    audit: {
+      artifact_present: artifactPresent,
+      artifact_severity: artifactSeverity,
+      artifact_reasons: normalizeStringList(raw.artifact_reasons, 4),
+      notes: normalizeString(raw.notes).slice(0, 240),
+    },
+  };
+}
+
 function validateAndNormalizeRating(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return { ok: false, error: "Response JSON is not an object." };
@@ -477,25 +623,9 @@ function validateAndNormalizeRating(raw) {
     normalizedLabels[key] = value;
   }
 
-  let score = 100;
-  for (const key of LABEL_KEYS) {
-    score -= SCORE_PENALTIES[key][normalizedLabels[key]];
-  }
-  score = clamp(score, 0, 100);
-
-  const successful =
-    score >= PASS_SCORE_THRESHOLD &&
-    normalizedLabels.garment_structure_error !== "MAJOR" &&
-    normalizedLabels.artifact_error !== "MAJOR" &&
-    normalizedLabels.silhouette_error !== "MAJOR"
-      ? "YES"
-      : "NO";
-
   return {
     ok: true,
-    rating: {
-      successful,
-      quality_percent: score,
+    rating: finalizeRating({
       garment_category: garmentCategory,
       garment_type: normalizeString(raw.garment_type),
       intended_fit: intendedFit,
@@ -505,8 +635,39 @@ function validateAndNormalizeRating(raw) {
       positives: normalizeStringList(raw.positives, 6),
       notes: normalizeString(raw.notes).slice(0, 350),
       labels: normalizedLabels,
-    },
+    }),
   };
+}
+
+function applyArtifactAuditToRating(rating, artifactAudit) {
+  if (!rating || !artifactAudit) return rating;
+  if (artifactAudit.artifact_present !== "YES") return rating;
+
+  const nextLabels = { ...rating.labels };
+  if (severityRank(artifactAudit.artifact_severity) > severityRank(nextLabels.artifact_error)) {
+    nextLabels.artifact_error = artifactAudit.artifact_severity;
+  }
+
+  const reasons =
+    artifactAudit.artifact_reasons.length > 0
+      ? artifactAudit.artifact_reasons
+      : [artifactAudit.notes || "Artifact audit detected visible residual or damaged clothing elements."];
+
+  const nextRating = {
+    ...rating,
+    labels: nextLabels,
+    critical_issues:
+      artifactAudit.artifact_severity === "MAJOR"
+        ? appendUniqueStrings(rating.critical_issues, reasons, 6)
+        : rating.critical_issues,
+    minor_issues:
+      artifactAudit.artifact_severity === "MINOR"
+        ? appendUniqueStrings(rating.minor_issues, reasons, 6)
+        : rating.minor_issues,
+    notes: mergeNotes(rating.notes, artifactAudit.notes),
+  };
+
+  return finalizeRating(nextRating);
 }
 
 function extractAssistantText(resp) {
@@ -591,12 +752,59 @@ async function postChatCompletions(payload) {
   throw lastErr;
 }
 
+async function runArtifactAudit(garmentUrl, modelUrl, resultUrl) {
+  const content = [{ type: "text", text: ARTIFACT_AUDIT_PROMPT }];
+
+  if (modelUrl) {
+    content.push({ type: "text", text: "IMAGE 1: MODEL_ORIGINAL" });
+    content.push({ type: "image_url", image_url: { url: modelUrl } });
+    content.push({ type: "text", text: "IMAGE 2: TARGET_GARMENT" });
+    content.push({ type: "image_url", image_url: { url: garmentUrl } });
+    content.push({ type: "text", text: "IMAGE 3: GENERATED_RESULT" });
+    content.push({ type: "image_url", image_url: { url: resultUrl } });
+  } else {
+    content.push({ type: "text", text: "IMAGE 1: TARGET_GARMENT" });
+    content.push({ type: "image_url", image_url: { url: garmentUrl } });
+    content.push({ type: "text", text: "IMAGE 2: GENERATED_RESULT" });
+    content.push({ type: "image_url", image_url: { url: resultUrl } });
+  }
+
+  const payload = {
+    model: MODEL,
+    temperature: 0,
+    max_tokens: 400,
+    top_p: 1,
+    presence_penalty: 0,
+    n: 1,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "user",
+        content,
+      },
+    ],
+  };
+
+  const resp = await postChatCompletions(payload);
+  const raw = extractAssistantText(resp);
+  const parsed = safeJsonParse(raw);
+  const validated = parsed.ok ? validateArtifactAudit(parsed.json) : null;
+
+  return {
+    ok: Boolean(parsed.ok && validated?.ok),
+    audit: validated?.ok ? validated.audit : null,
+    raw_output_text: parsed.ok && validated?.ok ? null : raw,
+    parse_error: parsed.ok ? validated?.error ?? null : parsed.error,
+    finish_reason: resp?.choices?.[0]?.finish_reason ?? null,
+  };
+}
+
 async function evaluateFolder(folderName, folderContext) {
   if (!folderContext.ok) {
     return { folder: folderName, ok: false, error: folderContext.error };
   }
 
-  const { garmentPath, resultPath } = folderContext;
+  const { garmentPath, modelPath, resultPath } = folderContext;
 
   if (!garmentPath || !resultPath) {
     return {
@@ -626,6 +834,7 @@ async function evaluateFolder(folderName, folderContext) {
   }
 
   const garmentUrl = fileToDataUrl(garmentPath);
+  const modelUrl = modelPath ? fileToDataUrl(modelPath) : null;
   const resultUrl = fileToDataUrl(resultPath);
 
   const payload = {
@@ -654,14 +863,36 @@ async function evaluateFolder(folderName, folderContext) {
   const raw = extractAssistantText(resp);
   const parsed = safeJsonParse(raw);
   const validated = parsed.ok ? validateAndNormalizeRating(parsed.json) : null;
+  let artifactAuditResult = null;
+
+  try {
+    artifactAuditResult = await runArtifactAudit(garmentUrl, modelUrl, resultUrl);
+  } catch (error) {
+    artifactAuditResult = {
+      ok: false,
+      audit: null,
+      raw_output_text: null,
+      parse_error: error?.message ?? String(error),
+      finish_reason: null,
+    };
+  }
+
+  const mergedRating =
+    validated?.ok && artifactAuditResult?.ok && artifactAuditResult.audit
+      ? applyArtifactAuditToRating(validated.rating, artifactAuditResult.audit)
+      : validated?.rating ?? null;
 
   return {
     folder: folderName,
     ok: Boolean(parsed.ok && validated?.ok),
-    rating: validated?.ok ? validated.rating : null,
+    rating: validated?.ok ? mergedRating : null,
     raw_output_text: parsed.ok && validated?.ok ? null : raw,
     parse_error: parsed.ok ? validated?.error ?? null : parsed.error,
     finish_reason: resp?.choices?.[0]?.finish_reason ?? null,
+    artifact_audit: artifactAuditResult?.audit ?? null,
+    artifact_audit_raw_output: artifactAuditResult?.raw_output_text ?? null,
+    artifact_audit_error: artifactAuditResult?.ok ? null : artifactAuditResult?.parse_error ?? null,
+    artifact_audit_finish_reason: artifactAuditResult?.finish_reason ?? null,
   };
 }
 
@@ -718,6 +949,10 @@ function createPerFolderPayload(folderName, folderContext, record) {
     parse_error: record.parse_error ?? null,
     raw_output_text: record.raw_output_text ?? null,
     finish_reason: record.finish_reason ?? null,
+    artifact_audit: record.artifact_audit ?? null,
+    artifact_audit_error: record.artifact_audit_error ?? null,
+    artifact_audit_raw_output: record.artifact_audit_raw_output ?? null,
+    artifact_audit_finish_reason: record.artifact_audit_finish_reason ?? null,
     body: record.body ?? null,
   };
 }
