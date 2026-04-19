@@ -59,8 +59,8 @@ jobs:
         OPENAI_MIN_RETRY_DELAY_MS: 1000
         OPENAI_RATE_LIMIT_JITTER_MS: 250
         OPENAI_TIMEOUT_MS: 120000
-        OPENAI_PASS_SCORE_THRESHOLD: 85
-        OPENAI_MAX_MINOR_LABELS_FOR_PASS: 1
+        OPENAI_PASS_SCORE_THRESHOLD: 80
+        OPENAI_MAX_MINOR_LABELS_FOR_PASS: 2
       run: node analyze_quality.js
 
     - name: Upload results

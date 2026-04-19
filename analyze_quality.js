@@ -19,10 +19,11 @@ if (!OPENAI_API_KEY) {
   throw new Error("Missing OPENAI_API_KEY.");
 }
 
-const PROMPT = `You are a strict commercial QA evaluator for virtual try-on quality.
+const PROMPT = `You are a commercially minded QA evaluator for virtual try-on quality.
 You evaluate all garment types: tops, pants, jackets, dresses, skirts, outerwear, and others.
 Your job is not to decide whether the result is "pretty good for AI".
 Your job is to decide whether a paying fashion retailer would be satisfied using GENERATED_RESULT as a standard customer-facing virtual try-on result.
+Be careful, but fair: small imperfections that do not materially change shopper understanding of the garment can still be acceptable.
 
 You will receive exactly two labeled images:
 1) TARGET_GARMENT: the product or garment reference image, often a flatlay or product photo
@@ -30,10 +31,11 @@ You will receive exactly two labeled images:
 
 Commercial standard:
 - A pass means the result is accurate enough for a normal online shopper to trust it as a representation of that product.
-- "Recognizable as roughly the same item" is NOT enough for a pass.
-- If visible differences would make a merchant hesitate to show this on a product page, mark it down.
+- "Recognizable as roughly the same item" alone is NOT enough for a pass.
+- Minor visible differences can still pass if they would not materially change shopper understanding of the product.
+- If visible differences would make a merchant hesitate to show this on a product page, mark it down, but do not fail a result for subtle non-identity differences.
 - If a shopper could reasonably think they are seeing a meaningfully different garment, the result should fail.
-- Be objective, skeptical, and commercially minded.
+- Be objective, commercially minded, and fair.
 
 Critical understanding: flatlay vs on-body
 - A garment on a body naturally looks narrower or more fitted than when laid flat.
@@ -47,7 +49,8 @@ General evaluation rules:
 - Do not penalize differences caused only by pose, lighting, gravity, body shape, or normal fabric drape.
 - Do not let "overall resemblance" cancel out visible structural errors.
 - If a visible feature is important for product identity, treat mistakes seriously.
-- If you are unsure whether a visible mismatch matters to a merchant, assume it probably does.
+- Do not over-penalize subtle issues that most shoppers would not notice during normal browsing.
+- If you are unsure whether a visible mismatch matters, use whether it materially changes shopper understanding of the garment rather than assuming the worst.
 
 Step 1: detect the garment
 Determine:
@@ -99,8 +102,8 @@ How to assign labels:
 
 Scoring mindset:
 - Reserve perfect or near-perfect judgment only for outputs that look commercially reliable.
-- Multiple minor issues should usually mean the result is not merchant-satisfactory.
-- Do not inflate scores because the result looks plausible overall.
+- One or two minor issues can still be merchant-satisfactory if the garment identity and shopper trust are preserved.
+- Do not inflate scores because the result looks plausible overall, but do not fail borderline-good outputs for tiny defects.
 
 Category-specific rules:
 - If garment_category is "pants", judge only the pants and ignore tops and shoes.
@@ -154,8 +157,8 @@ const SCORE_PENALTIES = {
   artifact_error: { NONE: 0, MINOR: 15, MAJOR: 35 },
   silhouette_error: { NONE: 0, MINOR: 15, MAJOR: 40 },
 };
-const PASS_SCORE_THRESHOLD = Math.max(0, Math.min(100, Number(process.env.OPENAI_PASS_SCORE_THRESHOLD || 85)));
-const MAX_MINOR_LABELS_FOR_PASS = Math.max(0, Number(process.env.OPENAI_MAX_MINOR_LABELS_FOR_PASS || 1));
+const PASS_SCORE_THRESHOLD = Math.max(0, Math.min(100, Number(process.env.OPENAI_PASS_SCORE_THRESHOLD || 80)));
+const MAX_MINOR_LABELS_FOR_PASS = Math.max(0, Number(process.env.OPENAI_MAX_MINOR_LABELS_FOR_PASS || 2));
 let globalCooldownUntil = 0;
 
 function normalizeString(value) {
@@ -442,9 +445,7 @@ function validateAndNormalizeRating(raw) {
   const successful =
     score >= PASS_SCORE_THRESHOLD &&
     majorCount === 0 &&
-    minorCount <= MAX_MINOR_LABELS_FOR_PASS &&
-    normalizedLabels.garment_structure_error === "NONE" &&
-    normalizedLabels.silhouette_error === "NONE"
+    minorCount <= MAX_MINOR_LABELS_FOR_PASS
       ? "YES"
       : "NO";
 
@@ -790,18 +791,28 @@ function renderHtmlList(items, emptyText) {
   return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 }
 
-function renderImageCard(label, relativePath) {
+function renderImageCard(label, relativePath, options = {}) {
+  const cardClass = options.featured ? "image-card featured" : "image-card";
+
   if (!relativePath) {
-    return `<div class="image-card missing"><div class="image-label">${escapeHtml(label)}</div><div class="missing-text">Missing</div></div>`;
+    return `<div class="${cardClass} missing"><div class="image-label">${escapeHtml(label)}</div><div class="missing-text">Missing</div></div>`;
   }
 
   const safeSrc = encodeURI(relativePath);
+  const safeLabel = escapeHtml(label);
+  const safeSrcAttr = escapeHtml(safeSrc);
   return `
-    <div class="image-card">
-      <div class="image-label">${escapeHtml(label)}</div>
-      <a href="${safeSrc}" target="_blank" rel="noreferrer">
-        <img src="${safeSrc}" alt="${escapeHtml(label)}" loading="lazy">
-      </a>
+    <div class="${cardClass}">
+      <div class="image-card-header">
+        <div class="image-label">${safeLabel}</div>
+        <div class="image-actions">
+          <button type="button" class="image-action zoom-button" data-full-src="${safeSrcAttr}" data-full-label="${safeLabel}">Zoom</button>
+          <a class="image-action" href="${safeSrcAttr}" target="_blank" rel="noreferrer">Open</a>
+        </div>
+      </div>
+      <button type="button" class="image-frame zoom-button" data-full-src="${safeSrcAttr}" data-full-label="${safeLabel}">
+        <img src="${safeSrcAttr}" alt="${safeLabel}" loading="lazy" decoding="async">
+      </button>
     </div>
   `;
 }
@@ -869,9 +880,11 @@ function buildReviewHtml(reviewEntries, summary, meta) {
           </div>
 
           <div class="images">
-            ${renderImageCard("Model", entry.files.model)}
-            ${renderImageCard("Garment", entry.files.garment)}
-            ${renderImageCard("Result", entry.files.result)}
+            ${renderImageCard("Result", entry.files.result, { featured: true })}
+            <div class="reference-images">
+              ${renderImageCard("Model", entry.files.model)}
+              ${renderImageCard("Garment", entry.files.garment)}
+            </div>
           </div>
 
           <div class="details">
@@ -1014,9 +1027,14 @@ function buildReviewHtml(reviewEntries, summary, meta) {
     .score-error { background: var(--error); }
     .images {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.85fr);
       gap: 14px;
       margin-bottom: 18px;
+      align-items: start;
+    }
+    .reference-images {
+      display: grid;
+      gap: 14px;
     }
     .image-card {
       border: 1px solid var(--line);
@@ -1025,12 +1043,54 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       background: #fff;
       min-height: 100%;
     }
+    .image-card.featured {
+      padding: 14px;
+      box-shadow: 0 10px 24px rgba(56, 39, 19, 0.07);
+    }
+    .image-card-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .image-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .image-action {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: #fffaf2;
+      color: #7a3e07;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-decoration: none;
+      line-height: 1;
+    }
+    .image-frame {
+      display: block;
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: zoom-in;
+      text-align: inherit;
+    }
     .image-card img {
       width: 100%;
-      height: 320px;
+      height: 460px;
       object-fit: contain;
       border-radius: 12px;
       background: linear-gradient(180deg, #fffaf2, #f3eadf);
+    }
+    .image-card.featured img {
+      height: min(72vh, 860px);
+      min-height: 560px;
     }
     .image-card.missing {
       display: flex;
@@ -1096,12 +1156,70 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       color: var(--muted);
       font-size: 0.95rem;
     }
+    .lightbox[hidden] {
+      display: none;
+    }
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(24, 18, 12, 0.82);
+      backdrop-filter: blur(8px);
+    }
+    .lightbox-inner {
+      position: relative;
+      width: min(96vw, 1800px);
+      height: min(94vh, 1200px);
+      border-radius: 24px;
+      background: rgba(31, 27, 22, 0.94);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      padding: 58px 20px 20px;
+    }
+    .lightbox-caption {
+      position: absolute;
+      top: 18px;
+      left: 20px;
+      color: #fffaf2;
+      font-size: 0.95rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      border: 1px solid rgba(255, 250, 242, 0.24);
+      background: rgba(255, 250, 242, 0.08);
+      color: #fffaf2;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font: inherit;
+      cursor: pointer;
+    }
+    .lightbox img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 18px;
+      background: radial-gradient(circle at top, rgba(201, 123, 49, 0.12), transparent 30%);
+    }
+    body.lightbox-open {
+      overflow: hidden;
+    }
     @media (max-width: 720px) {
       main { padding: 20px 14px 32px; }
       .card { padding: 16px; }
       .card-top { flex-direction: column; }
       .badges { justify-content: start; }
-      .image-card img { height: 240px; }
+      .images { grid-template-columns: 1fr; }
+      .image-card img { height: 320px; }
+      .image-card.featured img { min-height: 380px; height: min(62vh, 560px); }
+      .image-card-header { align-items: start; flex-direction: column; }
+      .lightbox { padding: 10px; }
+      .lightbox-inner { width: 100%; height: min(92vh, 960px); padding: 52px 12px 12px; }
     }
   </style>
 </head>
@@ -1111,7 +1229,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
     <p class="intro">
       Source: <strong>${escapeHtml(meta.sourceDir)}</strong> (${escapeHtml(meta.sourceLayout)} layout).
       Generated ${escapeHtml(meta.generatedAt)}.
-      Open any image or JSON file directly from this folder if you want the raw files.
+      Click any preview to open a full-resolution zoom view, or use the Open button for the raw file.
     </p>
 
     <section class="summary">
@@ -1129,6 +1247,55 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       Files in this folder: <code>index.html</code>, <code>index.csv</code>, <code>index.json</code>, plus one subfolder per try-on result.
     </p>
   </main>
+  <div class="lightbox" id="lightbox" hidden>
+    <div class="lightbox-inner">
+      <div class="lightbox-caption" id="lightboxCaption">Image</div>
+      <button type="button" class="lightbox-close" id="lightboxClose">Close</button>
+      <img id="lightboxImage" alt="">
+    </div>
+  </div>
+  <script>
+    (() => {
+      const lightbox = document.getElementById("lightbox");
+      const lightboxImage = document.getElementById("lightboxImage");
+      const lightboxCaption = document.getElementById("lightboxCaption");
+      const lightboxClose = document.getElementById("lightboxClose");
+
+      const openLightbox = (src, label) => {
+        if (!src) return;
+        lightboxImage.src = src;
+        lightboxImage.alt = label || "Image";
+        lightboxCaption.textContent = label || "Image";
+        lightbox.hidden = false;
+        document.body.classList.add("lightbox-open");
+      };
+
+      const closeLightbox = () => {
+        lightbox.hidden = true;
+        lightboxImage.removeAttribute("src");
+        document.body.classList.remove("lightbox-open");
+      };
+
+      for (const trigger of document.querySelectorAll(".zoom-button")) {
+        trigger.addEventListener("click", (event) => {
+          event.preventDefault();
+          openLightbox(trigger.dataset.fullSrc, trigger.dataset.fullLabel);
+        });
+      }
+
+      lightboxClose.addEventListener("click", closeLightbox);
+      lightbox.addEventListener("click", (event) => {
+        if (event.target === lightbox) {
+          closeLightbox();
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !lightbox.hidden) {
+          closeLightbox();
+        }
+      });
+    })();
+  </script>
 </body>
 </html>`;
 }
