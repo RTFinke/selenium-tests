@@ -9,7 +9,6 @@ from pathlib import Path
 GRID_URL = os.getenv('SELENIUM_GRID_URL', 'http://localhost:4444')
 PREFIX = "biztest_"
 HEADLESS = os.getenv('HEADLESS', 'false').lower() == 'true'
-MAX_TESTS = os.getenv('MAX_TESTS', None)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_PATH = os.path.join(SCRIPT_DIR, 'test_images')
@@ -229,7 +228,6 @@ def test_single_model(test_num, model_info):
                     driver.refresh()
                     time.sleep(7)
                 else:
-                    driver.save_screenshot(os.path.join(test_folder, "debug_playground.png"))
                     raise Exception("Timeout: nie znaleziono file inputs po 3 probach")
         
         file_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
@@ -243,13 +241,6 @@ def test_single_model(test_num, model_info):
         file_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
         file_inputs[1].send_keys(garment_path)
         time.sleep(4)
-
-        pre_generate_screenshot = os.path.join(test_folder, "before_generate.png")
-        try:
-            driver.save_screenshot(pre_generate_screenshot)
-            metadata["before_generate_screenshot"] = pre_generate_screenshot
-        except Exception as screenshot_error:
-            metadata["before_generate_screenshot_error"] = str(screenshot_error)
         
         generate_btn = find_button_safe(driver, ['generuj', 'generate'])
         if not generate_btn:
@@ -340,11 +331,6 @@ if __name__ == "__main__":
         print(f"  {key}: {count} zdjec")
     
     all_models = get_all_models()
-    
-    if MAX_TESTS:
-        max_tests_int = int(MAX_TESTS)
-        print(f"\nMAX_TESTS={max_tests_int} - ograniczam do {max_tests_int} pierwszych modeli")
-        all_models = all_models[:max_tests_int]
     
     total_tests = len(all_models)
     

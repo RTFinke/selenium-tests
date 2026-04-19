@@ -11,6 +11,9 @@ const MAX_RETRIES = Number(process.env.OPENAI_MAX_RETRIES || 3);
 const CONCURRENCY = Math.max(1, Number(process.env.OPENAI_CONCURRENCY || 4));
 const MIN_RETRY_DELAY_MS = Math.max(250, Number(process.env.OPENAI_MIN_RETRY_DELAY_MS || 1000));
 const RATE_LIMIT_JITTER_MS = Math.max(0, Number(process.env.OPENAI_RATE_LIMIT_JITTER_MS || 250));
+const OUTPUTS_DIR = path.resolve(process.env.ANALYSIS_OUTPUT_DIR || "outputs");
+const REVIEW_DIR_NAME = String(process.env.ANALYSIS_REVIEW_DIR || "review").trim() || "review";
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif"]);
 
 if (!OPENAI_API_KEY) {
   throw new Error("Missing OPENAI_API_KEY.");
@@ -155,59 +158,23 @@ const PASS_SCORE_THRESHOLD = Math.max(0, Math.min(100, Number(process.env.OPENAI
 const MAX_MINOR_LABELS_FOR_PASS = Math.max(0, Number(process.env.OPENAI_MAX_MINOR_LABELS_FOR_PASS || 1));
 let globalCooldownUntil = 0;
 
-function guessMimeType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
-  if (ext === ".png") return "image/png";
-  if (ext === ".webp") return "image/webp";
-  return "application/octet-stream";
+function normalizeString(value) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
-function fileToDataUrl(filePath) {
-  const mimeType = guessMimeType(filePath);
-  const b64 = fs.readFileSync(filePath, { encoding: "base64" });
-  return `data:${mimeType};base64,${b64}`;
-}
-
-function findPair(folderPath) {
-  const entries = fs
-    .readdirSync(folderPath, { withFileTypes: true })
-    .filter((d) => d.isFile())
-    .map((d) => d.name);
-
-  const findUniqueByBase = (base) => {
-    const baseLower = base.toLowerCase();
-    const matches = entries.filter((name) => {
-      const parsed = path.parse(name);
-      return parsed.name.toLowerCase() === baseLower && parsed.ext.length > 1;
-    });
-
-    if (matches.length === 0) return { filePath: null, error: null };
-    if (matches.length > 1) {
-      return {
-        filePath: null,
-        error: `Duplicate files for "${base}": ${matches.join(", ")}`,
-      };
-    }
-
-    return { filePath: path.resolve(folderPath, matches[0]), error: null };
-  };
-
-  const garment = findUniqueByBase("garment");
-  const result = findUniqueByBase("result");
-
-  const dupErrors = [garment.error, result.error].filter(Boolean);
-  if (dupErrors.length > 0) {
-    return { ok: false, error: dupErrors.join(" | "), garmentPath: null, resultPath: null };
+function ensureDir(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
   }
-
-  return { ok: true, error: null, garmentPath: garment.filePath, resultPath: result.filePath };
+  return dirPath;
 }
 
-function ensureOutputsDir() {
-  const outDir = path.resolve("outputs");
-  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-  return outDir;
+function projectRelative(filePath) {
+  return filePath ? path.relative(process.cwd(), filePath) : null;
+}
+
+function toWebPath(filePath) {
+  return String(filePath || "").replace(/\\/g, "/");
 }
 
 function listSubfoldersSorted(dir) {
@@ -219,16 +186,149 @@ function listSubfoldersSorted(dir) {
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 }
 
+function resolveSourceDir() {
+  const envPath = normalizeString(process.env.ANALYZE_SOURCE_DIR);
+  if (envPath) return path.resolve(envPath);
+
+  const candidates = [path.resolve("test_results"), path.resolve("images")];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+      return candidate;
+    }
+  }
+
+  return candidates[0];
+}
+
+function detectSourceLayout(sourceDir, folders) {
+  for (const folderName of folders) {
+    const folderPath = path.join(sourceDir, folderName);
+    if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
+      continue;
+    }
+
+    const hasNestedAssets =
+      fs.existsSync(path.join(folderPath, "garment")) ||
+      fs.existsSync(path.join(folderPath, "model")) ||
+      fs.existsSync(path.join(folderPath, "result"));
+
+    return hasNestedAssets ? "test_results" : "flat";
+  }
+
+  return "flat";
+}
+
+function isSupportedImage(filename) {
+  return IMAGE_EXTENSIONS.has(path.extname(filename).toLowerCase());
+}
+
+function guessMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".avif") return "image/avif";
+  return "application/octet-stream";
+}
+
+function fileToDataUrl(filePath) {
+  const mimeType = guessMimeType(filePath);
+  const b64 = fs.readFileSync(filePath, { encoding: "base64" });
+  return `data:${mimeType};base64,${b64}`;
+}
+
+function findUniqueImageByBase(dirPath, base) {
+  if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
+    return { filePath: null, error: null };
+  }
+
+  const baseLower = base.toLowerCase();
+  const matches = fs
+    .readdirSync(dirPath, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && isSupportedImage(entry.name))
+    .map((entry) => entry.name)
+    .filter((name) => path.parse(name).name.toLowerCase() === baseLower);
+
+  if (matches.length === 0) return { filePath: null, error: null };
+  if (matches.length > 1) {
+    return {
+      filePath: null,
+      error: `Duplicate files for "${base}" in ${projectRelative(dirPath) || dirPath}: ${matches.join(", ")}`,
+    };
+  }
+
+  return { filePath: path.resolve(dirPath, matches[0]), error: null };
+}
+
+function readJsonFileSafe(filePath) {
+  if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+    return { ok: false, value: null, error: null };
+  }
+
+  try {
+    const raw = fs.readFileSync(filePath, "utf8");
+    return { ok: true, value: JSON.parse(raw), error: null };
+  } catch (error) {
+    return { ok: false, value: null, error: error?.message ?? String(error) };
+  }
+}
+
+function summarizeMetadata(metadata) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+
+  const picked = {};
+  for (const key of [
+    "test_number",
+    "test_id",
+    "gender",
+    "model_filename",
+    "garment_filename",
+    "status",
+    "timestamp",
+  ]) {
+    if (metadata[key] !== undefined) {
+      picked[key] = metadata[key];
+    }
+  }
+
+  return Object.keys(picked).length > 0 ? picked : null;
+}
+
+function collectFolderAssets(folderName, folderPath, sourceLayout) {
+  const nested = (subdir, base) => findUniqueImageByBase(path.join(folderPath, subdir), base);
+  const flat = (base) => findUniqueImageByBase(folderPath, base);
+
+  const garment = sourceLayout === "test_results" ? nested("garment", "garment") : flat("garment");
+  const model = sourceLayout === "test_results" ? nested("model", "model") : flat("model");
+  const result = sourceLayout === "test_results" ? nested("result", "result") : flat("result");
+  const metadataPath = sourceLayout === "test_results" ? path.join(folderPath, "metadata.json") : null;
+  const metadata = readJsonFileSafe(metadataPath);
+  const errors = [garment.error, model.error, result.error].filter(Boolean);
+
+  return {
+    folder: folderName,
+    folderPath,
+    sourceLayout,
+    ok: errors.length === 0,
+    error: errors.join(" | ") || null,
+    garmentPath: garment.filePath,
+    modelPath: model.filePath,
+    resultPath: result.filePath,
+    metadataPath:
+      metadataPath && fs.existsSync(metadataPath) && fs.statSync(metadataPath).isFile() ? metadataPath : null,
+    metadata: metadata.ok ? metadata.value : null,
+    metadataError: metadata.error,
+  };
+}
+
 function safeJsonParse(text) {
   try {
     return { ok: true, json: JSON.parse(text) };
   } catch (e) {
     return { ok: false, error: e?.message ?? String(e) };
   }
-}
-
-function normalizeString(value) {
-  return typeof value === "string" ? value.trim() : "";
 }
 
 function normalizeStringList(value, maxItems) {
@@ -372,8 +472,7 @@ function extractAssistantText(resp) {
   if (typeof msg.content === "string") return msg.content;
 
   if (Array.isArray(msg.content)) {
-    const texts = msg
-      .content
+    const texts = msg.content
       .map((p) => (p && typeof p.text === "string" ? p.text : ""))
       .filter(Boolean);
     return texts.join("\n");
@@ -449,14 +548,12 @@ async function postChatCompletions(payload) {
   throw lastErr;
 }
 
-async function evaluateFolder(folderName, folderPath) {
-  const pair = findPair(folderPath);
-
-  if (!pair.ok) {
-    return { folder: folderName, ok: false, error: pair.error };
+async function evaluateFolder(folderName, folderContext) {
+  if (!folderContext.ok) {
+    return { folder: folderName, ok: false, error: folderContext.error };
   }
 
-  const { garmentPath, resultPath } = pair;
+  const { garmentPath, resultPath } = folderContext;
 
   if (!garmentPath || !resultPath) {
     return {
@@ -547,23 +644,596 @@ async function mapWithConcurrency(items, limit, worker) {
   return results;
 }
 
+function describeFile(filePath) {
+  if (!filePath) return null;
+  return {
+    name: path.basename(filePath),
+    relative_path: projectRelative(filePath),
+  };
+}
+
+function createPerFolderPayload(folderName, folderContext, record) {
+  return {
+    folder: folderName,
+    timestamp: new Date().toISOString(),
+    source_layout: folderContext.sourceLayout,
+    source_folder: projectRelative(folderContext.folderPath),
+    metadata: summarizeMetadata(folderContext.metadata),
+    metadata_error: folderContext.metadataError ?? null,
+    files: {
+      model: describeFile(folderContext.modelPath),
+      garment: describeFile(folderContext.garmentPath),
+      result: describeFile(folderContext.resultPath),
+      metadata: folderContext.metadataPath ? projectRelative(folderContext.metadataPath) : null,
+    },
+    ok: record.ok,
+    rating: record.rating ?? null,
+    error: record.error ?? null,
+    found: record.found ?? null,
+    status: record.status ?? null,
+    message: record.message ?? null,
+    parse_error: record.parse_error ?? null,
+    raw_output_text: record.raw_output_text ?? null,
+    finish_reason: record.finish_reason ?? null,
+    body: record.body ?? null,
+  };
+}
+
+function copyAsset(sourcePath, targetDir, targetBaseName) {
+  if (!sourcePath || !fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isFile()) {
+    return null;
+  }
+
+  const ext = path.extname(sourcePath);
+  const targetPath = path.join(targetDir, `${targetBaseName}${ext}`);
+  fs.copyFileSync(sourcePath, targetPath);
+  return targetPath;
+}
+
+function formatBulletSection(title, items) {
+  if (!items || items.length === 0) {
+    return `${title}: none`;
+  }
+  return `${title}:\n${items.map((item) => `- ${item}`).join("\n")}`;
+}
+
+function buildTextSummary(payload) {
+  const lines = [];
+  const rating = payload.rating;
+
+  lines.push(`Folder: ${payload.folder}`);
+  lines.push(`Source folder: ${payload.source_folder || "(unknown)"}`);
+
+  if (payload.metadata?.test_id) lines.push(`Test ID: ${payload.metadata.test_id}`);
+  if (payload.metadata?.test_number !== undefined) lines.push(`Test number: ${payload.metadata.test_number}`);
+  if (payload.metadata?.gender) lines.push(`Gender: ${payload.metadata.gender}`);
+  if (payload.metadata?.status) lines.push(`Selenium status: ${payload.metadata.status}`);
+
+  if (rating) {
+    lines.push(`AI pass: ${rating.successful}`);
+    lines.push(`Quality score: ${rating.quality_percent}%`);
+    lines.push(`Garment category: ${rating.garment_category}`);
+    lines.push(`Garment type: ${rating.garment_type || "(blank)"}`);
+    lines.push(`Intended fit: ${rating.intended_fit}`);
+    lines.push(`Silhouette preserved: ${rating.silhouette_preserved}`);
+    lines.push(`Notes: ${rating.notes || "none"}`);
+    lines.push("");
+    lines.push(formatBulletSection("Critical issues", rating.critical_issues));
+    lines.push("");
+    lines.push(formatBulletSection("Minor issues", rating.minor_issues));
+    lines.push("");
+    lines.push(formatBulletSection("Positives", rating.positives));
+    lines.push("");
+    lines.push("Severity labels:");
+    for (const key of LABEL_KEYS) {
+      lines.push(`- ${key}: ${rating.labels?.[key] || "NONE"}`);
+    }
+  } else {
+    lines.push(`AI pass: not available`);
+    lines.push(`Error: ${payload.error || payload.message || payload.parse_error || "Unknown error"}`);
+  }
+
+  return `${lines.join("\n").trim()}\n`;
+}
+
+function writeReviewBundle(reviewRoot, payload, folderContext) {
+  const bundleDir = ensureDir(path.join(reviewRoot, payload.folder));
+  const copied = {
+    model: copyAsset(folderContext.modelPath, bundleDir, "model"),
+    garment: copyAsset(folderContext.garmentPath, bundleDir, "garment"),
+    result: copyAsset(folderContext.resultPath, bundleDir, "result"),
+    metadata: null,
+    quality: null,
+    summary: null,
+  };
+
+  if (folderContext.metadataPath && fs.existsSync(folderContext.metadataPath)) {
+    const metadataTarget = path.join(bundleDir, "metadata.json");
+    fs.copyFileSync(folderContext.metadataPath, metadataTarget);
+    copied.metadata = metadataTarget;
+  }
+
+  const qualityPath = path.join(bundleDir, "quality.json");
+  fs.writeFileSync(qualityPath, JSON.stringify(payload, null, 2), "utf8");
+  copied.quality = qualityPath;
+
+  const summaryPath = path.join(bundleDir, "summary.txt");
+  fs.writeFileSync(summaryPath, buildTextSummary(payload), "utf8");
+  copied.summary = summaryPath;
+
+  return {
+    bundleDir,
+    files: {
+      model: copied.model ? toWebPath(path.relative(reviewRoot, copied.model)) : null,
+      garment: copied.garment ? toWebPath(path.relative(reviewRoot, copied.garment)) : null,
+      result: copied.result ? toWebPath(path.relative(reviewRoot, copied.result)) : null,
+      metadata: copied.metadata ? toWebPath(path.relative(reviewRoot, copied.metadata)) : null,
+      quality: toWebPath(path.relative(reviewRoot, copied.quality)),
+      summary: toWebPath(path.relative(reviewRoot, copied.summary)),
+    },
+  };
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderHtmlList(items, emptyText) {
+  if (!items || items.length === 0) {
+    return `<p class="muted">${escapeHtml(emptyText)}</p>`;
+  }
+  return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function renderImageCard(label, relativePath) {
+  if (!relativePath) {
+    return `<div class="image-card missing"><div class="image-label">${escapeHtml(label)}</div><div class="missing-text">Missing</div></div>`;
+  }
+
+  const safeSrc = encodeURI(relativePath);
+  return `
+    <div class="image-card">
+      <div class="image-label">${escapeHtml(label)}</div>
+      <a href="${safeSrc}" target="_blank" rel="noreferrer">
+        <img src="${safeSrc}" alt="${escapeHtml(label)}" loading="lazy">
+      </a>
+    </div>
+  `;
+}
+
+function createReviewEntry(payload, bundle) {
+  const rating = payload.rating;
+  return {
+    folder: payload.folder,
+    test_number: payload.metadata?.test_number ?? null,
+    test_id: payload.metadata?.test_id ?? payload.folder,
+    gender: payload.metadata?.gender ?? null,
+    selenium_status: payload.metadata?.status ?? null,
+    evaluation_ok: payload.ok,
+    ai_successful: rating?.successful ?? null,
+    quality_percent: rating?.quality_percent ?? null,
+    garment_category: rating?.garment_category ?? null,
+    garment_type: rating?.garment_type ?? null,
+    intended_fit: rating?.intended_fit ?? null,
+    silhouette_preserved: rating?.silhouette_preserved ?? null,
+    notes: rating?.notes ?? payload.error ?? payload.message ?? payload.parse_error ?? null,
+    critical_issues: rating?.critical_issues ?? [],
+    minor_issues: rating?.minor_issues ?? [],
+    positives: rating?.positives ?? [],
+    source_folder: payload.source_folder,
+    bundle_folder: toWebPath(payload.folder),
+    files: bundle.files,
+  };
+}
+
+function csvEscape(value) {
+  const text = String(value ?? "");
+  if (/[",\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function buildReviewHtml(reviewEntries, summary, meta) {
+  const cards = reviewEntries
+    .map((entry) => {
+      const score = entry.quality_percent ?? "ERR";
+      const aiStatus = entry.ai_successful || "ERROR";
+      const scoreClass =
+        entry.quality_percent === null || entry.quality_percent === undefined
+          ? "score-error"
+          : entry.quality_percent >= PASS_SCORE_THRESHOLD
+            ? "score-pass"
+            : "score-fail";
+
+      return `
+        <article class="card">
+          <div class="card-top">
+            <div>
+              <h2>${escapeHtml(entry.test_id)}</h2>
+              <p class="meta">
+                Folder: ${escapeHtml(entry.folder)}
+                ${entry.test_number !== null ? ` | Test #${escapeHtml(entry.test_number)}` : ""}
+                ${entry.gender ? ` | ${escapeHtml(entry.gender)}` : ""}
+              </p>
+            </div>
+            <div class="badges">
+              <span class="badge ${scoreClass}">Score: ${escapeHtml(score)}</span>
+              <span class="badge ${aiStatus === "YES" ? "score-pass" : aiStatus === "NO" ? "score-fail" : "score-error"}">AI: ${escapeHtml(aiStatus)}</span>
+            </div>
+          </div>
+
+          <div class="images">
+            ${renderImageCard("Model", entry.files.model)}
+            ${renderImageCard("Garment", entry.files.garment)}
+            ${renderImageCard("Result", entry.files.result)}
+          </div>
+
+          <div class="details">
+            <p><strong>Type:</strong> ${escapeHtml(entry.garment_type || "n/a")}</p>
+            <p><strong>Category:</strong> ${escapeHtml(entry.garment_category || "n/a")}</p>
+            <p><strong>Fit:</strong> ${escapeHtml(entry.intended_fit || "n/a")}</p>
+            <p><strong>Silhouette:</strong> ${escapeHtml(entry.silhouette_preserved || "n/a")}</p>
+            <p><strong>Notes:</strong> ${escapeHtml(entry.notes || "n/a")}</p>
+          </div>
+
+          <div class="lists">
+            <section>
+              <h3>Critical Issues</h3>
+              ${renderHtmlList(entry.critical_issues, "None")}
+            </section>
+            <section>
+              <h3>Minor Issues</h3>
+              ${renderHtmlList(entry.minor_issues, "None")}
+            </section>
+            <section>
+              <h3>Positives</h3>
+              ${renderHtmlList(entry.positives, "None")}
+            </section>
+          </div>
+
+          <p class="links">
+            <a href="${encodeURI(entry.files.summary)}">summary.txt</a>
+            <a href="${encodeURI(entry.files.quality)}">quality.json</a>
+            ${entry.files.metadata ? `<a href="${encodeURI(entry.files.metadata)}">metadata.json</a>` : ""}
+          </p>
+        </article>
+      `;
+    })
+    .join("\n");
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Try-On Review</title>
+  <style>
+    :root {
+      --bg: #f4f0e8;
+      --card: #fffdf8;
+      --ink: #1f1b16;
+      --muted: #6b6257;
+      --line: #ded3c2;
+      --pass: #2d6a4f;
+      --fail: #9d0208;
+      --error: #6a4c93;
+      --accent: #c97b31;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(201, 123, 49, 0.18), transparent 28%),
+        linear-gradient(180deg, #f9f4eb 0%, var(--bg) 100%);
+    }
+    main {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1, h2, h3 { margin: 0; }
+    h1 {
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      letter-spacing: 0.02em;
+      margin-bottom: 8px;
+    }
+    .intro {
+      color: var(--muted);
+      max-width: 960px;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .summary-card {
+      background: rgba(255, 253, 248, 0.9);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+    }
+    .summary-card strong {
+      display: block;
+      font-size: 1.7rem;
+      margin-bottom: 4px;
+    }
+    .summary-card span {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .cards {
+      display: grid;
+      gap: 18px;
+    }
+    .card {
+      background: rgba(255, 253, 248, 0.97);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 12px 30px rgba(56, 39, 19, 0.08);
+    }
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+    .meta {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: end;
+    }
+    .badge {
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      color: white;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .score-pass { background: var(--pass); }
+    .score-fail { background: var(--fail); }
+    .score-error { background: var(--error); }
+    .images {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .image-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 12px;
+      background: #fff;
+      min-height: 100%;
+    }
+    .image-card img {
+      width: 100%;
+      height: 320px;
+      object-fit: contain;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fffaf2, #f3eadf);
+    }
+    .image-card.missing {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 160px;
+    }
+    .image-label {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .missing-text, .muted {
+      color: var(--muted);
+    }
+    .details {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px 14px;
+      margin-bottom: 18px;
+    }
+    .details p {
+      margin: 0;
+      line-height: 1.45;
+    }
+    .lists {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+    .lists section {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+    }
+    .lists h3 {
+      font-size: 1rem;
+      margin-bottom: 8px;
+    }
+    .lists ul {
+      margin: 0;
+      padding-left: 18px;
+      line-height: 1.45;
+    }
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin: 0;
+    }
+    a {
+      color: #7a3e07;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+    .footer {
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    @media (max-width: 720px) {
+      main { padding: 20px 14px 32px; }
+      .card { padding: 16px; }
+      .card-top { flex-direction: column; }
+      .badges { justify-content: start; }
+      .image-card img { height: 240px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Try-On Review</h1>
+    <p class="intro">
+      Source: <strong>${escapeHtml(meta.sourceDir)}</strong> (${escapeHtml(meta.sourceLayout)} layout).
+      Generated ${escapeHtml(meta.generatedAt)}.
+      Open any image or JSON file directly from this folder if you want the raw files.
+    </p>
+
+    <section class="summary">
+      <div class="summary-card"><strong>${escapeHtml(summary.total)}</strong><span>Total evaluated</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.successful)}</strong><span>AI pass</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.failed)}</strong><span>AI fail</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.errors)}</strong><span>Errors</span></div>
+    </section>
+
+    <section class="cards">
+      ${cards}
+    </section>
+
+    <p class="footer">
+      Files in this folder: <code>index.html</code>, <code>index.csv</code>, <code>index.json</code>, plus one subfolder per try-on result.
+    </p>
+  </main>
+</body>
+</html>`;
+}
+
+function writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDir, sourceLayout) {
+  const generatedAt = new Date().toISOString();
+
+  const indexJsonPath = path.join(reviewRoot, "index.json");
+  fs.writeFileSync(
+    indexJsonPath,
+    JSON.stringify(
+      {
+        generated_at: generatedAt,
+        source_dir: projectRelative(sourceDir),
+        source_layout: sourceLayout,
+        review_dir: projectRelative(reviewRoot),
+        summary,
+        entries: reviewEntries,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const csvColumns = [
+    "folder",
+    "test_number",
+    "test_id",
+    "gender",
+    "selenium_status",
+    "evaluation_ok",
+    "ai_successful",
+    "quality_percent",
+    "garment_category",
+    "garment_type",
+    "intended_fit",
+    "silhouette_preserved",
+    "notes",
+    "model_file",
+    "garment_file",
+    "result_file",
+    "summary_file",
+    "quality_file",
+  ];
+  const csvRows = [
+    csvColumns.join(","),
+    ...reviewEntries.map((entry) =>
+      [
+        entry.folder,
+        entry.test_number,
+        entry.test_id,
+        entry.gender,
+        entry.selenium_status,
+        entry.evaluation_ok,
+        entry.ai_successful,
+        entry.quality_percent,
+        entry.garment_category,
+        entry.garment_type,
+        entry.intended_fit,
+        entry.silhouette_preserved,
+        entry.notes,
+        entry.files.model,
+        entry.files.garment,
+        entry.files.result,
+        entry.files.summary,
+        entry.files.quality,
+      ]
+        .map(csvEscape)
+        .join(","),
+    ),
+  ];
+  fs.writeFileSync(path.join(reviewRoot, "index.csv"), `${csvRows.join("\n")}\n`, "utf8");
+
+  const html = buildReviewHtml(reviewEntries, summary, {
+    generatedAt,
+    sourceDir: projectRelative(sourceDir) || sourceDir,
+    sourceLayout,
+  });
+  fs.writeFileSync(path.join(reviewRoot, "index.html"), html, "utf8");
+}
+
 async function main() {
-  const imagesDir = path.resolve("images");
-  const folders = listSubfoldersSorted(imagesDir);
+  const sourceDir = resolveSourceDir();
+  const folders = listSubfoldersSorted(sourceDir);
 
   if (folders.length === 0) {
-    console.error("No subfolders found in images/ (e.g. images/Gen0/, images/Gen1/...).");
+    console.error(`No subfolders found in ${projectRelative(sourceDir) || sourceDir}.`);
+    console.error(`Expected either test_results/<test_id>/... or images/<folder>/...`);
     process.exit(1);
   }
 
-  const outDir = ensureOutputsDir();
+  const sourceLayout = detectSourceLayout(sourceDir, folders);
+  const outDir = ensureDir(OUTPUTS_DIR);
+  const reviewRoot = ensureDir(path.join(outDir, REVIEW_DIR_NAME));
   const outPath = path.join(outDir, "evals.jsonl");
   fs.writeFileSync(outPath, "", "utf8");
 
   console.log(`OpenAI endpoint: ${ENDPOINT}`);
   console.log(`Model: ${MODEL}`);
+  console.log(`Source dir: ${projectRelative(sourceDir) || sourceDir}`);
+  console.log(`Source layout: ${sourceLayout}`);
   console.log(`Folders: ${folders.length}`);
   console.log(`Concurrency: ${CONCURRENCY}`);
+  console.log(`Review bundle dir: ${projectRelative(reviewRoot) || reviewRoot}`);
 
   const summary = {
     total: 0,
@@ -578,15 +1248,19 @@ async function main() {
       loose: { total: 0, pass: 0 },
       oversized: { total: 0, pass: 0 },
     },
+    source_dir: projectRelative(sourceDir),
+    source_layout: sourceLayout,
+    review_dir: projectRelative(reviewRoot),
   };
 
-  const records = await mapWithConcurrency(folders, CONCURRENCY, async (folderName) => {
-    const folderPath = path.join(imagesDir, folderName);
+  const evaluations = await mapWithConcurrency(folders, CONCURRENCY, async (folderName) => {
+    const folderPath = path.join(sourceDir, folderName);
+    const folderContext = collectFolderAssets(folderName, folderPath, sourceLayout);
     console.log(`\n=== Evaluating: ${folderName} ===`);
 
     let record;
     try {
-      record = await evaluateFolder(folderName, folderPath);
+      record = await evaluateFolder(folderName, folderContext);
     } catch (err) {
       record = {
         folder: folderName,
@@ -598,59 +1272,55 @@ async function main() {
       };
     }
 
-    const perFolderPath = path.join(folderPath, "quality.json");
-    const perFolderPayload = {
-      folder: folderName,
-      timestamp: new Date().toISOString(),
-      ok: record.ok,
-      rating: record.rating ?? null,
-      error: record.error ?? null,
-      status: record.status ?? null,
-      message: record.message ?? null,
-      parse_error: record.parse_error ?? null,
-      raw_output_text: record.raw_output_text ?? null,
-      finish_reason: record.finish_reason ?? null,
-      body: record.body ?? null,
-    };
-    fs.writeFileSync(perFolderPath, JSON.stringify(perFolderPayload, null, 2), "utf8");
+    const perFolderPayload = createPerFolderPayload(folderName, folderContext, record);
+    const sourceQualityPath = path.join(folderPath, "quality.json");
+    fs.writeFileSync(sourceQualityPath, JSON.stringify(perFolderPayload, null, 2), "utf8");
 
-    return record;
+    const bundle = writeReviewBundle(reviewRoot, perFolderPayload, folderContext);
+
+    return { folderContext, record, perFolderPayload, bundle };
   });
 
-  for (const record of records) {
+  const reviewEntries = [];
+
+  for (const evaluation of evaluations) {
+    const { record, perFolderPayload, bundle } = evaluation;
+
     summary.total++;
 
     if (record.ok && record.rating) {
       console.log(JSON.stringify(record.rating, null, 2));
 
-      const r = record.rating;
-      if (r.successful === "YES") summary.successful++;
+      const rating = record.rating;
+      if (rating.successful === "YES") summary.successful++;
       else summary.failed++;
 
-      const cat = r.garment_category || "unknown";
-      if (!summary.by_category[cat]) summary.by_category[cat] = { total: 0, pass: 0, fail: 0 };
-      summary.by_category[cat].total++;
-      if (r.successful === "YES") summary.by_category[cat].pass++;
-      else summary.by_category[cat].fail++;
+      const category = rating.garment_category || "unknown";
+      if (!summary.by_category[category]) summary.by_category[category] = { total: 0, pass: 0, fail: 0 };
+      summary.by_category[category].total++;
+      if (rating.successful === "YES") summary.by_category[category].pass++;
+      else summary.by_category[category].fail++;
 
-      const sil = r.silhouette_preserved || "unknown";
-      if (summary.silhouette_stats[sil] !== undefined) summary.silhouette_stats[sil]++;
+      const silhouette = rating.silhouette_preserved || "unknown";
+      if (summary.silhouette_stats[silhouette] !== undefined) summary.silhouette_stats[silhouette]++;
 
-      const fit = r.intended_fit || "regular";
+      const fit = rating.intended_fit || "regular";
       if (summary.by_fit[fit]) {
         summary.by_fit[fit].total++;
-        if (r.successful === "YES") summary.by_fit[fit].pass++;
+        if (rating.successful === "YES") summary.by_fit[fit].pass++;
       }
     } else {
       console.log(JSON.stringify(record, null, 2));
       summary.errors++;
     }
 
-    fs.appendFileSync(outPath, JSON.stringify(record) + "\n", "utf8");
+    fs.appendFileSync(outPath, JSON.stringify(perFolderPayload) + "\n", "utf8");
+    reviewEntries.push(createReviewEntry(perFolderPayload, bundle));
   }
 
   const summaryPath = path.join(outDir, "analysis_summary.json");
   fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2), "utf8");
+  writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDir, sourceLayout);
 
   console.log(`\n${"=".repeat(60)}`);
   console.log("ANALYSIS SUMMARY");
@@ -673,8 +1343,9 @@ async function main() {
       console.log(`  ${fit}: ${stats.pass}/${stats.total} passed`);
     }
   }
-  console.log(`\nResults saved to: ${outPath}`);
-  console.log(`Summary saved to: ${summaryPath}`);
+  console.log(`\nResults saved to: ${projectRelative(outPath) || outPath}`);
+  console.log(`Summary saved to: ${projectRelative(summaryPath) || summaryPath}`);
+  console.log(`Review index saved to: ${projectRelative(path.join(reviewRoot, "index.html")) || path.join(reviewRoot, "index.html")}`);
 }
 
 main();

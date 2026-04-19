@@ -1,5 +1,26 @@
 # Siz3r Model Testing - LLM Analysis Guide
 
+## Aktualny lokalny workflow
+
+`analyze_quality.js` domyślnie szuka wyników w `test_results/` (a jeśli go nie ma, to w `images/`).
+
+Po analizie dostajesz:
+- `outputs/evals.jsonl` - wszystkie rekordy oceny
+- `outputs/analysis_summary.json` - zbiorcze statystyki
+- `outputs/review/` - jeden wygodny folder do ręcznego przeglądu
+
+W `outputs/review/` znajdziesz:
+- `index.html` - galeria z podglądem modelu, ubrania, wyniku i oceną AI
+- `index.csv` - szybki eksport do tabeli
+- `index.json` - pełny indeks danych
+- osobny podfolder dla każdego testu z `model.*`, `garment.*`, `result.*`, `quality.json`, `summary.txt`
+
+Przydatne zmienne środowiskowe:
+- `ANALYZE_SOURCE_DIR` - wymusza katalog wejściowy
+- `ANALYSIS_OUTPUT_DIR` - zmienia katalog `outputs/`
+- `ANALYSIS_REVIEW_DIR` - zmienia nazwę folderu review
+- `OPENAI_CONCURRENCY` - liczba równoległych ocen
+
 ## Struktura wyników
 
 Po każdym teście GitHub Actions generuje artifacts z następującą strukturą:
