@@ -19,103 +19,125 @@ if (!OPENAI_API_KEY) {
   throw new Error("Missing OPENAI_API_KEY.");
 }
 
-const PROMPT = `You are a commercially minded QA evaluator for virtual try-on quality.
-You evaluate all garment types: tops, pants, jackets, dresses, skirts, outerwear, and others.
-Your job is not to decide whether the result is "pretty good for AI".
-Your job is to decide whether a paying fashion retailer would be satisfied using GENERATED_RESULT as a standard customer-facing virtual try-on result.
-Be careful, but fair: small imperfections that do not materially change shopper understanding of the garment can still be acceptable.
+const PROMPT = `You are a practical QA evaluator for virtual try-on quality.
+You evaluate ALL garment types: tops, pants, jackets, dresses, skirts, etc.
+You are a FAIR and REALISTIC judge. You understand how clothing works on real bodies.
 
-You will receive exactly two labeled images:
-1) TARGET_GARMENT: the product or garment reference image, often a flatlay or product photo
-2) GENERATED_RESULT: the try-on result showing a person wearing the garment
+You will receive EXACTLY TWO images:
+1) TARGET_GARMENT — the product/garment reference image (often a FLATLAY or product photo on white background)
+2) GENERATED_RESULT — the try-on result (person wearing the target garment — THIS IS WHAT YOU JUDGE)
 
-Commercial standard:
-- A pass means the result is accurate enough for a normal online shopper to trust it as a representation of that product.
-- "Recognizable as roughly the same item" alone is NOT enough for a pass.
-- Minor visible differences can still pass if they would not materially change shopper understanding of the product.
-- If visible differences would make a merchant hesitate to show this on a product page, mark it down, but do not fail a result for subtle non-identity differences.
-- If a shopper could reasonably think they are seeing a meaningfully different garment, the result should fail.
-- Be objective, commercially minded, and fair.
+CRITICAL UNDERSTANDING — FLATLAY vs ON-BODY:
+The TARGET_GARMENT is usually a FLATLAY photo (garment laid flat or on mannequin). When any garment is put on a real person:
+- It NATURALLY becomes narrower/more fitted because a body has shape and gravity pulls fabric down
+- Sleeves drape differently on arms than when laid flat
+- The overall width ALWAYS decreases compared to flatlay — this is PHYSICS, not an error
+- An oversized garment on a person will still look more fitted than on a flatlay — THIS IS NORMAL AND EXPECTED
+- ONLY flag silhouette issues if the garment becomes CLEARLY SKIN-TIGHT when it should be loose/oversized
+- A garment looking "slightly narrower on body than flatlay" is NEVER an error
 
-Critical understanding: flatlay vs on-body
-- A garment on a body naturally looks narrower or more fitted than when laid flat.
-- Sleeves and hems drape differently on a person because of pose, gravity, and body shape.
-- Slight narrowing from flatlay to on-body is expected and is not a silhouette failure.
-- However, visible retail-relevant differences in length, volume, neckline, sleeve shape, or overall proportion still matter.
-
-General evaluation rules:
-- Judge only visible evidence.
-- Do not infer missing details from hidden, cropped, or obstructed areas.
-- Do not penalize differences caused only by pose, lighting, gravity, body shape, or normal fabric drape.
-- Do not let "overall resemblance" cancel out visible structural errors.
-- If a visible feature is important for product identity, treat mistakes seriously.
-- Do not over-penalize subtle issues that most shoppers would not notice during normal browsing.
-- If you are unsure whether a visible mismatch matters, use whether it materially changes shopper understanding of the garment rather than assuming the worst.
-
-Step 1: detect the garment
-Determine:
+STEP 1 — AUTO-DETECT GARMENT TYPE:
+Look at TARGET_GARMENT and determine:
 - garment_category: "top" | "pants" | "dress" | "skirt" | "outerwear" | "other"
-- garment_type: short plain description of the item
 - intended_fit: "tight" | "regular" | "loose" | "oversized"
 
-Step 2: judge silhouette preservation
-Compare TARGET_GARMENT vs GENERATED_RESULT:
+STEP 2 — SILHOUETTE & FIT PRESERVATION:
+Compare TARGET_GARMENT vs GENERATED_RESULT, keeping flatlay-vs-body difference in mind:
 - silhouette_preserved: "YES" | "PARTIAL" | "NO"
-- YES = commercially faithful silhouette and proportion
-- PARTIAL = recognizable but merchant-visible silhouette differences
-- NO = clearly wrong silhouette, length, volume, or overall garment behavior
-- Do NOT default to YES just because the item is recognizable
+  - YES = garment looks like the same garment on the person (even if slightly narrower than flatlay)
+  - PARTIAL = garment shape is recognizable but noticeably different (e.g. loose became regular)
+  - NO = garment is COMPLETELY different silhouette (e.g. oversized hoodie became skin-tight bodysuit)
+- Default to YES if the garment is recognizably the same item on the person
 
-Step 3: assign severity labels
-Choose one value for each:
-- garment_structure_error: "NONE" | "MINOR" | "MAJOR"
-- construction_alignment_error: "NONE" | "MINOR" | "MAJOR"
-- fit_error: "NONE" | "MINOR" | "MAJOR"
-- artifact_error: "NONE" | "MINOR" | "MAJOR"
-- silhouette_error: "NONE" | "MINOR" | "MAJOR"
+STEP 3 — EVALUATE:
 
-How to assign labels:
-1) Garment structure and identity
-- Check whether it is the same garment type.
-- Sleeve type, sleeve length, collar, neckline, closure type, hem shape, major panels, pockets, and major structural features should match when visible.
-- Visible text, logo, print motif, stripe layout, or graphic placement differences matter.
-- Added or missing visible features that change customer perception are major.
-- If a visible structural detail is clearly wrong but the garment is still mostly the same item, mark at least minor.
+Check in order of priority:
 
-2) Construction and alignment
-- Seams, stripes, panels, pleats, buttons, zippers, quilting lines, and pocket placement should be consistent when visible.
-- Misaligned or distorted pattern/layout that a shopper would notice is an error, not a harmless variation.
-- Duplicated, floating, or broken garment parts are errors.
+1) Garment structure & shape fidelity (HIGHEST PRIORITY)
+- Is it the SAME TYPE of garment? (jacket stays jacket, not sweater)
+- Sleeve type and length roughly correct?
+- Collar/neckline type roughly correct?
+- Key structural elements present: zippers, buttons, pockets, seams, panels, stripes, pleats
+- ADDED elements that don't exist on TARGET_GARMENT = MAJOR issue
+- FULLY MISSING key visible elements (not obstructed) = MAJOR issue
+- Shape changes due to body type, pose, gravity, lighting = NOT an error
+- Rolled up sleeves = NOT an issue
+- Slight hood/collar differences = NOT an issue
+- Collar tags missing = NOT an issue
+- Prints slightly distorted = MINOR (only MAJOR if completely unrecognizable)
 
-3) Fit and drape
-- The garment should sit on the correct body area with commercially believable scale and drape.
-- Wrong length, wrong tightness, wrong sleeve volume, or wrong crop level are merchant-relevant.
-- Do not penalize missing cuffs, waistband, hem, or similar parts when they are cropped out or occluded.
+2) Construction details & alignment
+- Zippers/buttons exist where expected (if visible)
+- Seams, stripes, panels roughly follow correct direction
+- No duplicated or floating garment parts
 
-4) Artifacts and layering realism
-- Check for warping, melting, ghosting, broken boundaries, or bad merging with skin, hair, or background.
-- If artifacts would reduce shopper trust or make the image look low-quality, penalize them.
+3) Fit & placement on the body
+- Garment is on the correct body part
+- Reasonable scaling
+- Plausible drape and folds
 
-5) Color and texture
-- Penalize visible color, texture, pattern scale, or material changes when they alter the product impression.
-- Slight lighting-driven color shift alone is not enough, but merchant-visible changes are important.
+4) Occlusion & layering realism
+- Garment layers correctly over body/hair
+- No unnatural merging with arms, hair, background
+- Other clothing obstructing parts of TARGET garment = NOT a failure
 
-Scoring mindset:
-- Reserve perfect or near-perfect judgment only for outputs that look commercially reliable.
-- One or two minor issues can still be merchant-satisfactory if the garment identity and shopper trust are preserved.
-- Do not inflate scores because the result looks plausible overall, but do not fail borderline-good outputs for tiny defects.
+5) Color & texture (LOW PRIORITY)
+- Only penalize if color clearly indicates a DIFFERENT garment
+- Resolution differences, slight color shifts = NOT an error
 
-Category-specific rules:
-- If garment_category is "pants", judge only the pants and ignore tops and shoes.
-- If garment_category is "top" or "outerwear", judge only that garment and ignore pants and shoes.
-- If garment_category is "dress", judge the full dress from neckline to hem, but do not penalize areas that are not visible.
+6) Artifacts
+- Warping, melting, ghosting, broken boundaries
+- Artifacts that break garment shape = MAJOR
+- Minor warping or resolution loss = MINOR
+- Small artifacts at edges = MINOR
+
+CATEGORY-SPECIFIC RULES:
+
+IF garment_category is "pants":
+- Judge ONLY pants, ignore tops/shoes
+- Elements obstructed by other clothing = NOT missing, count as correct
+- Pants partially visible due to crop/pose = judge only visible parts
+
+IF garment_category is "top" or "outerwear":
+- Judge ONLY the top/outerwear, ignore pants/shoes
+
+IF garment_category is "dress":
+- Judge full garment from neckline to hem
+
+TOLERANCE GUIDELINES — BE FAIR:
+- This is virtual try-on, NOT photo editing. Some imperfection is expected.
+- If you can look at the result and say "yes, that person is wearing that garment" = it's a pass
+- Focus on: is the garment RECOGNIZABLE as the same item?
+- Don't nitpick minor differences that any reasonable person would accept
+
+Label assignment (choose ONE per category):
+- garment_structure_error: NONE | MINOR | MAJOR
+- construction_alignment_error: NONE | MINOR | MAJOR
+- fit_error: NONE | MINOR | MAJOR
+- artifact_error: NONE | MINOR | MAJOR
+- silhouette_error: NONE | MINOR | MAJOR
+
+Scoring (mechanical, fixed penalties):
+Start score = 100
+Subtract:
+- garment_structure_error: MINOR -10, MAJOR -35
+- construction_alignment_error: MINOR -5, MAJOR -20
+- fit_error: MINOR -5, MAJOR -20
+- artifact_error: MINOR -10, MAJOR -30
+- silhouette_error: MINOR -10, MAJOR -35
+Clamp score to 0..100.
+
+Decision rule:
+- YES if score >= 65 AND garment_structure_error != MAJOR AND silhouette_error != MAJOR
+- Otherwise NO
 
 Output requirements:
-Return only valid JSON with no markdown and no extra text.
-Use exactly this schema:
+Return ONLY valid JSON (no markdown, no commentary) exactly in this schema:
 {
+  "successful": "YES" | "NO",
+  "quality_percent": number,
   "garment_category": "top" | "pants" | "dress" | "skirt" | "outerwear" | "other",
-  "garment_type": string,
+  "garment_type": string (e.g. "black oversized longsleeve", "blue slim jeans"),
   "intended_fit": "tight" | "regular" | "loose" | "oversized",
   "silhouette_preserved": "YES" | "PARTIAL" | "NO",
   "critical_issues": [string],
@@ -135,9 +157,10 @@ Hard limits:
 - critical_issues: max 6 items
 - minor_issues: max 6 items
 - positives: max 6 items
-- notes: max 350 characters, avoid repetition
+- notes: max 350 characters, no repetition
 Begin with "{" and end with "}".
 No trailing text after the final "}".`.trim();
+
 
 const ALLOWED_CATEGORIES = new Set(["top", "pants", "dress", "skirt", "outerwear", "other"]);
 const ALLOWED_FITS = new Set(["tight", "regular", "loose", "oversized"]);
@@ -151,14 +174,13 @@ const LABEL_KEYS = [
   "silhouette_error",
 ];
 const SCORE_PENALTIES = {
-  garment_structure_error: { NONE: 0, MINOR: 15, MAJOR: 45 },
-  construction_alignment_error: { NONE: 0, MINOR: 10, MAJOR: 25 },
-  fit_error: { NONE: 0, MINOR: 10, MAJOR: 25 },
-  artifact_error: { NONE: 0, MINOR: 15, MAJOR: 35 },
-  silhouette_error: { NONE: 0, MINOR: 15, MAJOR: 40 },
+  garment_structure_error: { NONE: 0, MINOR: 10, MAJOR: 35 },
+  construction_alignment_error: { NONE: 0, MINOR: 5, MAJOR: 20 },
+  fit_error: { NONE: 0, MINOR: 5, MAJOR: 20 },
+  artifact_error: { NONE: 0, MINOR: 10, MAJOR: 30 },
+  silhouette_error: { NONE: 0, MINOR: 10, MAJOR: 35 },
 };
-const PASS_SCORE_THRESHOLD = Math.max(0, Math.min(100, Number(process.env.OPENAI_PASS_SCORE_THRESHOLD || 80)));
-const MAX_MINOR_LABELS_FOR_PASS = Math.max(0, Number(process.env.OPENAI_MAX_MINOR_LABELS_FOR_PASS || 2));
+const PASS_SCORE_THRESHOLD = 65;
 let globalCooldownUntil = 0;
 
 function normalizeString(value) {
@@ -439,13 +461,10 @@ function validateAndNormalizeRating(raw) {
   }
   score = clamp(score, 0, 100);
 
-  const minorCount = LABEL_KEYS.filter((key) => normalizedLabels[key] === "MINOR").length;
-  const majorCount = LABEL_KEYS.filter((key) => normalizedLabels[key] === "MAJOR").length;
-
   const successful =
     score >= PASS_SCORE_THRESHOLD &&
-    majorCount === 0 &&
-    minorCount <= MAX_MINOR_LABELS_FOR_PASS
+    normalizedLabels.garment_structure_error !== "MAJOR" &&
+    normalizedLabels.silhouette_error !== "MAJOR"
       ? "YES"
       : "NO";
 
@@ -858,7 +877,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       const scoreClass =
         entry.quality_percent === null || entry.quality_percent === undefined
           ? "score-error"
-          : entry.quality_percent >= PASS_SCORE_THRESHOLD
+          : aiStatus === "YES"
             ? "score-pass"
             : "score-fail";
 
