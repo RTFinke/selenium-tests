@@ -36,9 +36,16 @@ The TARGET_GARMENT is usually a FLATLAY photo (garment laid flat or on mannequin
 - ONLY flag silhouette issues if the garment becomes CLEARLY SKIN-TIGHT when it should be loose/oversized
 - A garment looking "slightly narrower on body than flatlay" is NEVER an error
 
+IMPORTANT ABOUT THE PERSON AND OTHER CLOTHING:
+- Natural coverage is GOOD: if the target garment is longer, looser, or layered in a way that hides part of the body or other clothing, that is correct behavior
+- But damage to visible body parts or visible non-target clothing is STILL an error
+- Recoloring, warping, erasing, duplicating, or inventing parts of other clothing is NOT acceptable unless those areas are naturally covered by the target garment
+- Leftover pieces, masks, outlines, or fragments of old clothing anywhere in GENERATED_RESULT are artifacts when they are clearly visible and clearly not part of the target garment
+
 STEP 1 — AUTO-DETECT GARMENT TYPE:
 Look at TARGET_GARMENT and determine:
 - garment_category: "top" | "pants" | "dress" | "skirt" | "outerwear" | "other"
+- garment_type: short plain description of the item
 - intended_fit: "tight" | "regular" | "loose" | "oversized"
 
 STEP 2 — SILHOUETTE & FIT PRESERVATION:
@@ -59,6 +66,7 @@ Check in order of priority:
 - Collar/neckline type roughly correct?
 - Key structural elements present: zippers, buttons, pockets, seams, panels, stripes, pleats
 - ADDED elements that don't exist on TARGET_GARMENT = MAJOR issue
+- Invented sleeves, straps, panels, trims, closures, graphics, or extra layers are errors, not harmless variation
 - FULLY MISSING key visible elements (not obstructed) = MAJOR issue
 - Shape changes due to body type, pose, gravity, lighting = NOT an error
 - Rolled up sleeves = NOT an issue
@@ -76,39 +84,53 @@ Check in order of priority:
 - Reasonable scaling
 - Plausible drape and folds
 
-4) Occlusion & layering realism
-- Garment layers correctly over body/hair
-- No unnatural merging with arms, hair, background
+4) Layering, occlusion, and body integrity
+- The garment should layer correctly over body, hair, and other clothing
+- Natural coverage is GOOD: if a longer or looser target garment hides part of the body or underlying clothing, that is correct occlusion, not damage
 - Other clothing obstructing parts of TARGET garment = NOT a failure
+- Visible body parts should remain intact: no broken hands, missing limbs, warped skin, melted face or hair, or damaged anatomy
+- Visible non-target clothing should remain intact unless it is naturally covered by the target garment
+- No unnatural merging with arms, hair, background, or other clothing
 
 5) Color & texture (LOW PRIORITY)
-- Only penalize if color clearly indicates a DIFFERENT garment
-- Resolution differences, slight color shifts = NOT an error
+- Only penalize TARGET_GARMENT color or texture if it clearly indicates a DIFFERENT garment
+- Recoloring or restyling other visible garments, skin, hair, or accessories is ALSO an error unless those areas are naturally covered by the target garment
+- Resolution differences, slight lighting shifts, or a mild global color cast are NOT errors by themselves
 
 6) Artifacts
-- Warping, melting, ghosting, broken boundaries
-- Artifacts that break garment shape = MAJOR
-- Minor warping or resolution loss = MINOR
-- Small artifacts at edges = MINOR
+- Warping, melting, ghosting, broken boundaries, duplicated parts, or collateral damage to the person or other clothing are errors
+- Leftover masks, collars, sleeves, hems, outlines, or texture fragments from previous clothing anywhere in the image are artifacts if they are clearly not part of the target garment
+- Artifacts that break garment shape, damage visible body parts, or corrupt other visible garments = MAJOR
+- A large or obvious leftover-clothing artifact should be MAJOR even if the main garment is otherwise correct
+- Only assign MAJOR when the artifact is unmistakable and visible without reasonable doubt; do NOT use MAJOR for something that could plausibly be normal shadow, fold, drape, or occlusion
+- Minor warping, mild resolution loss, or small edge issues = MINOR
+- Small artifacts at edges are only MINOR if they do not visibly damage the person or other clothing
 
 CATEGORY-SPECIFIC RULES:
 
 IF garment_category is "pants":
-- Judge ONLY pants, ignore tops/shoes
+- Judge ONLY pants for garment identity, ignore whether tops or shoes match the reference garment
 - Elements obstructed by other clothing = NOT missing, count as correct
 - Pants partially visible due to crop/pose = judge only visible parts
+- Visible damage or recoloring to the person's body, top, or shoes is still an error
 
 IF garment_category is "top" or "outerwear":
-- Judge ONLY the top/outerwear, ignore pants/shoes
+- Judge ONLY the top/outerwear for garment identity, ignore whether pants or shoes match the reference garment
+- If a longer top or outerwear naturally covers pants or inner layers, that is GOOD and not a failure
+- Visible damage or recoloring to the person's body or other garments is still an error
 
 IF garment_category is "dress":
 - Judge full garment from neckline to hem
+- Natural coverage of legs or inner garments by dress length or layers is acceptable
+- Visible damage or recoloring to the person's body or other garments is still an error
 
 TOLERANCE GUIDELINES — BE FAIR:
 - This is virtual try-on, NOT photo editing. Some imperfection is expected.
-- If you can look at the result and say "yes, that person is wearing that garment" = it's a pass
+- If you can look at the result and say "yes, that person is wearing that garment" = that is a good sign, but it is NOT enough if the try-on damaged the person or other visible clothing
 - Focus on: is the garment RECOGNIZABLE as the same item?
 - Don't nitpick minor differences that any reasonable person would accept
+- Do NOT ignore obvious body damage, recolored non-target clothing, or invented non-existent elements just because the target garment is recognizable
+- Do NOT call something a MAJOR artifact unless it is an actual artifact without reasonable doubt
 
 Label assignment (choose ONE per category):
 - garment_structure_error: NONE | MINOR | MAJOR
@@ -128,7 +150,7 @@ Subtract:
 Clamp score to 0..100.
 
 Decision rule:
-- YES if score >= 65 AND garment_structure_error != MAJOR AND silhouette_error != MAJOR
+- YES if score >= 65 AND garment_structure_error != MAJOR AND artifact_error != MAJOR AND silhouette_error != MAJOR
 - Otherwise NO
 
 Output requirements:
@@ -464,6 +486,7 @@ function validateAndNormalizeRating(raw) {
   const successful =
     score >= PASS_SCORE_THRESHOLD &&
     normalizedLabels.garment_structure_error !== "MAJOR" &&
+    normalizedLabels.artifact_error !== "MAJOR" &&
     normalizedLabels.silhouette_error !== "MAJOR"
       ? "YES"
       : "NO";
@@ -810,18 +833,16 @@ function renderHtmlList(items, emptyText) {
   return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 }
 
-function renderImageCard(label, relativePath, options = {}) {
-  const cardClass = options.featured ? "image-card featured" : "image-card";
-
+function renderImageCard(label, relativePath) {
   if (!relativePath) {
-    return `<div class="${cardClass} missing"><div class="image-label">${escapeHtml(label)}</div><div class="missing-text">Missing</div></div>`;
+    return `<div class="image-card missing"><div class="image-label">${escapeHtml(label)}</div><div class="missing-text">Missing</div></div>`;
   }
 
   const safeSrc = encodeURI(relativePath);
   const safeLabel = escapeHtml(label);
   const safeSrcAttr = escapeHtml(safeSrc);
   return `
-    <div class="${cardClass}">
+    <div class="image-card">
       <div class="image-card-header">
         <div class="image-label">${safeLabel}</div>
         <div class="image-actions">
@@ -899,11 +920,9 @@ function buildReviewHtml(reviewEntries, summary, meta) {
           </div>
 
           <div class="images">
-            ${renderImageCard("Result", entry.files.result, { featured: true })}
-            <div class="reference-images">
-              ${renderImageCard("Model", entry.files.model)}
-              ${renderImageCard("Garment", entry.files.garment)}
-            </div>
+            ${renderImageCard("Garment", entry.files.garment)}
+            ${renderImageCard("Model", entry.files.model)}
+            ${renderImageCard("Result", entry.files.result)}
           </div>
 
           <div class="details">
@@ -1046,14 +1065,10 @@ function buildReviewHtml(reviewEntries, summary, meta) {
     .score-error { background: var(--error); }
     .images {
       display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.85fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 14px;
       margin-bottom: 18px;
       align-items: start;
-    }
-    .reference-images {
-      display: grid;
-      gap: 14px;
     }
     .image-card {
       border: 1px solid var(--line);
@@ -1061,10 +1076,6 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       padding: 12px;
       background: #fff;
       min-height: 100%;
-    }
-    .image-card.featured {
-      padding: 14px;
-      box-shadow: 0 10px 24px rgba(56, 39, 19, 0.07);
     }
     .image-card-header {
       display: flex;
@@ -1102,14 +1113,10 @@ function buildReviewHtml(reviewEntries, summary, meta) {
     }
     .image-card img {
       width: 100%;
-      height: 460px;
+      height: 400px;
       object-fit: contain;
       border-radius: 12px;
       background: linear-gradient(180deg, #fffaf2, #f3eadf);
-    }
-    .image-card.featured img {
-      height: min(72vh, 860px);
-      min-height: 560px;
     }
     .image-card.missing {
       display: flex;
@@ -1235,7 +1242,6 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       .badges { justify-content: start; }
       .images { grid-template-columns: 1fr; }
       .image-card img { height: 320px; }
-      .image-card.featured img { min-height: 380px; height: min(62vh, 560px); }
       .image-card-header { align-items: start; flex-direction: column; }
       .lightbox { padding: 10px; }
       .lightbox-inner { width: 100%; height: min(92vh, 960px); padding: 52px 12px 12px; }
