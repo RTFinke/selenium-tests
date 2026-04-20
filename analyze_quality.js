@@ -152,12 +152,14 @@ You may receive:
 Focus especially on:
 - neck and shoulder leftovers from the original clothing: old collars, hoods, padded neck shapes, scarf-like wraps, masks, or fragments that clearly do not belong to TARGET_GARMENT
 - non-target clothing damage: especially bottoms, skirts, pants, shorts, leggings, shoes, or socks that were recolored, changed, warped, erased, or partially replaced even though the try-on was only supposed to change another garment
+- added extra lower-body garments or layers, such as invented shorts, skirts, leggings, or overlays that were not present in MODEL_ORIGINAL and are not part of TARGET_GARMENT
 - obvious merged boundaries, ghost remnants, or corrupted clothing/body regions
 
 Rules:
 - If there is any visible artifact, artifact_present must be "YES"
 - If a large or obvious leftover-clothing artifact is clearly visible without reasonable doubt, artifact_severity must be "MAJOR"
 - If visible non-target bottoms are recolored, changed, replaced, or corrupted relative to MODEL_ORIGINAL, artifact_severity should usually be "MAJOR"
+- If a new lower-body garment or extra layer appears in GENERATED_RESULT that was not present in MODEL_ORIGINAL and is not the target garment, artifact_severity should usually be "MAJOR"
 - If the neck or shoulder area clearly contains remnants of the original outfit that are not part of TARGET_GARMENT, artifact_severity should usually be "MAJOR"
 - If something could plausibly be normal shadow, fold, drape, or natural occlusion, do NOT call it MAJOR
 - Never return a perfect clean result if any visible artifact or collateral damage exists
@@ -218,11 +220,17 @@ const ARTIFACT_PATTERNS = [
   /(hood|collar).*(artifact|leftover|remnant|residual|old)/i,
   /(damaged|warped|melted|broken|merged).*(hair|skin|hand|face|arm|body|neck)/i,
   /(bottom|pants|skirt|shorts|shoes).*(damaged|recolored|warped|erased|changed|replaced)/i,
+  /(shorts|skirt|leggings|pants).*(added|invented|new|extra)/i,
+  /added.*(shorts|skirt|leggings|pants)/i,
+  /extra.*(shorts|skirt|leggings|pants)/i,
 ];
 const STRUCTURE_MAJOR_PATTERNS = [
   /shorts?\s+are\s+visible\s+instead\s+of\s+expected\s+pants/i,
   /shorts?\s+instead\s+of\s+pants/i,
   /pants\s+instead\s+of\s+shorts/i,
+  /added.*shorts/i,
+  /invented.*shorts/i,
+  /extra.*lower-body garment/i,
   /wrong garment type/i,
   /different garment type/i,
   /missing visible buttons?/i,
@@ -519,6 +527,56 @@ function applyIssueConsistencyGuards(rating) {
   };
 }
 
+function ensureIssuesMatchLabels(rating) {
+  if (!rating) return rating;
+
+  let criticalIssues = [...rating.critical_issues];
+  let minorIssues = [...rating.minor_issues];
+
+  const issueTextByLabel = {
+    garment_structure_error: {
+      MINOR: "Some visible garment structure or detail differs from the source garment.",
+      MAJOR: "Important visible garment structure or detail is missing, wrong, or invented.",
+    },
+    construction_alignment_error: {
+      MINOR: "Some visible garment details are slightly misaligned or placed incorrectly.",
+      MAJOR: "Visible garment details are clearly misaligned, broken, or placed incorrectly.",
+    },
+    fit_error: {
+      MINOR: "The garment fit or placement looks somewhat off on the person.",
+      MAJOR: "The garment fit or placement is clearly wrong on the person.",
+    },
+    artifact_error: {
+      MINOR: "There are visible generation artifacts or minor damage in the result.",
+      MAJOR: "There are obvious generation artifacts or damage to the person or other clothing.",
+    },
+    silhouette_error: {
+      MINOR: "The garment silhouette differs somewhat from the source garment.",
+      MAJOR: "The garment silhouette is clearly wrong compared with the source garment.",
+    },
+  };
+
+  for (const key of LABEL_KEYS) {
+    const severity = rating.labels?.[key] || "NONE";
+    if (severity === "NONE") continue;
+
+    const text = issueTextByLabel[key]?.[severity];
+    if (!text) continue;
+
+    if (severity === "MAJOR") {
+      criticalIssues = appendUniqueStrings(criticalIssues, [text], 6);
+    } else {
+      minorIssues = appendUniqueStrings(minorIssues, [text], 6);
+    }
+  }
+
+  return {
+    ...rating,
+    critical_issues: criticalIssues,
+    minor_issues: minorIssues,
+  };
+}
+
 function calculateQualityScore(labels) {
   let score = 100;
   for (const key of LABEL_KEYS) {
@@ -539,14 +597,15 @@ function determineSuccessful(score, labels, criticalIssues) {
 function finalizeRating(rating) {
   const sanitizedRating = sanitizeIssueLists(rating);
   const consistentRating = applyIssueConsistencyGuards(sanitizedRating);
-  let qualityPercent = calculateQualityScore(consistentRating.labels);
-  if (consistentRating.critical_issues.length > 0 && qualityPercent >= PASS_SCORE_THRESHOLD) {
+  const completedRating = ensureIssuesMatchLabels(consistentRating);
+  let qualityPercent = calculateQualityScore(completedRating.labels);
+  if (completedRating.critical_issues.length > 0 && qualityPercent >= PASS_SCORE_THRESHOLD) {
     qualityPercent = PASS_SCORE_THRESHOLD - 1;
   }
   return {
-    ...consistentRating,
+    ...completedRating,
     quality_percent: qualityPercent,
-    successful: determineSuccessful(qualityPercent, consistentRating.labels, consistentRating.critical_issues),
+    successful: determineSuccessful(qualityPercent, completedRating.labels, completedRating.critical_issues),
   };
 }
 
@@ -739,15 +798,7 @@ function applyArtifactAuditToRating(rating, artifactAudit) {
 function shouldRunArtifactAudit(rating, hasModelImage) {
   if (ENABLE_ARTIFACT_AUDIT) return true;
   if (!hasModelImage || !rating) return false;
-
-  const category = rating.garment_category;
-  const categoryNeedsIntegrityCheck =
-    !category || category === "top" || category === "outerwear" || category === "dress";
-
-  return categoryNeedsIntegrityCheck &&
-    rating.successful === "YES" &&
-    rating.quality_percent >= 80 &&
-    rating.labels.artifact_error === "NONE";
+  return rating.successful === "YES";
 }
 
 function enforcePerfectScoreGuard(rating, artifactAuditResult) {
@@ -1236,6 +1287,7 @@ function createReviewEntry(payload, bundle) {
     garment_type: rating?.garment_type ?? null,
     intended_fit: rating?.intended_fit ?? null,
     silhouette_preserved: rating?.silhouette_preserved ?? null,
+    labels: rating?.labels ?? null,
     notes: rating?.notes ?? payload.error ?? payload.message ?? payload.parse_error ?? null,
     critical_issues: rating?.critical_issues ?? [],
     minor_issues: rating?.minor_issues ?? [],
@@ -1294,6 +1346,11 @@ function buildReviewHtml(reviewEntries, summary, meta) {
             <p><strong>Category:</strong> ${escapeHtml(entry.garment_category || "n/a")}</p>
             <p><strong>Fit:</strong> ${escapeHtml(entry.intended_fit || "n/a")}</p>
             <p><strong>Silhouette:</strong> ${escapeHtml(entry.silhouette_preserved || "n/a")}</p>
+            <p><strong>Labels:</strong> ${escapeHtml(
+              entry.labels
+                ? `structure ${entry.labels.garment_structure_error}, alignment ${entry.labels.construction_alignment_error}, fit ${entry.labels.fit_error}, artifact ${entry.labels.artifact_error}`
+                : "n/a",
+            )}</p>
             <p><strong>Notes:</strong> ${escapeHtml(entry.notes || "n/a")}</p>
           </div>
 
