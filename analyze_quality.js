@@ -28,8 +28,11 @@ IMPORTANT ABOUT STYLED REFERENCE IMAGES:
 - Only judge the actual target garment, not the rest of the styled outfit in the reference image
 - A different skirt, pants, shoes, or other non-target item in GENERATED_RESULT is NOT a mismatch by itself
 - Non-target items matter only if the try-on visibly damages, recolors, warps, erases, duplicates, or incorrectly merges them
+- When MODEL_ORIGINAL is available, preserve non-target items from MODEL_ORIGINAL in GENERATED_RESULT; do NOT replace them with the styled non-target items from TARGET_GARMENT
 
-You will receive EXACTLY TWO images:
+You will receive either TWO or THREE images:
+If a third image is provided, it is MODEL_ORIGINAL, the original person before try-on.
+Use MODEL_ORIGINAL to detect any leftover pieces of the old outfit that remain in GENERATED_RESULT.
 1) TARGET_GARMENT — the product/garment reference image (often a FLATLAY or product photo on white background)
 2) GENERATED_RESULT — the try-on result (person wearing the target garment — THIS IS WHAT YOU JUDGE)
 
@@ -47,6 +50,9 @@ IMPORTANT ABOUT THE PERSON AND OTHER CLOTHING:
 - But damage to visible body parts or visible non-target clothing is STILL an error
 - Recoloring, warping, erasing, duplicating, or inventing parts of other clothing is NOT acceptable unless those areas are naturally covered by the target garment
 - Leftover pieces, masks, outlines, or fragments of old clothing anywhere in GENERATED_RESULT are artifacts when they are clearly visible and clearly not part of the target garment
+- When MODEL_ORIGINAL is available, compare it directly with GENERATED_RESULT to detect remnants of the old clothing that were not fully removed
+- For top or outerwear try-ons, bottoms, shoes, and other non-target garments in GENERATED_RESULT should stay the same as in MODEL_ORIGINAL unless naturally covered by the target garment
+- Treat a changed, replaced, recolored, partially erased, or geometrically altered bottom garment as damage to non-target clothing
 
 STEP 1 — AUTO-DETECT GARMENT TYPE:
 Look at TARGET_GARMENT and determine:
@@ -66,6 +72,7 @@ STEP 2B â€” MANDATORY ARTIFACT SWEEP:
 - Before scoring, scan GENERATED_RESULT specifically for residual old clothing, neck remnants, leftover collars or hoods, damaged body parts, merged hair, broken boundaries, and corrupted non-target clothing
 - If any visible artifact exists anywhere in the image, artifact_error cannot be "NONE"
 - If any visible artifact exists anywhere in the image, the result cannot receive 100 or "no significant issues"
+- If MODEL_ORIGINAL has a hood, padded collar, scarf-like neck shape, or bulky neckline and any remnant of that remains around the neck or shoulders in GENERATED_RESULT while missing from TARGET_GARMENT, treat it as an artifact
 
 STEP 3 — EVALUATE:
 
@@ -129,10 +136,12 @@ IF garment_category is "pants":
 - Visible damage or recoloring to the person's body, top, or shoes is still an error
 
 IF garment_category is "top" or "outerwear":
-- Judge ONLY the top/outerwear for garment identity, ignore whether pants or shoes match the reference garment
-- Do NOT penalize GENERATED_RESULT for having a skirt instead of pants, or pants instead of a skirt, when those bottoms are not the target garment
+- Judge ONLY the top/outerwear for garment identity against TARGET_GARMENT
+- Judge bottoms, shoes, and other non-target garments only against MODEL_ORIGINAL, not against TARGET_GARMENT
+- The result should keep the same bottom garment as MODEL_ORIGINAL unless it is naturally covered by the target garment
+- Do NOT penalize GENERATED_RESULT because TARGET_GARMENT is styled with different pants, a different skirt, different shoes, or other different non-target items
 - If a longer top or outerwear naturally covers pants or inner layers, that is GOOD and not a failure
-- Visible damage or recoloring to the person's body, skirt, pants, or other garments is still an error
+- Visible damage, recoloring, replacement, erasure, or shape change to the person's body, skirt, pants, shoes, or other garments is still an error
 
 IF garment_category is "dress":
 - Judge full garment from neckline to hem
@@ -219,6 +228,9 @@ Rules:
 - If a large or obvious leftover-clothing artifact is clearly visible without reasonable doubt, artifact_severity must be "MAJOR"
 - If something could plausibly be normal shadow, fold, drape, or natural occlusion, do NOT call it MAJOR
 - Never return a perfect clean result if any visible artifact or collateral damage exists
+- When MODEL_ORIGINAL is available, non-target garments such as bottoms and shoes should remain the same in GENERATED_RESULT unless naturally covered by the target garment
+- Do NOT compare bottoms or shoes in GENERATED_RESULT to styled non-target items in TARGET_GARMENT
+- If the bottom garment in GENERATED_RESULT is changed, replaced, recolored, warped, erased, or partially lost relative to MODEL_ORIGINAL, that counts as damage to non-target clothing
 
 Return ONLY valid JSON in this exact schema:
 {
@@ -670,6 +682,30 @@ function applyArtifactAuditToRating(rating, artifactAudit) {
   return finalizeRating(nextRating);
 }
 
+function enforcePerfectScoreGuard(rating, artifactAuditResult) {
+  if (!rating || rating.quality_percent < 100) return rating;
+
+  if (artifactAuditResult?.ok && artifactAuditResult.audit?.artifact_present === "NO") {
+    return rating;
+  }
+
+  const nextLabels = { ...rating.labels };
+  if (nextLabels.artifact_error === "NONE") {
+    nextLabels.artifact_error = "MINOR";
+  }
+
+  return finalizeRating({
+    ...rating,
+    labels: nextLabels,
+    minor_issues: appendUniqueStrings(
+      rating.minor_issues,
+      ["Perfect score withheld because artifact audit did not confirm a fully clean image."],
+      6,
+    ),
+    notes: mergeNotes(rating.notes, "Perfect score withheld because artifact audit did not confirm a fully clean image."),
+  });
+}
+
 function extractAssistantText(resp) {
   const msg = resp?.choices?.[0]?.message;
   if (!msg) return "";
@@ -850,10 +886,21 @@ async function evaluateFolder(folderName, folderContext) {
         role: "user",
         content: [
           { type: "text", text: PROMPT },
-          { type: "text", text: "IMAGE 1: TARGET_GARMENT" },
-          { type: "image_url", image_url: { url: garmentUrl } },
-          { type: "text", text: "IMAGE 2: GENERATED_RESULT" },
-          { type: "image_url", image_url: { url: resultUrl } },
+          ...(modelUrl
+            ? [
+                { type: "text", text: "IMAGE 1: MODEL_ORIGINAL" },
+                { type: "image_url", image_url: { url: modelUrl } },
+                { type: "text", text: "IMAGE 2: TARGET_GARMENT" },
+                { type: "image_url", image_url: { url: garmentUrl } },
+                { type: "text", text: "IMAGE 3: GENERATED_RESULT" },
+                { type: "image_url", image_url: { url: resultUrl } },
+              ]
+            : [
+                { type: "text", text: "IMAGE 1: TARGET_GARMENT" },
+                { type: "image_url", image_url: { url: garmentUrl } },
+                { type: "text", text: "IMAGE 2: GENERATED_RESULT" },
+                { type: "image_url", image_url: { url: resultUrl } },
+              ]),
         ],
       },
     ],
@@ -881,11 +928,12 @@ async function evaluateFolder(folderName, folderContext) {
     validated?.ok && artifactAuditResult?.ok && artifactAuditResult.audit
       ? applyArtifactAuditToRating(validated.rating, artifactAuditResult.audit)
       : validated?.rating ?? null;
+  const guardedRating = enforcePerfectScoreGuard(mergedRating, artifactAuditResult);
 
   return {
     folder: folderName,
     ok: Boolean(parsed.ok && validated?.ok),
-    rating: validated?.ok ? mergedRating : null,
+    rating: validated?.ok ? guardedRating : null,
     raw_output_text: parsed.ok && validated?.ok ? null : raw,
     parse_error: parsed.ok ? validated?.error ?? null : parsed.error,
     finish_reason: resp?.choices?.[0]?.finish_reason ?? null,
@@ -1155,8 +1203,8 @@ function buildReviewHtml(reviewEntries, summary, meta) {
           </div>
 
           <div class="images">
-            ${renderImageCard("Garment", entry.files.garment)}
             ${renderImageCard("Model", entry.files.model)}
+            ${renderImageCard("Garment", entry.files.garment)}
             ${renderImageCard("Result", entry.files.result)}
           </div>
 
