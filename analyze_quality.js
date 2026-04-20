@@ -51,6 +51,7 @@ IMPORTANT ABOUT THE PERSON AND OTHER CLOTHING:
 - Recoloring, warping, erasing, duplicating, or inventing parts of other clothing is NOT acceptable unless those areas are naturally covered by the target garment
 - Leftover pieces, masks, outlines, or fragments of old clothing anywhere in GENERATED_RESULT are artifacts when they are clearly visible and clearly not part of the target garment
 - When MODEL_ORIGINAL is available, compare it directly with GENERATED_RESULT to detect remnants of the old clothing that were not fully removed
+- The original garment inside the area being replaced is supposed to disappear; do NOT say the original top or pants is "missing" if it has been correctly replaced by the target garment
 - For top or outerwear try-ons, bottoms, shoes, and other non-target garments in GENERATED_RESULT should stay the same as in MODEL_ORIGINAL unless naturally covered by the target garment
 - Treat a changed, replaced, recolored, partially erased, or geometrically altered bottom garment as damage to non-target clothing
 
@@ -131,12 +132,14 @@ CATEGORY-SPECIFIC RULES:
 
 IF garment_category is "pants":
 - Judge ONLY pants for garment identity, ignore whether tops or shoes match the reference garment
+- The original pants from MODEL_ORIGINAL are supposed to be replaced by TARGET_GARMENT; do NOT penalize because the old pants are no longer visible
 - Elements obstructed by other clothing = NOT missing, count as correct
 - Pants partially visible due to crop/pose = judge only visible parts
 - Visible damage or recoloring to the person's body, top, or shoes is still an error
 
 IF garment_category is "top" or "outerwear":
 - Judge ONLY the top/outerwear for garment identity against TARGET_GARMENT
+- The original top from MODEL_ORIGINAL is supposed to be replaced by TARGET_GARMENT; do NOT penalize because the old top is no longer visible
 - Judge bottoms, shoes, and other non-target garments only against MODEL_ORIGINAL, not against TARGET_GARMENT
 - The result should keep the same bottom garment as MODEL_ORIGINAL unless it is naturally covered by the target garment
 - Do NOT penalize GENERATED_RESULT because TARGET_GARMENT is styled with different pants, a different skirt, different shoes, or other different non-target items
@@ -228,6 +231,7 @@ Rules:
 - If a large or obvious leftover-clothing artifact is clearly visible without reasonable doubt, artifact_severity must be "MAJOR"
 - If something could plausibly be normal shadow, fold, drape, or natural occlusion, do NOT call it MAJOR
 - Never return a perfect clean result if any visible artifact or collateral damage exists
+- Do NOT treat the original garment disappearing inside the replaced target area as damage; that replacement is expected
 - When MODEL_ORIGINAL is available, non-target garments such as bottoms and shoes should remain the same in GENERATED_RESULT unless naturally covered by the target garment
 - Do NOT compare bottoms or shoes in GENERATED_RESULT to styled non-target items in TARGET_GARMENT
 - If the bottom garment in GENERATED_RESULT is changed, replaced, recolored, warped, erased, or partially lost relative to MODEL_ORIGINAL, that counts as damage to non-target clothing
