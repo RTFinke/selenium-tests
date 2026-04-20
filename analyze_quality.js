@@ -11,7 +11,7 @@ const MAX_RETRIES = Number(process.env.OPENAI_MAX_RETRIES || 3);
 const CONCURRENCY = Math.max(1, Number(process.env.OPENAI_CONCURRENCY || 4));
 const MIN_RETRY_DELAY_MS = Math.max(250, Number(process.env.OPENAI_MIN_RETRY_DELAY_MS || 1000));
 const RATE_LIMIT_JITTER_MS = Math.max(0, Number(process.env.OPENAI_RATE_LIMIT_JITTER_MS || 250));
-const INCLUDE_MODEL_IN_MAIN = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_INCLUDE_MODEL_IN_MAIN || "").trim());
+const INCLUDE_MODEL_IN_MAIN = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_INCLUDE_MODEL_IN_MAIN || "1").trim());
 const ENABLE_ARTIFACT_AUDIT = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_ENABLE_ARTIFACT_AUDIT || "").trim());
 const OUTPUTS_DIR = path.resolve(process.env.ANALYSIS_OUTPUT_DIR || "outputs");
 const REVIEW_DIR_NAME = String(process.env.ANALYSIS_REVIEW_DIR || "review").trim() || "review";
@@ -24,6 +24,9 @@ if (!OPENAI_API_KEY) {
 const PROMPT = `You are a practical QA evaluator for virtual try-on quality.
 You evaluate ALL garment types: tops, pants, jackets, dresses, skirts, etc.
 You are a FAIR and REALISTIC judge. You understand how clothing works on real bodies.
+Your commercial standard is MID-MARKET retail: good enough for most shoppers to trust during normal browsing.
+Be CONSISTENT: visually similar results should receive similar labels and similar scores.
+Judge like a sensible human reviewer, not a literal rule parser.
 
 IMPORTANT ABOUT STYLED REFERENCE IMAGES:
 - TARGET_GARMENT may be shown on a model together with non-target items such as pants, skirts, shoes, or accessories
@@ -78,6 +81,8 @@ STEP 2B â€” MANDATORY ARTIFACT SWEEP:
 - If MODEL_ORIGINAL has a hood, padded collar, scarf-like neck shape, or bulky neckline and any remnant of that remains around the neck or shoulders in GENERATED_RESULT while missing from TARGET_GARMENT, treat it as an artifact
 
 STEP 3 — EVALUATE:
+
+- Use normal shopper visibility, not pixel-peeping. Ignore issues that would only be noticeable on extreme zoom
 
 Check in order of priority:
 
@@ -151,6 +156,15 @@ IF garment_category is "top" or "outerwear":
 IF garment_category is "dress":
 - Judge full garment from neckline to hem
 - Natural coverage of legs or inner garments by dress length or layers is acceptable
+- Small drape changes through the waist, hips, or skirt volume are normal on a different body and should not be over-penalized
+- Only treat dress length, neckline, sleeve type, or silhouette as errors when the visible difference is clear and shopper-relevant
+- Do not infer hidden hem or side details from cropped or partially occluded views
+- Visible damage or recoloring to the person's body or other garments is still an error
+
+IF garment_category is "outerwear":
+- Expect bulk, padding, collars, hoods, and hems to compress and sit differently on a real body
+- Do not over-penalize mild differences in puffiness, openness, collar spread, or drape caused by body shape, layering, or pose
+- Do penalize clearly wrong closure type, hood/collar structure, jacket length, sleeve volume, or obvious leftover old-outfit artifacts
 - Visible damage or recoloring to the person's body or other garments is still an error
 
 TOLERANCE GUIDELINES — BE FAIR:
@@ -158,6 +172,10 @@ TOLERANCE GUIDELINES — BE FAIR:
 - If you can look at the result and say "yes, that person is wearing that garment" = that is a good sign, but it is NOT enough if the try-on damaged the person or other visible clothing
 - Focus on: is the garment RECOGNIZABLE as the same item?
 - Don't nitpick minor differences that any reasonable person would accept
+- If most shoppers would not notice the issue during normal browsing, do not penalize it
+- Do not treat normal pose, gravity, body shape, or fabric drape as problems by themselves
+- Do not write issue text like "pose may affect the drape" or "lighting may affect the appearance" unless there is a real visible defect to describe
+- Reserve critical_issues for clear fail-causing problems that a shopper or merchant would actually care about
 - Do NOT ignore obvious body damage, recolored non-target clothing, or invented non-existent elements just because the target garment is recognizable
 - Do NOT call something a MAJOR artifact unless it is an actual artifact without reasonable doubt
 - Never give a perfect score if any visible artifact, leftover clothing remnant, or collateral damage exists anywhere in GENERATED_RESULT
@@ -180,7 +198,9 @@ Subtract:
 Clamp score to 0..100.
 
 Decision rule:
-- YES if score >= 65 AND garment_structure_error != MAJOR AND artifact_error != MAJOR AND silhouette_error != MAJOR
+- If critical_issues is not empty, the result should fail; do not describe something as a critical issue and still pass it
+- If you list any critical issue, at least one label should be MAJOR or the combined labels should clearly force failure
+- YES only if score >= 65 AND critical_issues is empty AND garment_structure_error != MAJOR AND artifact_error != MAJOR AND silhouette_error != MAJOR
 - Otherwise NO
 
 Output requirements:
@@ -275,6 +295,50 @@ const SCORE_PENALTIES = {
   silhouette_error: { NONE: 0, MINOR: 10, MAJOR: 35 },
 };
 const PASS_SCORE_THRESHOLD = 65;
+const ARTIFACT_PATTERNS = [
+  /artifact/i,
+  /leftover/i,
+  /remnant/i,
+  /residual/i,
+  /mask/i,
+  /ghost/i,
+  /merged hair/i,
+  /broken boundar/i,
+  /old clothing/i,
+  /damaged neck/i,
+  /neck.*(artifact|leftover|remnant|residual|hood|old)/i,
+  /(hood|collar).*(artifact|leftover|remnant|residual|old)/i,
+  /(damaged|warped|melted|broken|merged).*(hair|skin|hand|face|arm|body|neck)/i,
+  /(bottom|pants|skirt|shorts|shoes).*(damaged|recolored|warped|erased|changed|replaced)/i,
+];
+const STRUCTURE_MAJOR_PATTERNS = [
+  /shorts?\s+are\s+visible\s+instead\s+of\s+expected\s+pants/i,
+  /shorts?\s+instead\s+of\s+pants/i,
+  /pants\s+instead\s+of\s+shorts/i,
+  /wrong garment type/i,
+  /different garment type/i,
+  /missing visible buttons?/i,
+  /buttons?\s+are\s+missing/i,
+  /closure.*missing/i,
+  /zipper.*missing/i,
+];
+const SILHOUETTE_MAJOR_PATTERNS = [
+  /garment appears shorter/i,
+  /garment is shorter/i,
+  /too short/i,
+  /wrong length/i,
+  /length.*altered/i,
+  /crop level/i,
+];
+const FIT_MAJOR_PATTERNS = [/too tight/i, /too loose/i, /wrong tightness/i];
+const TOLERABLE_ISSUE_PATTERNS = [
+  /pose may affect/i,
+  /lighting may affect/i,
+  /body shape may affect/i,
+  /gravity may affect/i,
+  /normal fabric drape/i,
+  /slightly narrower on body than flatlay/i,
+];
 let globalCooldownUntil = 0;
 
 function normalizeString(value) {
@@ -468,6 +532,67 @@ function severityRank(value) {
   return 0;
 }
 
+function maxSeverity(a, b) {
+  return severityRank(b) > severityRank(a) ? b : a;
+}
+
+function matchesAnyPattern(text, patterns) {
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+function sanitizeIssueLists(rating) {
+  if (!rating) return rating;
+
+  const shouldKeep = (issue) => {
+    const text = normalizeString(issue);
+    if (!text) return false;
+    return !matchesAnyPattern(text, TOLERABLE_ISSUE_PATTERNS);
+  };
+
+  return {
+    ...rating,
+    critical_issues: rating.critical_issues.filter(shouldKeep),
+    minor_issues: rating.minor_issues.filter(shouldKeep),
+  };
+}
+
+function applyIssueConsistencyGuards(rating) {
+  if (!rating) return rating;
+
+  const criticalText = rating.critical_issues.join(" ");
+  const minorText = rating.minor_issues.join(" ");
+  const notesText = normalizeString(rating.notes);
+  const allText = `${criticalText}\n${minorText}\n${notesText}`;
+  const nextLabels = { ...rating.labels };
+
+  if (matchesAnyPattern(criticalText, ARTIFACT_PATTERNS)) {
+    nextLabels.artifact_error = maxSeverity(nextLabels.artifact_error, "MAJOR");
+  } else if (matchesAnyPattern(allText, ARTIFACT_PATTERNS)) {
+    nextLabels.artifact_error = maxSeverity(nextLabels.artifact_error, "MINOR");
+  }
+
+  if (matchesAnyPattern(criticalText, STRUCTURE_MAJOR_PATTERNS)) {
+    nextLabels.garment_structure_error = maxSeverity(nextLabels.garment_structure_error, "MAJOR");
+  }
+
+  if (matchesAnyPattern(criticalText, SILHOUETTE_MAJOR_PATTERNS)) {
+    nextLabels.silhouette_error = maxSeverity(nextLabels.silhouette_error, "MAJOR");
+  }
+
+  if (matchesAnyPattern(criticalText, FIT_MAJOR_PATTERNS)) {
+    nextLabels.fit_error = maxSeverity(nextLabels.fit_error, "MAJOR");
+  }
+
+  if (rating.critical_issues.length > 0 && !Object.values(nextLabels).some((value) => value === "MAJOR")) {
+    nextLabels.garment_structure_error = maxSeverity(nextLabels.garment_structure_error, "MAJOR");
+  }
+
+  return {
+    ...rating,
+    labels: nextLabels,
+  };
+}
+
 function calculateQualityScore(labels) {
   let score = 100;
   for (const key of LABEL_KEYS) {
@@ -476,8 +601,9 @@ function calculateQualityScore(labels) {
   return clamp(score, 0, 100);
 }
 
-function determineSuccessful(score, labels) {
+function determineSuccessful(score, labels, criticalIssues) {
   return score >= PASS_SCORE_THRESHOLD &&
+    criticalIssues.length === 0 &&
     labels.garment_structure_error !== "MAJOR" &&
     labels.artifact_error !== "MAJOR" &&
     labels.silhouette_error !== "MAJOR"
@@ -486,11 +612,16 @@ function determineSuccessful(score, labels) {
 }
 
 function finalizeRating(rating) {
-  const qualityPercent = calculateQualityScore(rating.labels);
+  const sanitizedRating = sanitizeIssueLists(rating);
+  const consistentRating = applyIssueConsistencyGuards(sanitizedRating);
+  let qualityPercent = calculateQualityScore(consistentRating.labels);
+  if (consistentRating.critical_issues.length > 0 && qualityPercent >= PASS_SCORE_THRESHOLD) {
+    qualityPercent = PASS_SCORE_THRESHOLD - 1;
+  }
   return {
-    ...rating,
+    ...consistentRating,
     quality_percent: qualityPercent,
-    successful: determineSuccessful(qualityPercent, rating.labels),
+    successful: determineSuccessful(qualityPercent, consistentRating.labels, consistentRating.critical_issues),
   };
 }
 
