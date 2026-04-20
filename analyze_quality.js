@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || "").trim();
-const MODEL = String(process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
+const MODEL = String(process.env.OPENAI_MODEL || "gpt-4.1").trim();
 const ENDPOINT = "https://api.openai.com/v1/chat/completions";
 const TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 180000);
 const DELAY_MS = Number(process.env.OPENAI_DELAY_MS || 2000);
