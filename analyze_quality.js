@@ -21,197 +21,112 @@ if (!OPENAI_API_KEY) {
   throw new Error("Missing OPENAI_API_KEY.");
 }
 
-const PROMPT = `You are a practical QA evaluator for virtual try-on quality.
-You evaluate ALL garment types: tops, pants, jackets, dresses, skirts, etc.
-You are a FAIR and REALISTIC judge. You understand how clothing works on real bodies.
-Your commercial standard is MID-MARKET retail: good enough for most shoppers to trust during normal browsing.
-Be CONSISTENT: visually similar results should receive similar labels and similar scores.
-Judge like a sensible human reviewer, not a literal rule parser.
+const PROMPT = `You are a shape-focused QA evaluator for virtual try-on quality.
+You are a fair judge, and the details of the clothing are more important than the quality of the photo.
+You focus on shapes and elements of the garment and its tried-on version.
 
-IMPORTANT ABOUT STYLED REFERENCE IMAGES:
-- TARGET_GARMENT may be shown on a model together with non-target items such as pants, skirts, shoes, or accessories
-- Only judge the actual target garment, not the rest of the styled outfit in the reference image
-- A different skirt, pants, shoes, or other non-target item in GENERATED_RESULT is NOT a mismatch by itself
-- Non-target items matter only if the try-on visibly damages, recolors, warps, erases, duplicates, or incorrectly merges them
-- When MODEL_ORIGINAL is available, preserve non-target items from MODEL_ORIGINAL in GENERATED_RESULT; do NOT replace them with the styled non-target items from TARGET_GARMENT
+You will receive AT LEAST TWO images:
+1) TARGET_GARMENT - the product or garment reference image to be tried on. Focus on its details such as buttons, zippers, and placement.
+2) GENERATED_RESULT - the try-on result showing the person wearing the target garment. THIS IS THE ONE YOU JUDGE.
+3) PERSON - the original image of the model before the try-on, when available.
 
-You will receive either TWO or THREE images:
-If a third image is provided, it is MODEL_ORIGINAL, the original person before try-on.
-Use MODEL_ORIGINAL to detect any leftover pieces of the old outfit that remain in GENERATED_RESULT.
-1) TARGET_GARMENT — the product/garment reference image (often a FLATLAY or product photo on white background)
-2) GENERATED_RESULT — the try-on result (person wearing the target garment — THIS IS WHAT YOU JUDGE)
+CRITICAL RULES:
+- Only judge elements that are present in TARGET_GARMENT.
+- Roles are defined ONLY by this image order. Do NOT swap roles.
+- The only required match is: TARGET_GARMENT must match what the person is wearing in GENERATED_RESULT.
+- Focus primarily on DETAILS.
+- If TARGET_GARMENT is pants, judge ONLY the pants in GENERATED_RESULT.
+- If TARGET_GARMENT is a top, judge ONLY the top in GENERATED_RESULT.
+- Ignore clothing on the person that is not from TARGET_GARMENT.
+- Top clothing can obstruct pants from TARGET_GARMENT. That is NOT a generation fail.
 
-CRITICAL UNDERSTANDING — FLATLAY vs ON-BODY:
-The TARGET_GARMENT is usually a FLATLAY photo (garment laid flat or on mannequin). When any garment is put on a real person:
-- It NATURALLY becomes narrower/more fitted because a body has shape and gravity pulls fabric down
-- Sleeves drape differently on arms than when laid flat
-- The overall width ALWAYS decreases compared to flatlay — this is PHYSICS, not an error
-- An oversized garment on a person will still look more fitted than on a flatlay — THIS IS NORMAL AND EXPECTED
-- ONLY flag silhouette issues if the garment becomes CLEARLY SKIN-TIGHT when it should be loose/oversized
-- A garment looking "slightly narrower on body than flatlay" is NEVER an error
+Evaluation priorities in order of importance:
 
-IMPORTANT ABOUT THE PERSON AND OTHER CLOTHING:
-- Natural coverage is GOOD: if the target garment is longer, looser, or layered in a way that hides part of the body or other clothing, that is correct behavior
-- But damage to visible body parts or visible non-target clothing is STILL an error
-- Recoloring, warping, erasing, duplicating, or inventing parts of other clothing is NOT acceptable unless those areas are naturally covered by the target garment
-- Leftover pieces, masks, outlines, or fragments of old clothing anywhere in GENERATED_RESULT are artifacts when they are clearly visible and clearly not part of the target garment
-- When MODEL_ORIGINAL is available, compare it directly with GENERATED_RESULT to detect remnants of the old clothing that were not fully removed
-- The original garment inside the area being replaced is supposed to disappear; do NOT say the original top or pants is "missing" if it has been correctly replaced by the target garment
-- For top or outerwear try-ons, bottoms, shoes, and other non-target garments in GENERATED_RESULT should stay the same as in MODEL_ORIGINAL unless naturally covered by the target garment
-- Treat a changed, replaced, recolored, partially erased, or geometrically altered bottom garment as damage to non-target clothing
+1) Garment structure and shape fidelity (HIGHEST PRIORITY)
+- Compare TARGET_GARMENT vs GENERATED_RESULT for:
+- Correct garment type, for example jacket vs sweater vs t-shirt.
+- Sleeve type and length, short vs long and fitted vs loose. Remember that shape changes based on body type, resolution, and lighting, so do not be overly harsh here.
+- Collar or neckline type and geometry. Remember that shape changes based on body type, resolution, and lighting, so do not be overly harsh here.
+- Overall silhouette and proportions, including length, looseness, and structure. Remember that shape changes based on body type, resolution, and lighting, so do not be overly harsh here.
+- Presence and correct placement of structural elements from TARGET_GARMENT such as zippers, buttons, plackets, stripes, seams, panels, trims, and ribbing.
+- Added details that do not exist on TARGET_GARMENT are a MAJOR issue.
+- Fully missing visible elements or parts are UNACCEPTABLE and are a MAJOR issue.
+- Rolled-up sleeves are NOT an issue.
+- Slight hood differences are NOT an error.
+- A hood hidden by hair is NOT an issue.
+- For striped garments, missing or absent stripes are a MAJOR fail.
+- Prints may distort. Only unrecognizable prints count as MAJOR issues.
+- Collars and cuffs are allowed to be somewhat distorted in the result.
+- Ignore collar tags. They are allowed to be missing from the result.
 
-STEP 1 — AUTO-DETECT GARMENT TYPE:
-Look at TARGET_GARMENT and determine:
-- garment_category: "top" | "pants" | "dress" | "skirt" | "outerwear" | "other"
-- garment_type: short plain description of the item
-- intended_fit: "tight" | "regular" | "loose" | "oversized"
+2) Construction details and alignment
+- Zippers and buttons should exist where expected and be aligned correctly.
+- The placement details of buttons and zippers are important.
+- Stripes, seams, and panels should follow the correct direction and symmetry.
+- There should be no duplicated, floating, or broken garment parts.
 
-STEP 2 — SILHOUETTE & FIT PRESERVATION:
-Compare TARGET_GARMENT vs GENERATED_RESULT, keeping flatlay-vs-body difference in mind:
-- silhouette_preserved: "YES" | "PARTIAL" | "NO"
-  - YES = garment looks like the same garment on the person (even if slightly narrower than flatlay)
-  - PARTIAL = garment shape is recognizable but noticeably different (e.g. loose became regular)
-  - NO = garment is COMPLETELY different silhouette (e.g. oversized hoodie became skin-tight bodysuit)
-- Default to YES if the garment is recognizably the same item on the person
+3) Fit and placement on the body
+- Check shoulders, neckline, sleeves, and torso placement. Remember that shape changes based on body type.
+- Check scaling relative to the person. Remember that shape changes based on body type.
+- Plausible drape and folds matter.
 
-STEP 2B â€” MANDATORY ARTIFACT SWEEP:
-- Before scoring, scan GENERATED_RESULT specifically for residual old clothing, neck remnants, leftover collars or hoods, damaged body parts, merged hair, broken boundaries, and corrupted non-target clothing
-- If any visible artifact exists anywhere in the image, artifact_error cannot be "NONE"
-- If any visible artifact exists anywhere in the image, the result cannot receive 100 or "no significant issues"
-- If MODEL_ORIGINAL has a hood, padded collar, scarf-like neck shape, or bulky neckline and any remnant of that remains around the neck or shoulders in GENERATED_RESULT while missing from TARGET_GARMENT, treat it as an artifact
+4) Occlusion and layering realism
+- The garment should layer correctly over the body and hair.
+- There should be no unnatural merging with arms, hair, or background.
 
-STEP 3 — EVALUATE:
-
-- Use normal shopper visibility, not pixel-peeping. Ignore issues that would only be noticeable on extreme zoom
-
-Check in order of priority:
-
-1) Garment structure & shape fidelity (HIGHEST PRIORITY)
-- Is it the SAME TYPE of garment? (jacket stays jacket, not sweater)
-- Sleeve type and length roughly correct?
-- Collar/neckline type roughly correct?
-- Key structural elements present: zippers, buttons, pockets, seams, panels, stripes, pleats
-- For cardigans, shirts, polos, jackets, or any closure-based top, visible buttons or closure elements must still be present when they are visible in TARGET_GARMENT
-- If clearly visible buttons are fully missing from a closure-based garment, treat that as at least MINOR and often MAJOR when it changes the garment identity
-- ADDED elements that don't exist on TARGET_GARMENT = MAJOR issue
-- Invented sleeves, straps, panels, trims, closures, graphics, or extra layers are errors, not harmless variation
-- FULLY MISSING key visible elements (not obstructed) = MAJOR issue
-- Shape changes due to body type, pose, gravity, lighting = NOT an error
-- Rolled up sleeves = NOT an issue
-- Slight hood/collar differences = NOT an issue
-- Collar tags missing = NOT an issue
-- Prints slightly distorted = MINOR (only MAJOR if completely unrecognizable)
-
-2) Construction details & alignment
-- Zippers/buttons exist where expected (if visible)
-- Missing visible buttons, missing button placket detail, or a closure that disappears when clearly visible in TARGET_GARMENT is an error and should not be ignored
-- Seams, stripes, panels roughly follow correct direction
-- No duplicated or floating garment parts
-
-3) Fit & placement on the body
-- Garment is on the correct body part
-- Reasonable scaling
-- Plausible drape and folds
-
-4) Layering, occlusion, and body integrity
-- The garment should layer correctly over body, hair, and other clothing
-- Natural coverage is GOOD: if a longer or looser target garment hides part of the body or underlying clothing, that is correct occlusion, not damage
-- Other clothing obstructing parts of TARGET garment = NOT a failure
-- Visible body parts should remain intact: no broken hands, missing limbs, warped skin, melted face or hair, or damaged anatomy
-- Visible non-target clothing should remain intact unless it is naturally covered by the target garment
-- No unnatural merging with arms, hair, background, or other clothing
-
-5) Color & texture (LOW PRIORITY)
-- Only penalize TARGET_GARMENT color or texture if it clearly indicates a DIFFERENT garment
-- Recoloring or restyling other visible garments, skin, hair, or accessories is ALSO an error unless those areas are naturally covered by the target garment
-- Resolution differences, slight lighting shifts, or a mild global color cast are NOT errors by themselves
+5) Color and texture (LOW PRIORITY)
+- Only penalize color if it clearly indicates a different garment.
+- Only penalize texture if it clearly indicates a different garment.
 
 6) Artifacts
-- Warping, melting, ghosting, broken boundaries, duplicated parts, or collateral damage to the person or other clothing are errors
-- Leftover masks, collars, sleeves, hems, outlines, or texture fragments from previous clothing anywhere in the image are artifacts if they are clearly not part of the target garment
-- Artifacts that break garment shape, damage visible body parts, or corrupt other visible garments = MAJOR
-- A large or obvious leftover-clothing artifact should be MAJOR even if the main garment is otherwise correct
-- Only assign MAJOR when the artifact is unmistakable and visible without reasonable doubt; do NOT use MAJOR for something that could plausibly be normal shadow, fold, drape, or occlusion
-- Minor warping, mild resolution loss, or small edge issues = MINOR
-- Small artifacts at edges are only MINOR if they do not visibly damage the person or other clothing
+- Look for warping, melting, ghosting, and broken boundaries.
+- Artifacts that break garment shape are MAJOR issues.
+- Smaller warping and loss of image resolution are MINOR issues.
 
-CATEGORY-SPECIFIC RULES:
+7) Clothing type
+- Only look at the clothing type used in TARGET_GARMENT. If it is pants, look at pants. If it is a top, look at the top.
+- Ignore the rest of the clothing in GENERATED_RESULT. You are judging only the transferred clothing from TARGET_GARMENT.
 
-IF garment_category is "pants":
-- Judge ONLY pants for garment identity, ignore whether tops or shoes match the reference garment
-- The original pants from MODEL_ORIGINAL are supposed to be replaced by TARGET_GARMENT; do NOT penalize because the old pants are no longer visible
-- Elements obstructed by other clothing = NOT missing, count as correct
-- Pants partially visible due to crop/pose = judge only visible parts
-- Visible damage or recoloring to the person's body, top, or shoes is still an error
-
-IF garment_category is "top" or "outerwear":
-- Judge ONLY the top/outerwear for garment identity against TARGET_GARMENT
-- The original top from MODEL_ORIGINAL is supposed to be replaced by TARGET_GARMENT; do NOT penalize because the old top is no longer visible
-- Judge bottoms, shoes, and other non-target garments only against MODEL_ORIGINAL, not against TARGET_GARMENT
-- The result should keep the same bottom garment as MODEL_ORIGINAL unless it is naturally covered by the target garment
-- Do NOT penalize GENERATED_RESULT because TARGET_GARMENT is styled with different pants, a different skirt, different shoes, or other different non-target items
-- If a longer top or outerwear naturally covers pants or inner layers, that is GOOD and not a failure
-- Visible damage, recoloring, replacement, erasure, or shape change to the person's body, skirt, pants, shoes, or other garments is still an error
-
-IF garment_category is "dress":
-- Judge full garment from neckline to hem
-- Natural coverage of legs or inner garments by dress length or layers is acceptable
-- Small drape changes through the waist, hips, or skirt volume are normal on a different body and should not be over-penalized
-- Only treat dress length, neckline, sleeve type, or silhouette as errors when the visible difference is clear and shopper-relevant
-- Do not infer hidden hem or side details from cropped or partially occluded views
-- Visible damage or recoloring to the person's body or other garments is still an error
-
-IF garment_category is "outerwear":
-- Expect bulk, padding, collars, hoods, and hems to compress and sit differently on a real body
-- Do not over-penalize mild differences in puffiness, openness, collar spread, or drape caused by body shape, layering, or pose
-- Do penalize clearly wrong closure type, hood/collar structure, jacket length, sleeve volume, or obvious leftover old-outfit artifacts
-- Visible damage or recoloring to the person's body or other garments is still an error
-
-TOLERANCE GUIDELINES — BE FAIR:
-- This is virtual try-on, NOT photo editing. Some imperfection is expected.
-- If you can look at the result and say "yes, that person is wearing that garment" = that is a good sign, but it is NOT enough if the try-on damaged the person or other visible clothing
-- Focus on: is the garment RECOGNIZABLE as the same item?
-- Don't nitpick minor differences that any reasonable person would accept
-- If most shoppers would not notice the issue during normal browsing, do not penalize it
-- Do not treat normal pose, gravity, body shape, or fabric drape as problems by themselves
-- Do not write issue text like "pose may affect the drape" or "lighting may affect the appearance" unless there is a real visible defect to describe
-- Reserve critical_issues for clear fail-causing problems that a shopper or merchant would actually care about
-- Do NOT ignore obvious body damage, recolored non-target clothing, or invented non-existent elements just because the target garment is recognizable
-- Do NOT call something a MAJOR artifact unless it is an actual artifact without reasonable doubt
-- Never give a perfect score if any visible artifact, leftover clothing remnant, or collateral damage exists anywhere in GENERATED_RESULT
-
-Label assignment (choose ONE per category):
+Label assignment, choose ONE per category:
 - garment_structure_error: NONE | MINOR | MAJOR
 - construction_alignment_error: NONE | MINOR | MAJOR
 - fit_error: NONE | MINOR | MAJOR
 - artifact_error: NONE | MINOR | MAJOR
-- silhouette_error: NONE | MINOR | MAJOR
 
-Scoring (mechanical, fixed penalties):
+Scoring, mechanical fixed penalties:
 Start score = 100
 Subtract:
-- garment_structure_error: MINOR -10, MAJOR -35
-- construction_alignment_error: MINOR -5, MAJOR -20
-- fit_error: MINOR -5, MAJOR -20
-- artifact_error: MINOR -10, MAJOR -30
-- silhouette_error: MINOR -10, MAJOR -35
+- garment_structure_error: MINOR -20, MAJOR -60
+- construction_alignment_error: MINOR -15, MAJOR -40
+- fit_error: MINOR -10, MAJOR -30
+- artifact_error: MINOR -15, MAJOR -40
 Clamp score to 0..100.
 
 Decision rule:
-- If critical_issues is not empty, the result should fail; do not describe something as a critical issue and still pass it
-- If you list any critical issue, at least one label should be MAJOR or the combined labels should clearly force failure
-- YES only if score >= 65 AND critical_issues is empty AND garment_structure_error != MAJOR AND artifact_error != MAJOR AND silhouette_error != MAJOR
+- YES if score >= 75 AND garment_structure_error != MAJOR AND artifact_error != MAJOR
 - Otherwise NO
 
+If TARGET_GARMENT is pants:
+VISIBILITY CHECK, MANDATORY:
+Determine pants_visibility in GENERATED_RESULT:
+- FULL: waistband and both legs are mostly visible, at least down to the knees.
+- PARTIAL: at least one of these is clearly visible: waistband, both legs, or legs down to the knees.
+- NOT_VISIBLE: none of waistband or legs are visible because the image is cropped above the hips.
+- Pants not being fully visible is not a failure.
+- If pants are not fully visible, judge the elements you can see. Elements obscured by other clothing count as generated correctly.
+
+MOST IMPORTANT, NO ESCAPE:
+- If TARGET_GARMENT is pants, check which zippers, pockets, and buttons are obstructed by other clothing.
+- If elements such as zippers, pockets, and buttons are missing only because of obstruction by other clothing, they do NOT count as missing and should be counted as correctly generated.
+- Obstructed elements are NOT critical issues, NOT major issues, and not issues at all.
+- If you state the person is wearing pants, pants_visibility cannot be NOT_VISIBLE. You must instead choose PARTIAL and continue with limited evaluation.
+
 Output requirements:
-Return ONLY valid JSON (no markdown, no commentary) exactly in this schema:
+Return ONLY valid JSON, no markdown and no commentary, exactly in this schema:
 {
   "successful": "YES" | "NO",
   "quality_percent": number,
-  "garment_category": "top" | "pants" | "dress" | "skirt" | "outerwear" | "other",
-  "garment_type": string (e.g. "black oversized longsleeve", "blue slim jeans"),
-  "intended_fit": "tight" | "regular" | "loose" | "oversized",
-  "silhouette_preserved": "YES" | "PARTIAL" | "NO",
+  "garment_type": string,
   "critical_issues": [string],
   "minor_issues": [string],
   "positives": [string],
@@ -220,8 +135,7 @@ Return ONLY valid JSON (no markdown, no commentary) exactly in this schema:
     "garment_structure_error": "NONE" | "MINOR" | "MAJOR",
     "construction_alignment_error": "NONE" | "MINOR" | "MAJOR",
     "fit_error": "NONE" | "MINOR" | "MAJOR",
-    "artifact_error": "NONE" | "MINOR" | "MAJOR",
-    "silhouette_error": "NONE" | "MINOR" | "MAJOR"
+    "artifact_error": "NONE" | "MINOR" | "MAJOR"
   }
 }
 
@@ -230,11 +144,18 @@ Hard limits:
 - minor_issues: max 6 items
 - positives: max 6 items
 - notes: max 350 characters, no repetition
-Begin with "{" and end with "}".
-No trailing text after the final "}".`.trim();
+- If you start repeating, stop and output the JSON immediately.
+- Return JSON only.
+- Begin with "{" and end with "}".
+- No trailing text after the final "}".
 
-const ARTIFACT_AUDIT_PROMPT = `You are a strict artifact auditor for virtual try-on images.
-Your ONLY job is to detect visible artifacts or collateral damage in GENERATED_RESULT.
+Constraints:
+- Be strict about shape, design, and element detail such as belts and button placement.
+- Be tolerant of color and small texture variation.
+- Do not invent details that are not visible.`.trim();
+
+const ARTIFACT_AUDIT_PROMPT = `You are a strict integrity auditor for virtual try-on images.
+Your ONLY job is to detect obvious missable failures in GENERATED_RESULT that a general garment evaluator might overlook.
 
 You may receive:
 1) MODEL_ORIGINAL - the original person before try-on
@@ -242,15 +163,15 @@ You may receive:
 3) GENERATED_RESULT - the final try-on image to audit
 
 Focus especially on:
-- leftover collars, hoods, scarves, sleeves, hems, outlines, masks, or fragments from the original clothing
-- residual padded jacket shapes, neck wraps, or old garment pieces that remain after the try-on
-- damaged body parts, merged hair, broken hands, warped anatomy
-- damaged, recolored, duplicated, erased, or melted non-target clothing
-- obvious boundaries or ghost remnants from the source outfit
+- neck and shoulder leftovers from the original clothing: old collars, hoods, padded neck shapes, scarf-like wraps, masks, or fragments that clearly do not belong to TARGET_GARMENT
+- non-target clothing damage: especially bottoms, skirts, pants, shorts, leggings, shoes, or socks that were recolored, changed, warped, erased, or partially replaced even though the try-on was only supposed to change another garment
+- obvious merged boundaries, ghost remnants, or corrupted clothing/body regions
 
 Rules:
 - If there is any visible artifact, artifact_present must be "YES"
 - If a large or obvious leftover-clothing artifact is clearly visible without reasonable doubt, artifact_severity must be "MAJOR"
+- If visible non-target bottoms are recolored, changed, replaced, or corrupted relative to MODEL_ORIGINAL, artifact_severity should usually be "MAJOR"
+- If the neck or shoulder area clearly contains remnants of the original outfit that are not part of TARGET_GARMENT, artifact_severity should usually be "MAJOR"
 - If something could plausibly be normal shadow, fold, drape, or natural occlusion, do NOT call it MAJOR
 - Never return a perfect clean result if any visible artifact or collateral damage exists
 - Do NOT treat the original garment disappearing inside the replaced target area as damage; that replacement is expected
@@ -288,13 +209,13 @@ const LABEL_KEYS = [
   "silhouette_error",
 ];
 const SCORE_PENALTIES = {
-  garment_structure_error: { NONE: 0, MINOR: 10, MAJOR: 35 },
-  construction_alignment_error: { NONE: 0, MINOR: 5, MAJOR: 20 },
-  fit_error: { NONE: 0, MINOR: 5, MAJOR: 20 },
-  artifact_error: { NONE: 0, MINOR: 10, MAJOR: 30 },
-  silhouette_error: { NONE: 0, MINOR: 10, MAJOR: 35 },
+  garment_structure_error: { NONE: 0, MINOR: 20, MAJOR: 60 },
+  construction_alignment_error: { NONE: 0, MINOR: 15, MAJOR: 40 },
+  fit_error: { NONE: 0, MINOR: 10, MAJOR: 30 },
+  artifact_error: { NONE: 0, MINOR: 15, MAJOR: 40 },
+  silhouette_error: { NONE: 0, MINOR: 0, MAJOR: 0 },
 };
-const PASS_SCORE_THRESHOLD = 65;
+const PASS_SCORE_THRESHOLD = 75;
 const ARTIFACT_PATTERNS = [
   /artifact/i,
   /leftover/i,
@@ -343,6 +264,24 @@ let globalCooldownUntil = 0;
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeOptionalEnum(value, allowedSet) {
+  const normalized = normalizeString(value);
+  if (!normalized) return null;
+  return allowedSet.has(normalized) ? normalized : null;
+}
+
+function normalizeGarmentType(value) {
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => normalizeString(item))
+      .filter(Boolean)
+      .join("; ")
+      .slice(0, 160);
+  }
+  return "";
 }
 
 function ensureDir(dirPath) {
@@ -605,8 +544,7 @@ function determineSuccessful(score, labels, criticalIssues) {
   return score >= PASS_SCORE_THRESHOLD &&
     criticalIssues.length === 0 &&
     labels.garment_structure_error !== "MAJOR" &&
-    labels.artifact_error !== "MAJOR" &&
-    labels.silhouette_error !== "MAJOR"
+    labels.artifact_error !== "MAJOR"
       ? "YES"
       : "NO";
 }
@@ -740,20 +678,9 @@ function validateAndNormalizeRating(raw) {
     return { ok: false, error: "Response JSON is not an object." };
   }
 
-  const garmentCategory = normalizeString(raw.garment_category);
-  if (!ALLOWED_CATEGORIES.has(garmentCategory)) {
-    return { ok: false, error: `Invalid garment_category: ${JSON.stringify(raw.garment_category)}` };
-  }
-
-  const intendedFit = normalizeString(raw.intended_fit);
-  if (!ALLOWED_FITS.has(intendedFit)) {
-    return { ok: false, error: `Invalid intended_fit: ${JSON.stringify(raw.intended_fit)}` };
-  }
-
-  const silhouettePreserved = normalizeString(raw.silhouette_preserved);
-  if (!ALLOWED_SILHOUETTES.has(silhouettePreserved)) {
-    return { ok: false, error: `Invalid silhouette_preserved: ${JSON.stringify(raw.silhouette_preserved)}` };
-  }
+  const garmentCategory = normalizeOptionalEnum(raw.garment_category, ALLOWED_CATEGORIES);
+  const intendedFit = normalizeOptionalEnum(raw.intended_fit, ALLOWED_FITS);
+  const silhouettePreserved = normalizeOptionalEnum(raw.silhouette_preserved, ALLOWED_SILHOUETTES);
 
   const labels = raw.labels;
   if (!labels || typeof labels !== "object" || Array.isArray(labels)) {
@@ -763,6 +690,9 @@ function validateAndNormalizeRating(raw) {
   const normalizedLabels = {};
   for (const key of LABEL_KEYS) {
     let value = normalizeString(labels[key]);
+    if (!value && key === "silhouette_error") {
+      value = "NONE";
+    }
     if (key === "silhouette_error" && value === "PARTIAL") {
       value = "MINOR";
     }
@@ -776,7 +706,7 @@ function validateAndNormalizeRating(raw) {
     ok: true,
     rating: finalizeRating({
       garment_category: garmentCategory,
-      garment_type: normalizeString(raw.garment_type),
+      garment_type: normalizeGarmentType(raw.garment_type),
       intended_fit: intendedFit,
       silhouette_preserved: silhouettePreserved,
       critical_issues: normalizeStringList(raw.critical_issues, 6),
@@ -817,6 +747,19 @@ function applyArtifactAuditToRating(rating, artifactAudit) {
   };
 
   return finalizeRating(nextRating);
+}
+
+function shouldRunArtifactAudit(rating, hasModelImage) {
+  if (ENABLE_ARTIFACT_AUDIT) return true;
+  if (!hasModelImage || !rating) return false;
+
+  const category = rating.garment_category;
+  const categoryNeedsIntegrityCheck = category === "top" || category === "outerwear" || category === "dress";
+
+  return categoryNeedsIntegrityCheck &&
+    rating.successful === "YES" &&
+    rating.quality_percent >= 80 &&
+    rating.labels.artifact_error === "NONE";
 }
 
 function enforcePerfectScoreGuard(rating, artifactAuditResult) {
@@ -925,8 +868,12 @@ async function postChatCompletions(payload) {
   throw lastErr;
 }
 
-async function runArtifactAudit(garmentUrl, modelUrl, resultUrl) {
+async function runArtifactAudit(garmentUrl, modelUrl, resultUrl, garmentCategory) {
   const content = [{ type: "text", text: ARTIFACT_AUDIT_PROMPT }];
+
+  if (garmentCategory) {
+    content.push({ type: "text", text: `Predicted target garment category: ${garmentCategory}` });
+  }
 
   if (modelUrl) {
     content.push({ type: "text", text: "IMAGE 1: MODEL_ORIGINAL" });
@@ -945,7 +892,7 @@ async function runArtifactAudit(garmentUrl, modelUrl, resultUrl) {
   const payload = {
     model: MODEL,
     temperature: 0,
-    max_tokens: 400,
+    max_tokens: 220,
     top_p: 1,
     presence_penalty: 0,
     n: 1,
@@ -1007,8 +954,7 @@ async function evaluateFolder(folderName, folderContext) {
   }
 
   const garmentUrl = fileToDataUrl(garmentPath);
-  const modelUrl =
-    modelPath && (INCLUDE_MODEL_IN_MAIN || ENABLE_ARTIFACT_AUDIT) ? fileToDataUrl(modelPath) : null;
+  const modelUrl = modelPath && INCLUDE_MODEL_IN_MAIN ? fileToDataUrl(modelPath) : null;
   const resultUrl = fileToDataUrl(resultPath);
   const useModelInMain = Boolean(modelUrl && INCLUDE_MODEL_IN_MAIN);
 
@@ -1027,12 +973,12 @@ async function evaluateFolder(folderName, folderContext) {
           { type: "text", text: PROMPT },
           ...(useModelInMain
             ? [
-                { type: "text", text: "IMAGE 1: MODEL_ORIGINAL" },
-                { type: "image_url", image_url: { url: modelUrl } },
-                { type: "text", text: "IMAGE 2: TARGET_GARMENT" },
+                { type: "text", text: "IMAGE 1: TARGET_GARMENT" },
                 { type: "image_url", image_url: { url: garmentUrl } },
-                { type: "text", text: "IMAGE 3: GENERATED_RESULT" },
+                { type: "text", text: "IMAGE 2: GENERATED_RESULT" },
                 { type: "image_url", image_url: { url: resultUrl } },
+                { type: "text", text: "IMAGE 3: PERSON" },
+                { type: "image_url", image_url: { url: modelUrl } },
               ]
             : [
                 { type: "text", text: "IMAGE 1: TARGET_GARMENT" },
@@ -1049,11 +995,18 @@ async function evaluateFolder(folderName, folderContext) {
   const raw = extractAssistantText(resp);
   const parsed = safeJsonParse(raw);
   const validated = parsed.ok ? validateAndNormalizeRating(parsed.json) : null;
+  let finalRating = validated?.rating ?? null;
   let artifactAuditResult = null;
 
-  if (ENABLE_ARTIFACT_AUDIT) {
+  if (validated?.ok && shouldRunArtifactAudit(finalRating, Boolean(modelPath))) {
     try {
-      artifactAuditResult = await runArtifactAudit(garmentUrl, modelUrl, resultUrl);
+      const auditModelUrl = modelUrl ?? (modelPath ? fileToDataUrl(modelPath) : null);
+      artifactAuditResult = await runArtifactAudit(
+        garmentUrl,
+        auditModelUrl,
+        resultUrl,
+        finalRating?.garment_category ?? null,
+      );
     } catch (error) {
       artifactAuditResult = {
         ok: false,
@@ -1065,8 +1018,7 @@ async function evaluateFolder(folderName, folderContext) {
     }
   }
 
-  let finalRating = validated?.rating ?? null;
-  if (validated?.ok && ENABLE_ARTIFACT_AUDIT && artifactAuditResult?.ok && artifactAuditResult.audit) {
+  if (validated?.ok && artifactAuditResult?.ok && artifactAuditResult.audit) {
     finalRating = applyArtifactAuditToRating(finalRating, artifactAuditResult.audit);
     finalRating = enforcePerfectScoreGuard(finalRating, artifactAuditResult);
   }
@@ -1179,10 +1131,10 @@ function buildTextSummary(payload) {
   if (rating) {
     lines.push(`AI pass: ${rating.successful}`);
     lines.push(`Quality score: ${rating.quality_percent}%`);
-    lines.push(`Garment category: ${rating.garment_category}`);
+    lines.push(`Garment category: ${rating.garment_category || "n/a"}`);
     lines.push(`Garment type: ${rating.garment_type || "(blank)"}`);
-    lines.push(`Intended fit: ${rating.intended_fit}`);
-    lines.push(`Silhouette preserved: ${rating.silhouette_preserved}`);
+    lines.push(`Intended fit: ${rating.intended_fit || "n/a"}`);
+    lines.push(`Silhouette preserved: ${rating.silhouette_preserved || "n/a"}`);
     lines.push(`Notes: ${rating.notes || "none"}`);
     lines.push("");
     lines.push(formatBulletSection("Critical issues", rating.critical_issues));
@@ -1850,7 +1802,7 @@ async function main() {
   console.log(`Folders: ${folders.length}`);
   console.log(`Concurrency: ${CONCURRENCY}`);
   console.log(`Main evaluation uses model image: ${INCLUDE_MODEL_IN_MAIN ? "YES" : "NO"}`);
-  console.log(`Artifact audit enabled: ${ENABLE_ARTIFACT_AUDIT ? "YES" : "NO"}`);
+  console.log(`Artifact audit mode: ${ENABLE_ARTIFACT_AUDIT ? "ALWAYS" : "AUTO ON CLEAN PASS CANDIDATES"}`);
   console.log(`Review bundle dir: ${projectRelative(reviewRoot) || reviewRoot}`);
 
   const summary = {
@@ -1913,19 +1865,21 @@ async function main() {
       if (rating.successful === "YES") summary.successful++;
       else summary.failed++;
 
-      const category = rating.garment_category || "unknown";
-      if (!summary.by_category[category]) summary.by_category[category] = { total: 0, pass: 0, fail: 0 };
-      summary.by_category[category].total++;
-      if (rating.successful === "YES") summary.by_category[category].pass++;
-      else summary.by_category[category].fail++;
+      if (rating.garment_category) {
+        const category = rating.garment_category;
+        if (!summary.by_category[category]) summary.by_category[category] = { total: 0, pass: 0, fail: 0 };
+        summary.by_category[category].total++;
+        if (rating.successful === "YES") summary.by_category[category].pass++;
+        else summary.by_category[category].fail++;
+      }
 
-      const silhouette = rating.silhouette_preserved || "unknown";
-      if (summary.silhouette_stats[silhouette] !== undefined) summary.silhouette_stats[silhouette]++;
+      if (rating.silhouette_preserved && summary.silhouette_stats[rating.silhouette_preserved] !== undefined) {
+        summary.silhouette_stats[rating.silhouette_preserved]++;
+      }
 
-      const fit = rating.intended_fit || "regular";
-      if (summary.by_fit[fit]) {
-        summary.by_fit[fit].total++;
-        if (rating.successful === "YES") summary.by_fit[fit].pass++;
+      if (rating.intended_fit && summary.by_fit[rating.intended_fit]) {
+        summary.by_fit[rating.intended_fit].total++;
+        if (rating.successful === "YES") summary.by_fit[rating.intended_fit].pass++;
       }
     } else {
       console.log(JSON.stringify(record, null, 2));
