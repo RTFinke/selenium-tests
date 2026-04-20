@@ -11,6 +11,8 @@ const MAX_RETRIES = Number(process.env.OPENAI_MAX_RETRIES || 3);
 const CONCURRENCY = Math.max(1, Number(process.env.OPENAI_CONCURRENCY || 4));
 const MIN_RETRY_DELAY_MS = Math.max(250, Number(process.env.OPENAI_MIN_RETRY_DELAY_MS || 1000));
 const RATE_LIMIT_JITTER_MS = Math.max(0, Number(process.env.OPENAI_RATE_LIMIT_JITTER_MS || 250));
+const INCLUDE_MODEL_IN_MAIN = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_INCLUDE_MODEL_IN_MAIN || "").trim());
+const ENABLE_ARTIFACT_AUDIT = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_ENABLE_ARTIFACT_AUDIT || "").trim());
 const OUTPUTS_DIR = path.resolve(process.env.ANALYSIS_OUTPUT_DIR || "outputs");
 const REVIEW_DIR_NAME = String(process.env.ANALYSIS_REVIEW_DIR || "review").trim() || "review";
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif"]);
@@ -874,8 +876,10 @@ async function evaluateFolder(folderName, folderContext) {
   }
 
   const garmentUrl = fileToDataUrl(garmentPath);
-  const modelUrl = modelPath ? fileToDataUrl(modelPath) : null;
+  const modelUrl =
+    modelPath && (INCLUDE_MODEL_IN_MAIN || ENABLE_ARTIFACT_AUDIT) ? fileToDataUrl(modelPath) : null;
   const resultUrl = fileToDataUrl(resultPath);
+  const useModelInMain = Boolean(modelUrl && INCLUDE_MODEL_IN_MAIN);
 
   const payload = {
     model: MODEL,
@@ -890,7 +894,7 @@ async function evaluateFolder(folderName, folderContext) {
         role: "user",
         content: [
           { type: "text", text: PROMPT },
-          ...(modelUrl
+          ...(useModelInMain
             ? [
                 { type: "text", text: "IMAGE 1: MODEL_ORIGINAL" },
                 { type: "image_url", image_url: { url: modelUrl } },
@@ -916,28 +920,30 @@ async function evaluateFolder(folderName, folderContext) {
   const validated = parsed.ok ? validateAndNormalizeRating(parsed.json) : null;
   let artifactAuditResult = null;
 
-  try {
-    artifactAuditResult = await runArtifactAudit(garmentUrl, modelUrl, resultUrl);
-  } catch (error) {
-    artifactAuditResult = {
-      ok: false,
-      audit: null,
-      raw_output_text: null,
-      parse_error: error?.message ?? String(error),
-      finish_reason: null,
-    };
+  if (ENABLE_ARTIFACT_AUDIT) {
+    try {
+      artifactAuditResult = await runArtifactAudit(garmentUrl, modelUrl, resultUrl);
+    } catch (error) {
+      artifactAuditResult = {
+        ok: false,
+        audit: null,
+        raw_output_text: null,
+        parse_error: error?.message ?? String(error),
+        finish_reason: null,
+      };
+    }
   }
 
-  const mergedRating =
-    validated?.ok && artifactAuditResult?.ok && artifactAuditResult.audit
-      ? applyArtifactAuditToRating(validated.rating, artifactAuditResult.audit)
-      : validated?.rating ?? null;
-  const guardedRating = enforcePerfectScoreGuard(mergedRating, artifactAuditResult);
+  let finalRating = validated?.rating ?? null;
+  if (validated?.ok && ENABLE_ARTIFACT_AUDIT && artifactAuditResult?.ok && artifactAuditResult.audit) {
+    finalRating = applyArtifactAuditToRating(finalRating, artifactAuditResult.audit);
+    finalRating = enforcePerfectScoreGuard(finalRating, artifactAuditResult);
+  }
 
   return {
     folder: folderName,
     ok: Boolean(parsed.ok && validated?.ok),
-    rating: validated?.ok ? guardedRating : null,
+    rating: validated?.ok ? finalRating : null,
     raw_output_text: parsed.ok && validated?.ok ? null : raw,
     parse_error: parsed.ok ? validated?.error ?? null : parsed.error,
     finish_reason: resp?.choices?.[0]?.finish_reason ?? null,
@@ -1712,6 +1718,8 @@ async function main() {
   console.log(`Source layout: ${sourceLayout}`);
   console.log(`Folders: ${folders.length}`);
   console.log(`Concurrency: ${CONCURRENCY}`);
+  console.log(`Main evaluation uses model image: ${INCLUDE_MODEL_IN_MAIN ? "YES" : "NO"}`);
+  console.log(`Artifact audit enabled: ${ENABLE_ARTIFACT_AUDIT ? "YES" : "NO"}`);
   console.log(`Review bundle dir: ${projectRelative(reviewRoot) || reviewRoot}`);
 
   const summary = {
