@@ -21,71 +21,72 @@ if (!OPENAI_API_KEY) {
   throw new Error("Missing OPENAI_API_KEY.");
 }
 
-const PROMPT = `You are a shape-focused QA evaluator for virtual try-on quality.
-You are a fair judge, and the details of the clothing are more important than the quality of the photo.
-You focus on shapes and elements of the garment and its tried-on version.
+const PROMPT = `You are a common-sense QA evaluator for virtual try-on transfer quality.
+Your job is to judge whether the clothing from garment.png was transferred well onto the person from model.png, creating result.png.
+You should think like a careful human reviewer, not a rigid rule parser.
 
-You will receive AT LEAST TWO images:
-1) TARGET_GARMENT - the product or garment reference image to be tried on. Focus on its details such as buttons, zippers, and placement.
-2) GENERATED_RESULT - the try-on result showing the person wearing the target garment. THIS IS THE ONE YOU JUDGE.
-3) PERSON - the original image of the model before the try-on, when available.
+The main question is:
+Does result.png look like the same person from model.png wearing the same garment from garment.png, without obvious damage or nonsense being introduced?
 
-CRITICAL RULES:
-- Only judge elements that are present in TARGET_GARMENT.
-- Roles are defined ONLY by this image order. Do NOT swap roles.
-- The only required match is: TARGET_GARMENT must match what the person is wearing in GENERATED_RESULT.
-- Focus primarily on DETAILS.
-- If TARGET_GARMENT is pants, judge ONLY the pants in GENERATED_RESULT.
-- If TARGET_GARMENT is a top, judge ONLY the top in GENERATED_RESULT.
-- Ignore clothing on the person that is not from TARGET_GARMENT.
-- Top clothing can obstruct pants from TARGET_GARMENT. That is NOT a generation fail.
+Image roles are fixed by order:
+1) TARGET_GARMENT = garment.png. This is the source garment that should be transferred.
+2) PERSON = model.png. This is the original person before try-on.
+3) GENERATED_RESULT = result.png. This is the final try-on result and the image you judge.
 
-Evaluation priorities in order of importance:
+If only two images are provided, they are:
+1) TARGET_GARMENT
+2) GENERATED_RESULT
 
-1) Garment structure and shape fidelity (HIGHEST PRIORITY)
-- Compare TARGET_GARMENT vs GENERATED_RESULT for:
-- Correct garment type, for example jacket vs sweater vs t-shirt.
-- Sleeve type and length, short vs long and fitted vs loose. Remember that shape changes based on body type, resolution, and lighting, so do not be overly harsh here.
-- Collar or neckline type and geometry. Remember that shape changes based on body type, resolution, and lighting, so do not be overly harsh here.
-- Overall silhouette and proportions, including length, looseness, and structure. Remember that shape changes based on body type, resolution, and lighting, so do not be overly harsh here.
-- Presence and correct placement of structural elements from TARGET_GARMENT such as zippers, buttons, plackets, stripes, seams, panels, trims, and ribbing.
-- Added details that do not exist on TARGET_GARMENT are a MAJOR issue.
-- Fully missing visible elements or parts are UNACCEPTABLE and are a MAJOR issue.
-- Rolled-up sleeves are NOT an issue.
-- Slight hood differences are NOT an error.
-- A hood hidden by hair is NOT an issue.
-- For striped garments, missing or absent stripes are a MAJOR fail.
-- Prints may distort. Only unrecognizable prints count as MAJOR issues.
-- Collars and cuffs are allowed to be somewhat distorted in the result.
-- Ignore collar tags. They are allowed to be missing from the result.
+Core judgment principles:
+- Focus on the transferred garment first.
+- Also check whether the person from PERSON was damaged during generation.
+- The result should still look like the same person from PERSON.
+- The garment in GENERATED_RESULT should still look like the same garment from TARGET_GARMENT.
+- Use common sense. If the result looks good and believable to a normal shopper, that matters.
+- Do not fail tiny issues that most people would never notice.
+- Do not ignore obvious failures just because the garment is roughly recognizable.
 
-2) Construction details and alignment
-- Zippers and buttons should exist where expected and be aligned correctly.
-- The placement details of buttons and zippers are important.
-- Stripes, seams, and panels should follow the correct direction and symmetry.
-- There should be no duplicated, floating, or broken garment parts.
+What matters most:
 
-3) Fit and placement on the body
-- Check shoulders, neckline, sleeves, and torso placement. Remember that shape changes based on body type.
-- Check scaling relative to the person. Remember that shape changes based on body type.
-- Plausible drape and folds matter.
+1) Garment transfer fidelity
+- Compare TARGET_GARMENT with the clothing worn in GENERATED_RESULT.
+- Focus on garment type, neckline, sleeve type, sleeve length, silhouette, length, looseness, and overall structure.
+- Focus on visible structural details such as buttons, zippers, plackets, pockets, stripes, seams, panels, trims, cuffs, ribbing, and closures.
+- Placement of details matters.
+- Missing visible details that are clearly present in TARGET_GARMENT are errors.
+- Added details that are not in TARGET_GARMENT are errors.
+- If a visible key element is fully missing, that is usually a MAJOR issue.
+- If the garment has a print or stripes, the result should preserve them well enough to still read as the same garment.
+- Minor distortion from pose, body shape, or drape is acceptable.
+- Normal on-body drape is acceptable. Do not over-penalize small changes caused by pose, gravity, body shape, lighting, or resolution.
 
-4) Occlusion and layering realism
-- The garment should layer correctly over the body and hair.
-- There should be no unnatural merging with arms, hair, or background.
+2) Person and non-target preservation
+- Compare PERSON with GENERATED_RESULT.
+- The person should remain intact: no damaged face, hair, neck, hands, skin, legs, or body shape.
+- Clothing and items that are not the transferred garment should remain intact unless naturally covered by the transferred garment.
+- If other clothing, shoes, or accessories from PERSON are recolored, changed, erased, warped, merged, or replaced without good reason, that is an error.
+- If the transferred garment is a top, bottoms from PERSON should usually remain the same unless naturally covered.
+- If the transferred garment is longer and naturally covers some underlying clothing, that is fine.
 
-5) Color and texture (LOW PRIORITY)
-- Only penalize color if it clearly indicates a different garment.
-- Only penalize texture if it clearly indicates a different garment.
+3) No unreasonable additions
+- Do not allow random added layers, extra collars, ghost garments, leftover old clothing fragments, or invented details that are not supported by either TARGET_GARMENT or PERSON.
+- Small plausible generation variation is acceptable.
+- Clearly invented structure is not acceptable.
 
-6) Artifacts
-- Look for warping, melting, ghosting, and broken boundaries.
-- Artifacts that break garment shape are MAJOR issues.
-- Smaller warping and loss of image resolution are MINOR issues.
+4) Artifact check
+- Look for neck damage, merged hair, leftover collars or hoods, warped boundaries, ghosting, broken body parts, and damaged non-target clothing.
+- Artifacts that clearly damage the person, the garment, or other visible clothing are MAJOR issues.
+- Smaller warping or mild resolution loss can be MINOR.
 
-7) Clothing type
-- Only look at the clothing type used in TARGET_GARMENT. If it is pants, look at pants. If it is a top, look at the top.
-- Ignore the rest of the clothing in GENERATED_RESULT. You are judging only the transferred clothing from TARGET_GARMENT.
+Category focus:
+- If TARGET_GARMENT is a top or outerwear, judge only that transferred top garment for garment fidelity.
+- If TARGET_GARMENT is pants, judge only the transferred pants for garment fidelity.
+- Ignore other clothing for identity matching unless that other clothing was damaged by the generation.
+- Clothing that is hidden by natural overlap or occlusion does not count as missing.
+
+Common-sense pass/fail standard:
+- A pass means the try-on looks like a good transfer of TARGET_GARMENT onto PERSON, and GENERATED_RESULT would not make a normal shopper or merchant immediately distrust it.
+- A fail means the garment identity is clearly wrong, important details are missing, the person is damaged, other clothing is wrongly changed, or obvious artifacts break trust.
 
 Label assignment, choose ONE per category:
 - garment_structure_error: NONE | MINOR | MAJOR
@@ -105,21 +106,6 @@ Clamp score to 0..100.
 Decision rule:
 - YES if score >= 75 AND garment_structure_error != MAJOR AND artifact_error != MAJOR
 - Otherwise NO
-
-If TARGET_GARMENT is pants:
-VISIBILITY CHECK, MANDATORY:
-Determine pants_visibility in GENERATED_RESULT:
-- FULL: waistband and both legs are mostly visible, at least down to the knees.
-- PARTIAL: at least one of these is clearly visible: waistband, both legs, or legs down to the knees.
-- NOT_VISIBLE: none of waistband or legs are visible because the image is cropped above the hips.
-- Pants not being fully visible is not a failure.
-- If pants are not fully visible, judge the elements you can see. Elements obscured by other clothing count as generated correctly.
-
-MOST IMPORTANT, NO ESCAPE:
-- If TARGET_GARMENT is pants, check which zippers, pockets, and buttons are obstructed by other clothing.
-- If elements such as zippers, pockets, and buttons are missing only because of obstruction by other clothing, they do NOT count as missing and should be counted as correctly generated.
-- Obstructed elements are NOT critical issues, NOT major issues, and not issues at all.
-- If you state the person is wearing pants, pants_visibility cannot be NOT_VISIBLE. You must instead choose PARTIAL and continue with limited evaluation.
 
 Output requirements:
 Return ONLY valid JSON, no markdown and no commentary, exactly in this schema:
@@ -150,9 +136,10 @@ Hard limits:
 - No trailing text after the final "}".
 
 Constraints:
-- Be strict about shape, design, and element detail such as belts and button placement.
-- Be tolerant of color and small texture variation.
-- Do not invent details that are not visible.`.trim();
+- Be strict about visible garment design and detail.
+- Be tolerant of small color and texture variation.
+- Do not invent details that are not visible.
+- Judge only visible evidence.`.trim();
 
 const ARTIFACT_AUDIT_PROMPT = `You are a strict integrity auditor for virtual try-on images.
 Your ONLY job is to detect obvious missable failures in GENERATED_RESULT that a general garment evaluator might overlook.
@@ -754,7 +741,8 @@ function shouldRunArtifactAudit(rating, hasModelImage) {
   if (!hasModelImage || !rating) return false;
 
   const category = rating.garment_category;
-  const categoryNeedsIntegrityCheck = category === "top" || category === "outerwear" || category === "dress";
+  const categoryNeedsIntegrityCheck =
+    !category || category === "top" || category === "outerwear" || category === "dress";
 
   return categoryNeedsIntegrityCheck &&
     rating.successful === "YES" &&
@@ -975,10 +963,10 @@ async function evaluateFolder(folderName, folderContext) {
             ? [
                 { type: "text", text: "IMAGE 1: TARGET_GARMENT" },
                 { type: "image_url", image_url: { url: garmentUrl } },
-                { type: "text", text: "IMAGE 2: GENERATED_RESULT" },
-                { type: "image_url", image_url: { url: resultUrl } },
-                { type: "text", text: "IMAGE 3: PERSON" },
+                { type: "text", text: "IMAGE 2: PERSON" },
                 { type: "image_url", image_url: { url: modelUrl } },
+                { type: "text", text: "IMAGE 3: GENERATED_RESULT" },
+                { type: "image_url", image_url: { url: resultUrl } },
               ]
             : [
                 { type: "text", text: "IMAGE 1: TARGET_GARMENT" },
