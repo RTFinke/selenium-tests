@@ -65,9 +65,15 @@ What matters most:
 - The person should remain intact: no damaged face, hair, neck, hands, skin, legs, or body shape.
 - Clothing and items that are not the transferred garment should remain intact unless naturally covered by the transferred garment.
 - If other clothing, shoes, or accessories from PERSON are recolored, changed, erased, warped, merged, or replaced without good reason, that is an error.
+- If PERSON originally had a turtleneck, high collar, scarf-like neck coverage, or other garment covering the neck, GENERATED_RESULT may legitimately reveal or synthesize neck skin or upper chest that was hidden before.
+- A newly visible or newly synthesized neck area is acceptable if it looks anatomically natural, smoothly integrated, and consistent in skin tone, lighting, and shading.
+- Do NOT treat a clean, natural-looking exposed neck as leftover turtleneck damage just because that area was hidden in PERSON.
+- Only treat the neck area as artifact or damage if there are clear remnants of the old neck covering, or if the generated neck looks malformed, implausible, mismatched, or corrupted.
 - If the transferred garment is a top, bottoms from PERSON should usually remain the same unless naturally covered.
 - If TARGET_GARMENT is tucked in, or clearly meant to be tucked in, GENERATED_RESULT may also reveal or synthesize the upper part of the bottoms that was hidden in PERSON.
 - A newly visible waistband, top of pants, top of skirt, or top of shorts caused by tucking is acceptable if it looks plausible, consistent with the rest of the bottoms, and visually fitting.
+- Because that upper-bottom area may have been hidden in PERSON, do NOT require an exact reconstruction of the original waistband or top edge.
+- Small differences in the top seam, waistband shape, gathers, folds, or upper-bottom contour are acceptable if the result still looks natural and coherent overall.
 - Only treat that newly generated upper-bottom area as damage if it looks malformed, mismatched, corrupted, or like an invented extra layer.
 - If the transferred garment is longer and naturally covers some underlying clothing, that is fine.
 
@@ -159,6 +165,7 @@ Focus especially on:
 - non-target clothing damage: especially bottoms, skirts, pants, shorts, leggings, shoes, or socks that were recolored, changed, warped, erased, or partially replaced even though the try-on was only supposed to change another garment
 - added extra lower-body garments or layers, such as invented shorts, skirts, leggings, or overlays that were not present in MODEL_ORIGINAL and are not part of TARGET_GARMENT
 - obvious merged boundaries, ghost remnants, or corrupted clothing/body regions
+- BUT if MODEL_ORIGINAL had a turtleneck, high collar, or other neck coverage, a newly visible or newly synthesized neck can be acceptable and should be judged for natural appearance rather than treated as automatic leftover clothing
 - BUT if TARGET_GARMENT is tucked in, a newly visible or newly synthesized waistband or upper-bottom area can be acceptable and should be judged for plausibility rather than treated as automatic damage
 
 Rules:
@@ -169,12 +176,16 @@ Rules:
 - If visible non-target bottoms are recolored, changed, replaced, or corrupted relative to MODEL_ORIGINAL, artifact_severity should usually be "MAJOR", except for a plausible newly visible upper-bottom area caused by a tucked-in target garment
 - If a new lower-body garment or extra layer appears in GENERATED_RESULT that was not present in MODEL_ORIGINAL and is not the target garment, artifact_severity should usually be "MAJOR"
 - If the neck or shoulder area clearly contains remnants of the original outfit that are not part of TARGET_GARMENT, artifact_severity should usually be "MAJOR"
+- If MODEL_ORIGINAL hid the neck with a turtleneck, high collar, scarf, or similar coverage, do NOT treat a clean generated neck as a leftover artifact by itself
+- In those neck-covered cases, judge the newly visible neck by whether it looks natural in anatomy, skin tone, edge blending, and lighting; flag it only if it looks like actual leftover clothing or clearly unnatural synthetic anatomy
 - If something could plausibly be normal shadow, fold, drape, or natural occlusion, do NOT call it MAJOR
 - Never return a perfect clean result if a clear artifact or collateral damage exists
 - Do NOT treat the original garment disappearing inside the replaced target area as damage; that replacement is expected
 - When MODEL_ORIGINAL is available, non-target garments such as bottoms and shoes should remain the same in GENERATED_RESULT unless naturally covered by the target garment
 - If TARGET_GARMENT is tucked in, do NOT treat a newly visible or synthesized waistband, top of pants, top of skirt, or top of shorts as damage by itself
-- In tucked-in cases, judge that upper-bottom area by whether it looks plausible and consistent with the visible bottoms; flag it only if it is clearly malformed, unfitting, corrupted, or appears like an extra garment
+- In tucked-in cases, judge that upper-bottom area by whether it looks plausible and consistent with the visible bottoms; do NOT require an exact reconstruction of the hidden original upper-bottom area
+- Minor differences in waistband curve, top edge shape, folds, gathers, or upper-bottom contour should usually be NONE or at most MINOR if the area still looks natural overall
+- Flag the tucked upper-bottom area only if it is clearly malformed, detached, impossible-looking, badly blended, or appears like an extra garment
 - Do NOT compare bottoms or shoes in GENERATED_RESULT to styled non-target items in TARGET_GARMENT
 - If the bottom garment in GENERATED_RESULT is changed, replaced, recolored, warped, erased, or partially lost relative to MODEL_ORIGINAL, that counts as damage to non-target clothing, except for a plausible newly visible or synthesized upper-bottom area caused by a tucked-in target garment
 
@@ -251,6 +262,19 @@ const MAJOR_ARTIFACT_PATTERNS = [
   /ghost garment/i,
   /broken boundar/i,
 ];
+const COVERED_NECK_SYNTHESIS_PATTERNS = [
+  /(neck|upper chest).*(newly visible|revealed|shown|synthesized|generated).*(turtleneck|high neck|high collar|covered|obscured|hidden)/i,
+  /(turtleneck|high neck|high collar|covered neck|hidden neck).*(neck|upper chest).*(newly visible|revealed|shown|synthesized|generated)/i,
+  /(natural|plausible|clean|smooth).*(generated|synthesized).*(neck|upper chest)/i,
+];
+const TUCKED_UPPER_BOTTOM_PATTERNS = [
+  /(waistband|top of pants|top of skirt|top of shorts|upper bottoms?|upper (pants|shorts|skirt) area).*(newly visible|revealed|shown|synthesized|generated|tuck|tucked)/i,
+  /(tuck|tucked|tucked-in).*(waistband|top of pants|top of skirt|top of shorts|upper bottoms?|upper (pants|shorts|skirt) area)/i,
+  /(pants|shorts|skirt).*(partially replaced at the top|replaced at the top|distorted at the top|warped at the top)/i,
+  /upper (pants|shorts|skirt) area inconsistent/i,
+  /tucked-in effect.*(implausible|inconsistent|corrupted)/i,
+  /(waistband|top of pants|top of shorts|top of skirt).*(warped|distorted|inconsistent|corrupted|implausible)/i,
+];
 const LOW_IMPACT_ARTIFACT_PATTERNS = [
   /(tiny|small|slight|subtle|faint|minor|localized|barely noticeable).*(artifact|leftover|remnant|trace|blur|boundary|warp|roughness)/i,
   /(artifact|leftover|remnant|trace|blur|boundary|warp|roughness).*(tiny|small|slight|subtle|faint|minor|localized|barely noticeable)/i,
@@ -258,8 +282,8 @@ const LOW_IMPACT_ARTIFACT_PATTERNS = [
   /slight edge roughness/i,
   /slight boundary wobble/i,
   /tiny neck shading oddit/i,
-  /(waistband|top of pants|top of skirt|top of shorts|upper bottoms?).*(newly visible|revealed|shown|synthesized|generated).*(tuck|tucked)/i,
-  /(tuck|tucked).*(waistband|top of pants|top of skirt|top of shorts|upper bottoms?)/i,
+  ...COVERED_NECK_SYNTHESIS_PATTERNS,
+  ...TUCKED_UPPER_BOTTOM_PATTERNS,
   /(pants|skirt|shorts|bottoms).*(newly visible|revealed|shown).*(because|due to).*(tuck|tucked)/i,
 ];
 const STRUCTURE_MAJOR_PATTERNS = [
@@ -292,8 +316,8 @@ const TOLERABLE_ISSUE_PATTERNS = [
   /gravity may affect/i,
   /normal fabric drape/i,
   /slightly narrower on body than flatlay/i,
-  /(waistband|top of pants|top of skirt|top of shorts|upper bottoms?).*(newly visible|revealed|shown|synthesized|generated).*(tuck|tucked)/i,
-  /(tuck|tucked).*(waistband|top of pants|top of skirt|top of shorts|upper bottoms?)/i,
+  ...COVERED_NECK_SYNTHESIS_PATTERNS,
+  ...TUCKED_UPPER_BOTTOM_PATTERNS,
   /(pants|skirt|shorts|bottoms).*(newly visible|revealed|shown).*(because|due to).*(tuck|tucked)/i,
 ];
 let globalCooldownUntil = 0;
@@ -542,12 +566,17 @@ function applyIssueConsistencyGuards(rating) {
   const artifactTexts = [...rating.critical_issues, ...rating.minor_issues, notesText]
     .map(normalizeString)
     .filter(Boolean);
+  const hasIndependentMajorArtifactSignal = artifactTexts.some((text) =>
+    matchesAnyPattern(text, MAJOR_ARTIFACT_PATTERNS) &&
+    !matchesAnyPattern(text, COVERED_NECK_SYNTHESIS_PATTERNS) &&
+    !matchesAnyPattern(text, TUCKED_UPPER_BOTTOM_PATTERNS),
+  );
   const hasActionableArtifactSignal = artifactTexts.some((text) =>
     matchesAnyPattern(text, ARTIFACT_PATTERNS) &&
     !matchesAnyPattern(text, LOW_IMPACT_ARTIFACT_PATTERNS),
   );
 
-  if (matchesAnyPattern(criticalText, MAJOR_ARTIFACT_PATTERNS)) {
+  if (hasIndependentMajorArtifactSignal) {
     nextLabels.artifact_error = maxSeverity(nextLabels.artifact_error, "MAJOR");
   } else if (
     hasActionableArtifactSignal ||
@@ -574,6 +603,35 @@ function applyIssueConsistencyGuards(rating) {
   };
 }
 
+function relaxContextualArtifactOvercalls(rating) {
+  if (!rating || rating.labels?.artifact_error !== "MAJOR") return rating;
+
+  const artifactTexts = [...rating.critical_issues, ...rating.minor_issues, rating.notes]
+    .map(normalizeString)
+    .filter(Boolean);
+  const hasContextualSynthesisSignal = artifactTexts.some((text) =>
+    matchesAnyPattern(text, COVERED_NECK_SYNTHESIS_PATTERNS) ||
+    matchesAnyPattern(text, TUCKED_UPPER_BOTTOM_PATTERNS),
+  );
+  const hasIndependentMajorArtifactSignal = artifactTexts.some((text) =>
+    matchesAnyPattern(text, MAJOR_ARTIFACT_PATTERNS) &&
+    !matchesAnyPattern(text, COVERED_NECK_SYNTHESIS_PATTERNS) &&
+    !matchesAnyPattern(text, TUCKED_UPPER_BOTTOM_PATTERNS),
+  );
+
+  if (!hasContextualSynthesisSignal || hasIndependentMajorArtifactSignal) {
+    return rating;
+  }
+
+  return {
+    ...rating,
+    labels: {
+      ...rating.labels,
+      artifact_error: "MINOR",
+    },
+  };
+}
+
 function demoteLowImpactArtifactCriticalIssues(rating) {
   if (!rating || rating.labels?.artifact_error === "MAJOR") return rating;
 
@@ -586,12 +644,15 @@ function demoteLowImpactArtifactCriticalIssues(rating) {
 
     const isArtifactIssue = matchesAnyPattern(text, ARTIFACT_PATTERNS);
     const isClearlyMajorArtifact = matchesAnyPattern(text, MAJOR_ARTIFACT_PATTERNS);
+    const isContextualSynthesisIssue =
+      matchesAnyPattern(text, COVERED_NECK_SYNTHESIS_PATTERNS) ||
+      matchesAnyPattern(text, TUCKED_UPPER_BOTTOM_PATTERNS);
     const overlapsAnotherMajorCategory =
       matchesAnyPattern(text, STRUCTURE_MAJOR_PATTERNS) ||
       matchesAnyPattern(text, SILHOUETTE_MAJOR_PATTERNS) ||
       matchesAnyPattern(text, FIT_MAJOR_PATTERNS);
 
-    if (isArtifactIssue && !isClearlyMajorArtifact && !overlapsAnotherMajorCategory) {
+    if (isArtifactIssue && (!isClearlyMajorArtifact || isContextualSynthesisIssue) && !overlapsAnotherMajorCategory) {
       nextMinor = appendUniqueStrings(nextMinor, [text], 6);
       continue;
     }
@@ -690,7 +751,8 @@ function determineSuccessful(score, labels, criticalIssues) {
 function finalizeRating(rating) {
   const sanitizedRating = sanitizeIssueLists(rating);
   const consistentRating = applyIssueConsistencyGuards(sanitizedRating);
-  const rebalancedRating = demoteLowImpactArtifactCriticalIssues(consistentRating);
+  const relaxedRating = relaxContextualArtifactOvercalls(consistentRating);
+  const rebalancedRating = demoteLowImpactArtifactCriticalIssues(relaxedRating);
   const guardedRating = ensureCriticalIssuesHaveMajorLabel(rebalancedRating);
   const completedRating = ensureIssuesMatchLabels(guardedRating);
   let qualityPercent = calculateQualityScore(completedRating.labels);
