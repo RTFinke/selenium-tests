@@ -66,6 +66,9 @@ What matters most:
 - Clothing and items that are not the transferred garment should remain intact unless naturally covered by the transferred garment.
 - If other clothing, shoes, or accessories from PERSON are recolored, changed, erased, warped, merged, or replaced without good reason, that is an error.
 - If the transferred garment is a top, bottoms from PERSON should usually remain the same unless naturally covered.
+- If TARGET_GARMENT is tucked in, or clearly meant to be tucked in, GENERATED_RESULT may also reveal or synthesize the upper part of the bottoms that was hidden in PERSON.
+- A newly visible waistband, top of pants, top of skirt, or top of shorts caused by tucking is acceptable if it looks plausible, consistent with the rest of the bottoms, and visually fitting.
+- Only treat that newly generated upper-bottom area as damage if it looks malformed, mismatched, corrupted, or like an invented extra layer.
 - If the transferred garment is longer and naturally covers some underlying clothing, that is fine.
 
 3) No unreasonable additions
@@ -76,7 +79,9 @@ What matters most:
 4) Artifact check
 - Look for neck damage, merged hair, leftover collars or hoods, warped boundaries, ghosting, broken body parts, and damaged non-target clothing.
 - Artifacts that clearly damage the person, the garment, or other visible clothing are MAJOR issues.
-- Smaller warping or mild resolution loss can be MINOR.
+- Use MINOR only when the artifact is clearly noticeable but still limited in scope.
+- Tiny edge noise, slight boundary wobble, mild blur, or very small leftover traces that a normal shopper would likely ignore should be NONE, not MINOR.
+- Smaller warping or mild resolution loss can be MINOR if it is noticeable enough to reduce trust.
 
 Category focus:
 - If TARGET_GARMENT is a top or outerwear, judge only that transferred top garment for garment fidelity.
@@ -100,7 +105,7 @@ Subtract:
 - garment_structure_error: MINOR -20, MAJOR -60
 - construction_alignment_error: MINOR -15, MAJOR -40
 - fit_error: MINOR -10, MAJOR -30
-- artifact_error: MINOR -15, MAJOR -40
+- artifact_error: MINOR -5, MAJOR -40
 Clamp score to 0..100.
 
 Decision rule:
@@ -141,8 +146,8 @@ Constraints:
 - Do not invent details that are not visible.
 - Judge only visible evidence.`.trim();
 
-const ARTIFACT_AUDIT_PROMPT = `You are a strict integrity auditor for virtual try-on images.
-Your ONLY job is to detect obvious missable failures in GENERATED_RESULT that a general garment evaluator might overlook.
+const ARTIFACT_AUDIT_PROMPT = `You are a careful integrity auditor for virtual try-on images.
+Your ONLY job is to detect obvious or materially important failures in GENERATED_RESULT that a general garment evaluator might overlook.
 
 You may receive:
 1) MODEL_ORIGINAL - the original person before try-on
@@ -154,19 +159,24 @@ Focus especially on:
 - non-target clothing damage: especially bottoms, skirts, pants, shorts, leggings, shoes, or socks that were recolored, changed, warped, erased, or partially replaced even though the try-on was only supposed to change another garment
 - added extra lower-body garments or layers, such as invented shorts, skirts, leggings, or overlays that were not present in MODEL_ORIGINAL and are not part of TARGET_GARMENT
 - obvious merged boundaries, ghost remnants, or corrupted clothing/body regions
+- BUT if TARGET_GARMENT is tucked in, a newly visible or newly synthesized waistband or upper-bottom area can be acceptable and should be judged for plausibility rather than treated as automatic damage
 
 Rules:
-- If there is any visible artifact, artifact_present must be "YES"
+- Only set artifact_present to "YES" when the artifact is clear enough that a normal reviewer would notice it and care
+- Do not flag tiny, ambiguous, or low-impact irregularities such as slight edge roughness, tiny neck shading oddities, mild blur, or small leftover traces that do not materially hurt trust
+- Use artifact_severity = "MINOR" only for localized, noticeable issues that do not materially damage the person, the transferred garment, or non-target clothing
 - If a large or obvious leftover-clothing artifact is clearly visible without reasonable doubt, artifact_severity must be "MAJOR"
-- If visible non-target bottoms are recolored, changed, replaced, or corrupted relative to MODEL_ORIGINAL, artifact_severity should usually be "MAJOR"
+- If visible non-target bottoms are recolored, changed, replaced, or corrupted relative to MODEL_ORIGINAL, artifact_severity should usually be "MAJOR", except for a plausible newly visible upper-bottom area caused by a tucked-in target garment
 - If a new lower-body garment or extra layer appears in GENERATED_RESULT that was not present in MODEL_ORIGINAL and is not the target garment, artifact_severity should usually be "MAJOR"
 - If the neck or shoulder area clearly contains remnants of the original outfit that are not part of TARGET_GARMENT, artifact_severity should usually be "MAJOR"
 - If something could plausibly be normal shadow, fold, drape, or natural occlusion, do NOT call it MAJOR
-- Never return a perfect clean result if any visible artifact or collateral damage exists
+- Never return a perfect clean result if a clear artifact or collateral damage exists
 - Do NOT treat the original garment disappearing inside the replaced target area as damage; that replacement is expected
 - When MODEL_ORIGINAL is available, non-target garments such as bottoms and shoes should remain the same in GENERATED_RESULT unless naturally covered by the target garment
+- If TARGET_GARMENT is tucked in, do NOT treat a newly visible or synthesized waistband, top of pants, top of skirt, or top of shorts as damage by itself
+- In tucked-in cases, judge that upper-bottom area by whether it looks plausible and consistent with the visible bottoms; flag it only if it is clearly malformed, unfitting, corrupted, or appears like an extra garment
 - Do NOT compare bottoms or shoes in GENERATED_RESULT to styled non-target items in TARGET_GARMENT
-- If the bottom garment in GENERATED_RESULT is changed, replaced, recolored, warped, erased, or partially lost relative to MODEL_ORIGINAL, that counts as damage to non-target clothing
+- If the bottom garment in GENERATED_RESULT is changed, replaced, recolored, warped, erased, or partially lost relative to MODEL_ORIGINAL, that counts as damage to non-target clothing, except for a plausible newly visible or synthesized upper-bottom area caused by a tucked-in target garment
 
 Return ONLY valid JSON in this exact schema:
 {
@@ -201,7 +211,7 @@ const SCORE_PENALTIES = {
   garment_structure_error: { NONE: 0, MINOR: 20, MAJOR: 60 },
   construction_alignment_error: { NONE: 0, MINOR: 15, MAJOR: 40 },
   fit_error: { NONE: 0, MINOR: 10, MAJOR: 30 },
-  artifact_error: { NONE: 0, MINOR: 15, MAJOR: 40 },
+  artifact_error: { NONE: 0, MINOR: 5, MAJOR: 40 },
   silhouette_error: { NONE: 0, MINOR: 0, MAJOR: 0 },
 };
 const PASS_SCORE_THRESHOLD = 75;
@@ -223,6 +233,34 @@ const ARTIFACT_PATTERNS = [
   /(shorts|skirt|leggings|pants).*(added|invented|new|extra)/i,
   /added.*(shorts|skirt|leggings|pants)/i,
   /extra.*(shorts|skirt|leggings|pants)/i,
+];
+const MAJOR_ARTIFACT_PATTERNS = [
+  /large.*artifact/i,
+  /obvious.*artifact/i,
+  /major.*artifact/i,
+  /obvious.*damage/i,
+  /clearly damaged/i,
+  /damaged neck/i,
+  /neck.*(leftover|remnant|residual|hood|old)/i,
+  /(hood|collar).*(leftover|remnant|residual|old)/i,
+  /(damaged|warped|melted|broken|merged).*(hair|skin|hand|face|arm|body|neck)/i,
+  /(bottom|pants|skirt|shorts|shoes).*(damaged|recolored|warped|erased|changed|replaced)/i,
+  /(shorts|skirt|leggings|pants).*(added|invented|new|extra)/i,
+  /added.*(shorts|skirt|leggings|pants)/i,
+  /extra.*(shorts|skirt|leggings|pants)/i,
+  /ghost garment/i,
+  /broken boundar/i,
+];
+const LOW_IMPACT_ARTIFACT_PATTERNS = [
+  /(tiny|small|slight|subtle|faint|minor|localized|barely noticeable).*(artifact|leftover|remnant|trace|blur|boundary|warp|roughness)/i,
+  /(artifact|leftover|remnant|trace|blur|boundary|warp|roughness).*(tiny|small|slight|subtle|faint|minor|localized|barely noticeable)/i,
+  /mild blur/i,
+  /slight edge roughness/i,
+  /slight boundary wobble/i,
+  /tiny neck shading oddit/i,
+  /(waistband|top of pants|top of skirt|top of shorts|upper bottoms?).*(newly visible|revealed|shown|synthesized|generated).*(tuck|tucked)/i,
+  /(tuck|tucked).*(waistband|top of pants|top of skirt|top of shorts|upper bottoms?)/i,
+  /(pants|skirt|shorts|bottoms).*(newly visible|revealed|shown).*(because|due to).*(tuck|tucked)/i,
 ];
 const STRUCTURE_MAJOR_PATTERNS = [
   /shorts?\s+are\s+visible\s+instead\s+of\s+expected\s+pants/i,
@@ -254,6 +292,9 @@ const TOLERABLE_ISSUE_PATTERNS = [
   /gravity may affect/i,
   /normal fabric drape/i,
   /slightly narrower on body than flatlay/i,
+  /(waistband|top of pants|top of skirt|top of shorts|upper bottoms?).*(newly visible|revealed|shown|synthesized|generated).*(tuck|tucked)/i,
+  /(tuck|tucked).*(waistband|top of pants|top of skirt|top of shorts|upper bottoms?)/i,
+  /(pants|skirt|shorts|bottoms).*(newly visible|revealed|shown).*(because|due to).*(tuck|tucked)/i,
 ];
 let globalCooldownUntil = 0;
 
@@ -498,10 +539,20 @@ function applyIssueConsistencyGuards(rating) {
   const notesText = normalizeString(rating.notes);
   const allText = `${criticalText}\n${minorText}\n${notesText}`;
   const nextLabels = { ...rating.labels };
+  const artifactTexts = [...rating.critical_issues, ...rating.minor_issues, notesText]
+    .map(normalizeString)
+    .filter(Boolean);
+  const hasActionableArtifactSignal = artifactTexts.some((text) =>
+    matchesAnyPattern(text, ARTIFACT_PATTERNS) &&
+    !matchesAnyPattern(text, LOW_IMPACT_ARTIFACT_PATTERNS),
+  );
 
-  if (matchesAnyPattern(criticalText, ARTIFACT_PATTERNS)) {
+  if (matchesAnyPattern(criticalText, MAJOR_ARTIFACT_PATTERNS)) {
     nextLabels.artifact_error = maxSeverity(nextLabels.artifact_error, "MAJOR");
-  } else if (matchesAnyPattern(allText, ARTIFACT_PATTERNS)) {
+  } else if (
+    hasActionableArtifactSignal ||
+    (matchesAnyPattern(allText, ARTIFACT_PATTERNS) && nextLabels.artifact_error !== "NONE")
+  ) {
     nextLabels.artifact_error = maxSeverity(nextLabels.artifact_error, "MINOR");
   }
 
@@ -517,13 +568,55 @@ function applyIssueConsistencyGuards(rating) {
     nextLabels.fit_error = maxSeverity(nextLabels.fit_error, "MAJOR");
   }
 
-  if (rating.critical_issues.length > 0 && !Object.values(nextLabels).some((value) => value === "MAJOR")) {
-    nextLabels.garment_structure_error = maxSeverity(nextLabels.garment_structure_error, "MAJOR");
+  return {
+    ...rating,
+    labels: nextLabels,
+  };
+}
+
+function demoteLowImpactArtifactCriticalIssues(rating) {
+  if (!rating || rating.labels?.artifact_error === "MAJOR") return rating;
+
+  const retainedCritical = [];
+  let nextMinor = [...rating.minor_issues];
+
+  for (const issue of rating.critical_issues) {
+    const text = normalizeString(issue);
+    if (!text) continue;
+
+    const isArtifactIssue = matchesAnyPattern(text, ARTIFACT_PATTERNS);
+    const isClearlyMajorArtifact = matchesAnyPattern(text, MAJOR_ARTIFACT_PATTERNS);
+    const overlapsAnotherMajorCategory =
+      matchesAnyPattern(text, STRUCTURE_MAJOR_PATTERNS) ||
+      matchesAnyPattern(text, SILHOUETTE_MAJOR_PATTERNS) ||
+      matchesAnyPattern(text, FIT_MAJOR_PATTERNS);
+
+    if (isArtifactIssue && !isClearlyMajorArtifact && !overlapsAnotherMajorCategory) {
+      nextMinor = appendUniqueStrings(nextMinor, [text], 6);
+      continue;
+    }
+
+    retainedCritical.push(text);
   }
 
   return {
     ...rating,
-    labels: nextLabels,
+    critical_issues: retainedCritical,
+    minor_issues: nextMinor,
+  };
+}
+
+function ensureCriticalIssuesHaveMajorLabel(rating) {
+  if (!rating) return rating;
+  if (rating.critical_issues.length === 0) return rating;
+  if (Object.values(rating.labels).some((value) => value === "MAJOR")) return rating;
+
+  return {
+    ...rating,
+    labels: {
+      ...rating.labels,
+      garment_structure_error: maxSeverity(rating.labels.garment_structure_error, "MAJOR"),
+    },
   };
 }
 
@@ -547,7 +640,7 @@ function ensureIssuesMatchLabels(rating) {
       MAJOR: "The garment fit or placement is clearly wrong on the person.",
     },
     artifact_error: {
-      MINOR: "There are visible generation artifacts or minor damage in the result.",
+      MINOR: "There are noticeable but limited generation artifacts or minor damage in the result.",
       MAJOR: "There are obvious generation artifacts or damage to the person or other clothing.",
     },
     silhouette_error: {
@@ -597,7 +690,9 @@ function determineSuccessful(score, labels, criticalIssues) {
 function finalizeRating(rating) {
   const sanitizedRating = sanitizeIssueLists(rating);
   const consistentRating = applyIssueConsistencyGuards(sanitizedRating);
-  const completedRating = ensureIssuesMatchLabels(consistentRating);
+  const rebalancedRating = demoteLowImpactArtifactCriticalIssues(consistentRating);
+  const guardedRating = ensureCriticalIssuesHaveMajorLabel(rebalancedRating);
+  const completedRating = ensureIssuesMatchLabels(guardedRating);
   let qualityPercent = calculateQualityScore(completedRating.labels);
   if (completedRating.critical_issues.length > 0 && qualityPercent >= PASS_SCORE_THRESHOLD) {
     qualityPercent = PASS_SCORE_THRESHOLD - 1;
