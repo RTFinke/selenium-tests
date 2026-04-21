@@ -72,8 +72,9 @@ What matters most:
 - Do NOT treat a clean, natural-looking exposed neck as leftover turtleneck damage just because that area was hidden in PERSON.
 - Only treat the neck area as artifact or damage if there are clear remnants of the old neck covering, or if the generated neck looks malformed, implausible, mismatched, or corrupted.
 - If the transferred garment is a top, bottoms from PERSON should usually remain the same unless naturally covered.
-- If TARGET_GARMENT is tucked in, or clearly meant to be tucked in, GENERATED_RESULT may also reveal or synthesize the upper part of the bottoms that was hidden in PERSON.
+- Only if TARGET_GARMENT visibly appears tucked into bottoms in garment.png, GENERATED_RESULT may also reveal or synthesize the upper part of the bottoms that was hidden in PERSON.
 - A newly visible waistband, top of pants, top of skirt, or top of shorts caused by tucking is acceptable if it looks plausible, consistent with the rest of the bottoms, and visually fitting.
+- If garment.png does not visibly show the top tucked into bottoms, do NOT excuse a changed waistband or top-of-bottom area as a tuck effect.
 - Because that upper-bottom area may have been hidden in PERSON, do NOT require an exact reconstruction of the original waistband or top edge.
 - Elastic waistbands or gathered shorts/pants may sit a bit higher and show stronger bunching or gathers after tucking; that alone is not damage.
 - Small differences in the top seam, waistband shape, gathers, folds, or upper-bottom contour are acceptable if the result still looks natural and coherent overall.
@@ -171,7 +172,7 @@ Focus especially on:
 - obvious merged boundaries, ghost remnants, or corrupted clothing/body regions
 - If TARGET_GARMENT itself shows a visible inner collar, knit neck insert, mock neck, or neck underlayer, a similar visible neck element in GENERATED_RESULT can be correct and should not be treated as leftover clothing
 - BUT if MODEL_ORIGINAL had a turtleneck, high collar, or other neck coverage, a newly visible or newly synthesized neck can be acceptable and should be judged for natural appearance rather than treated as automatic leftover clothing
-- BUT if TARGET_GARMENT is tucked in, a newly visible or newly synthesized waistband or upper-bottom area can be acceptable and should be judged for plausibility rather than treated as automatic damage
+- BUT only if TARGET_GARMENT visibly appears tucked into bottoms in garment.png, a newly visible or newly synthesized waistband or upper-bottom area can be acceptable and should be judged for plausibility rather than treated as automatic damage
 
 Rules:
 - Only set artifact_present to "YES" when the artifact is clear enough that a normal reviewer would notice it and care
@@ -189,11 +190,12 @@ Rules:
 - Never return a perfect clean result if a clear artifact or collateral damage exists
 - Do NOT treat the original garment disappearing inside the replaced target area as damage; that replacement is expected
 - When MODEL_ORIGINAL is available, non-target garments such as bottoms and shoes should remain the same in GENERATED_RESULT unless naturally covered by the target garment
-- If TARGET_GARMENT is tucked in, do NOT treat a newly visible or synthesized waistband, top of pants, top of skirt, or top of shorts as damage by itself
+- Only when TARGET_GARMENT visibly appears tucked into bottoms in garment.png, do NOT treat a newly visible or synthesized waistband, top of pants, top of skirt, or top of shorts as damage by itself
 - In tucked-in cases, judge that upper-bottom area by whether it looks plausible and consistent with the visible bottoms; do NOT require an exact reconstruction of the hidden original upper-bottom area
 - Elastic waistbands or gathered shorts/pants may appear higher, tighter, or more bunched after tucking; do NOT call that warped or detached unless there is a clear floating gap, broken outline, double layer, or impossible geometry
 - Minor differences in waistband curve, top edge shape, folds, gathers, or upper-bottom contour should usually be NONE or at most MINOR if the area still looks natural overall
 - Flag the tucked upper-bottom area only if it is clearly malformed, detached, impossible-looking, badly blended, or appears like an extra garment
+- If garment.png does not visibly show a tucked-in presentation, do NOT use tucking as a justification for changed upper-bottom structure
 - Do NOT compare bottoms or shoes in GENERATED_RESULT to styled non-target items in TARGET_GARMENT
 - If the bottom garment in GENERATED_RESULT is changed, replaced, recolored, warped, erased, or partially lost relative to MODEL_ORIGINAL, that counts as damage to non-target clothing, except for a plausible newly visible or synthesized upper-bottom area caused by a tucked-in target garment
 
@@ -279,21 +281,33 @@ const TUCKED_UPPER_BOTTOM_PATTERNS = [
   /(waistband|top of pants|top of skirt|top of shorts|upper bottoms?|upper (pants|shorts|skirt) area).*(newly visible|revealed|shown|synthesized|generated|tuck|tucked)/i,
   /(tuck|tucked|tucked-in).*(waistband|top of pants|top of skirt|top of shorts|upper bottoms?|upper (pants|shorts|skirt) area)/i,
   /(elastic|gathered|bunched).*(waistband|top of pants|top of shorts|top of skirt).*(tuck|tucked|tucked-in)/i,
-  /(waistband|top of pants|top of shorts|top of skirt).*(high|higher|raised|bunched|gathered)/i,
-  /(pants|shorts|skirt).*(partially replaced at the top|replaced at the top|distorted at the top|warped at the top)/i,
-  /upper (pants|shorts|skirt) area inconsistent/i,
+  /(waistband|top of pants|top of shorts|top of skirt).*(high|higher|raised|bunched|gathered).*(tuck|tucked|tucked-in|newly visible|synthesized|generated)/i,
+  /(tuck|tucked|tucked-in|newly visible|synthesized|generated).*(waistband|top of pants|top of shorts|top of skirt).*(high|higher|raised|bunched|gathered)/i,
+  /(pants|shorts|skirt).*(partially replaced at the top|replaced at the top|distorted at the top|warped at the top).*(tuck|tucked|tucked-in|newly visible|synthesized|generated)/i,
+  /(tuck|tucked|tucked-in|newly visible|synthesized|generated).*(pants|shorts|skirt).*(partially replaced at the top|replaced at the top|distorted at the top|warped at the top)/i,
+  /upper (pants|shorts|skirt) area inconsistent.*(tuck|tucked|tucked-in|newly visible|synthesized|generated)/i,
+  /(tuck|tucked|tucked-in|newly visible|synthesized|generated).*(upper (pants|shorts|skirt) area inconsistent)/i,
   /tucked-in effect.*(implausible|inconsistent|corrupted)/i,
-  /(waistband|top of pants|top of shorts|top of skirt).*(warped|distorted|inconsistent|corrupted|implausible)/i,
-  /(waistband|top of pants|top of shorts|top of skirt).*(detached|detachment|floating|gap from the body|from the body)/i,
-  /(shorts|pants|skirt).*(waistband|top).*(warping|distortion|detachment)/i,
+  /(waistband|top of pants|top of shorts|top of skirt).*(warped|distorted|inconsistent|corrupted|implausible).*(tuck|tucked|tucked-in|newly visible|synthesized|generated)/i,
+  /(tuck|tucked|tucked-in|newly visible|synthesized|generated).*(waistband|top of pants|top of shorts|top of skirt).*(warped|distorted|inconsistent|corrupted|implausible)/i,
+  /(waistband|top of pants|top of shorts|top of skirt).*(detached|detachment|floating|gap from the body|from the body).*(tuck|tucked|tucked-in|newly visible|synthesized|generated)/i,
+  /(tuck|tucked|tucked-in|newly visible|synthesized|generated).*(waistband|top of pants|top of shorts|top of skirt).*(detached|detachment|floating|gap from the body|from the body)/i,
+  /(shorts|pants|skirt).*(waistband|top).*(warping|distortion|detachment).*(tuck|tucked|tucked-in|newly visible|synthesized|generated)/i,
+  /(tuck|tucked|tucked-in|newly visible|synthesized|generated).*(shorts|pants|skirt).*(waistband|top).*(warping|distortion|detachment)/i,
 ];
 const LOW_IMPACT_ARTIFACT_PATTERNS = [
   /(tiny|small|slight|subtle|faint|minor|localized|barely noticeable).*(artifact|leftover|remnant|trace|blur|boundary|warp|roughness)/i,
   /(artifact|leftover|remnant|trace|blur|boundary|warp|roughness).*(tiny|small|slight|subtle|faint|minor|localized|barely noticeable)/i,
   /mild blur/i,
+  /minor blur/i,
+  /slight blur/i,
+  /minor sleeve edge blur/i,
+  /slight sleeve edge blur/i,
   /slight edge roughness/i,
   /slight boundary wobble/i,
   /tiny neck shading oddit/i,
+  /(slight|minor).*(warp|warping).*(waistband|top of pants|top of shorts|top of skirt|upper bottoms?)/i,
+  /(waistband|top of pants|top of shorts|top of skirt|upper bottoms?).*(slight|minor).*(warp|warping)/i,
   ...COVERED_NECK_SYNTHESIS_PATTERNS,
   ...TUCKED_UPPER_BOTTOM_PATTERNS,
   /(pants|skirt|shorts|bottoms).*(newly visible|revealed|shown).*(because|due to).*(tuck|tucked)/i,
@@ -335,6 +349,9 @@ const TOLERABLE_ISSUE_PATTERNS = [
 const CLEAN_ARTIFACT_PATTERNS = [
   /no artifacts?/i,
   /no visible artifacts?/i,
+  /no major artifacts?/i,
+  /no major artifacts? or (garment )?errors?/i,
+  /no major artifacts? or ghosting/i,
   /no person damage/i,
   /no damage to the person/i,
   /person remains intact/i,
@@ -344,6 +361,7 @@ const CLEAN_ARTIFACT_PATTERNS = [
   /looks realistic/i,
   /trustworthy/i,
   /no artifacts or person damage/i,
+  /do not break trust/i,
 ];
 let globalCooldownUntil = 0;
 
@@ -671,6 +689,9 @@ function resolveArtifactLabelContradictions(rating) {
     !matchesAnyPattern(text, CLEAN_ARTIFACT_PATTERNS) &&
     !matchesAnyPattern(text, LOW_IMPACT_ARTIFACT_PATTERNS),
   );
+  const hasLowImpactArtifactEvidence = evidenceTexts.some((text) =>
+    matchesAnyPattern(text, LOW_IMPACT_ARTIFACT_PATTERNS),
+  );
   const hasCleanArtifactSignal = matchesAnyPattern(`${notesText}\n${positivesText}`, CLEAN_ARTIFACT_PATTERNS);
 
   if (!hasCleanArtifactSignal || hasConcreteArtifactEvidence) {
@@ -681,7 +702,7 @@ function resolveArtifactLabelContradictions(rating) {
     ...rating,
     labels: {
       ...rating.labels,
-      artifact_error: "NONE",
+      artifact_error: hasLowImpactArtifactEvidence ? "MINOR" : "NONE",
     },
   };
 }
