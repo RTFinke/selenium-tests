@@ -52,6 +52,8 @@ What matters most:
 - Compare TARGET_GARMENT with the clothing worn in GENERATED_RESULT.
 - Focus on garment type, neckline, sleeve type, sleeve length, silhouette, length, looseness, and overall structure.
 - Focus on visible structural details such as buttons, zippers, plackets, pockets, stripes, seams, panels, trims, cuffs, ribbing, and closures.
+- If TARGET_GARMENT itself shows a visible inner collar, mock neck, knit insert, zipper guard, lining, or underlayer at the neck, treat that visible neck element as part of the target appearance.
+- A similar neck insert or visible underlayer in GENERATED_RESULT is acceptable when it matches or plausibly corresponds to what is visible in TARGET_GARMENT.
 - Placement of details matters.
 - Missing visible details that are clearly present in TARGET_GARMENT are errors.
 - Added details that are not in TARGET_GARMENT are errors.
@@ -73,6 +75,7 @@ What matters most:
 - If TARGET_GARMENT is tucked in, or clearly meant to be tucked in, GENERATED_RESULT may also reveal or synthesize the upper part of the bottoms that was hidden in PERSON.
 - A newly visible waistband, top of pants, top of skirt, or top of shorts caused by tucking is acceptable if it looks plausible, consistent with the rest of the bottoms, and visually fitting.
 - Because that upper-bottom area may have been hidden in PERSON, do NOT require an exact reconstruction of the original waistband or top edge.
+- Elastic waistbands or gathered shorts/pants may sit a bit higher and show stronger bunching or gathers after tucking; that alone is not damage.
 - Small differences in the top seam, waistband shape, gathers, folds, or upper-bottom contour are acceptable if the result still looks natural and coherent overall.
 - Only treat that newly generated upper-bottom area as damage if it looks malformed, mismatched, corrupted, or like an invented extra layer.
 - If the transferred garment is longer and naturally covers some underlying clothing, that is fine.
@@ -84,6 +87,7 @@ What matters most:
 
 4) Artifact check
 - Look for neck damage, merged hair, leftover collars or hoods, warped boundaries, ghosting, broken body parts, and damaged non-target clothing.
+- Before calling a neck-area leftover, compare the neck region to TARGET_GARMENT and do not mistake a target-supported inner collar, knit insert, or neck underlayer for old clothing.
 - Artifacts that clearly damage the person, the garment, or other visible clothing are MAJOR issues.
 - Use MINOR only when the artifact is clearly noticeable but still limited in scope.
 - Tiny edge noise, slight boundary wobble, mild blur, or very small leftover traces that a normal shopper would likely ignore should be NONE, not MINOR.
@@ -165,6 +169,7 @@ Focus especially on:
 - non-target clothing damage: especially bottoms, skirts, pants, shorts, leggings, shoes, or socks that were recolored, changed, warped, erased, or partially replaced even though the try-on was only supposed to change another garment
 - added extra lower-body garments or layers, such as invented shorts, skirts, leggings, or overlays that were not present in MODEL_ORIGINAL and are not part of TARGET_GARMENT
 - obvious merged boundaries, ghost remnants, or corrupted clothing/body regions
+- If TARGET_GARMENT itself shows a visible inner collar, knit neck insert, mock neck, or neck underlayer, a similar visible neck element in GENERATED_RESULT can be correct and should not be treated as leftover clothing
 - BUT if MODEL_ORIGINAL had a turtleneck, high collar, or other neck coverage, a newly visible or newly synthesized neck can be acceptable and should be judged for natural appearance rather than treated as automatic leftover clothing
 - BUT if TARGET_GARMENT is tucked in, a newly visible or newly synthesized waistband or upper-bottom area can be acceptable and should be judged for plausibility rather than treated as automatic damage
 
@@ -176,6 +181,8 @@ Rules:
 - If visible non-target bottoms are recolored, changed, replaced, or corrupted relative to MODEL_ORIGINAL, artifact_severity should usually be "MAJOR", except for a plausible newly visible upper-bottom area caused by a tucked-in target garment
 - If a new lower-body garment or extra layer appears in GENERATED_RESULT that was not present in MODEL_ORIGINAL and is not the target garment, artifact_severity should usually be "MAJOR"
 - If the neck or shoulder area clearly contains remnants of the original outfit that are not part of TARGET_GARMENT, artifact_severity should usually be "MAJOR"
+- Before flagging a neck remnant, first check whether TARGET_GARMENT already includes a visible inner neck layer or collar detail; if it does, a matching neck element in GENERATED_RESULT is expected, not an artifact
+- Do NOT call a visible neck insert, mock neck, knit collar, or inner layer a leftover artifact when that same type of neck detail is present in TARGET_GARMENT
 - If MODEL_ORIGINAL hid the neck with a turtleneck, high collar, scarf, or similar coverage, do NOT treat a clean generated neck as a leftover artifact by itself
 - In those neck-covered cases, judge the newly visible neck by whether it looks natural in anatomy, skin tone, edge blending, and lighting; flag it only if it looks like actual leftover clothing or clearly unnatural synthetic anatomy
 - If something could plausibly be normal shadow, fold, drape, or natural occlusion, do NOT call it MAJOR
@@ -184,6 +191,7 @@ Rules:
 - When MODEL_ORIGINAL is available, non-target garments such as bottoms and shoes should remain the same in GENERATED_RESULT unless naturally covered by the target garment
 - If TARGET_GARMENT is tucked in, do NOT treat a newly visible or synthesized waistband, top of pants, top of skirt, or top of shorts as damage by itself
 - In tucked-in cases, judge that upper-bottom area by whether it looks plausible and consistent with the visible bottoms; do NOT require an exact reconstruction of the hidden original upper-bottom area
+- Elastic waistbands or gathered shorts/pants may appear higher, tighter, or more bunched after tucking; do NOT call that warped or detached unless there is a clear floating gap, broken outline, double layer, or impossible geometry
 - Minor differences in waistband curve, top edge shape, folds, gathers, or upper-bottom contour should usually be NONE or at most MINOR if the area still looks natural overall
 - Flag the tucked upper-bottom area only if it is clearly malformed, detached, impossible-looking, badly blended, or appears like an extra garment
 - Do NOT compare bottoms or shoes in GENERATED_RESULT to styled non-target items in TARGET_GARMENT
@@ -270,10 +278,14 @@ const COVERED_NECK_SYNTHESIS_PATTERNS = [
 const TUCKED_UPPER_BOTTOM_PATTERNS = [
   /(waistband|top of pants|top of skirt|top of shorts|upper bottoms?|upper (pants|shorts|skirt) area).*(newly visible|revealed|shown|synthesized|generated|tuck|tucked)/i,
   /(tuck|tucked|tucked-in).*(waistband|top of pants|top of skirt|top of shorts|upper bottoms?|upper (pants|shorts|skirt) area)/i,
+  /(elastic|gathered|bunched).*(waistband|top of pants|top of shorts|top of skirt).*(tuck|tucked|tucked-in)/i,
+  /(waistband|top of pants|top of shorts|top of skirt).*(high|higher|raised|bunched|gathered)/i,
   /(pants|shorts|skirt).*(partially replaced at the top|replaced at the top|distorted at the top|warped at the top)/i,
   /upper (pants|shorts|skirt) area inconsistent/i,
   /tucked-in effect.*(implausible|inconsistent|corrupted)/i,
   /(waistband|top of pants|top of shorts|top of skirt).*(warped|distorted|inconsistent|corrupted|implausible)/i,
+  /(waistband|top of pants|top of shorts|top of skirt).*(detached|detachment|floating|gap from the body|from the body)/i,
+  /(shorts|pants|skirt).*(waistband|top).*(warping|distortion|detachment)/i,
 ];
 const LOW_IMPACT_ARTIFACT_PATTERNS = [
   /(tiny|small|slight|subtle|faint|minor|localized|barely noticeable).*(artifact|leftover|remnant|trace|blur|boundary|warp|roughness)/i,
@@ -694,7 +706,7 @@ function demoteLowImpactArtifactCriticalIssues(rating) {
       matchesAnyPattern(text, SILHOUETTE_MAJOR_PATTERNS) ||
       matchesAnyPattern(text, FIT_MAJOR_PATTERNS);
 
-    if (isArtifactIssue && (!isClearlyMajorArtifact || isContextualSynthesisIssue) && !overlapsAnotherMajorCategory) {
+    if ((isArtifactIssue || isContextualSynthesisIssue) && (!isClearlyMajorArtifact || isContextualSynthesisIssue) && !overlapsAnotherMajorCategory) {
       nextMinor = appendUniqueStrings(nextMinor, [text], 6);
       continue;
     }
