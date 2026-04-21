@@ -320,6 +320,19 @@ const TOLERABLE_ISSUE_PATTERNS = [
   ...TUCKED_UPPER_BOTTOM_PATTERNS,
   /(pants|skirt|shorts|bottoms).*(newly visible|revealed|shown).*(because|due to).*(tuck|tucked)/i,
 ];
+const CLEAN_ARTIFACT_PATTERNS = [
+  /no artifacts?/i,
+  /no visible artifacts?/i,
+  /no person damage/i,
+  /no damage to the person/i,
+  /person remains intact/i,
+  /(shorts|pants|skirt|bottoms|accessories|shoes).*(remain|remains) unchanged/i,
+  /realistic and trustworthy/i,
+  /result is realistic/i,
+  /looks realistic/i,
+  /trustworthy/i,
+  /no artifacts or person damage/i,
+];
 let globalCooldownUntil = 0;
 
 function normalizeString(value) {
@@ -632,6 +645,35 @@ function relaxContextualArtifactOvercalls(rating) {
   };
 }
 
+function resolveArtifactLabelContradictions(rating) {
+  if (!rating || rating.labels?.artifact_error === "NONE") return rating;
+
+  const notesText = normalizeString(rating.notes);
+  const positivesText = rating.positives.map(normalizeString).filter(Boolean).join(" ");
+  const evidenceTexts = [...rating.critical_issues, ...rating.minor_issues]
+    .map(normalizeString)
+    .filter(Boolean);
+
+  const hasConcreteArtifactEvidence = evidenceTexts.some((text) =>
+    matchesAnyPattern(text, ARTIFACT_PATTERNS) &&
+    !matchesAnyPattern(text, CLEAN_ARTIFACT_PATTERNS) &&
+    !matchesAnyPattern(text, LOW_IMPACT_ARTIFACT_PATTERNS),
+  );
+  const hasCleanArtifactSignal = matchesAnyPattern(`${notesText}\n${positivesText}`, CLEAN_ARTIFACT_PATTERNS);
+
+  if (!hasCleanArtifactSignal || hasConcreteArtifactEvidence) {
+    return rating;
+  }
+
+  return {
+    ...rating,
+    labels: {
+      ...rating.labels,
+      artifact_error: "NONE",
+    },
+  };
+}
+
 function demoteLowImpactArtifactCriticalIssues(rating) {
   if (!rating || rating.labels?.artifact_error === "MAJOR") return rating;
 
@@ -752,7 +794,8 @@ function finalizeRating(rating) {
   const sanitizedRating = sanitizeIssueLists(rating);
   const consistentRating = applyIssueConsistencyGuards(sanitizedRating);
   const relaxedRating = relaxContextualArtifactOvercalls(consistentRating);
-  const rebalancedRating = demoteLowImpactArtifactCriticalIssues(relaxedRating);
+  const contradictionResolvedRating = resolveArtifactLabelContradictions(relaxedRating);
+  const rebalancedRating = demoteLowImpactArtifactCriticalIssues(contradictionResolvedRating);
   const guardedRating = ensureCriticalIssuesHaveMajorLabel(rebalancedRating);
   const completedRating = ensureIssuesMatchLabels(guardedRating);
   let qualityPercent = calculateQualityScore(completedRating.labels);
