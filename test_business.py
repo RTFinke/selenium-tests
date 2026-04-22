@@ -95,6 +95,226 @@ def download_image_from_element(driver, img_element, filepath):
         except Exception as e2:
             return False
 
+def ensure_standard_mode(driver):
+    standard_script = """
+    const clickIfNeeded = arguments[0];
+
+    const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+
+    const isVisible = (el) => {
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' &&
+            rect.width > 0 && rect.height > 0;
+    };
+
+    const unique = (elements) => {
+        const seen = new Set();
+        const result = [];
+        for (const el of elements) {
+            if (!el || seen.has(el)) continue;
+            seen.add(el);
+            result.push(el);
+        }
+        return result;
+    };
+
+    const hasSelectedClass = (el) => {
+        const className = normalize(el && el.className);
+        return ['mui-selected', 'selected', 'active', 'checked', 'current'].some((token) => className.includes(token));
+    };
+
+    const readState = (root) => {
+        if (!root) return null;
+
+        const nodes = unique([
+            root,
+            ...root.querySelectorAll(
+                "input[type='radio'], input[type='checkbox'], [role='tab'], [role='radio'], [role='button'], [aria-selected], [aria-checked], [aria-pressed], [data-state]"
+            ),
+        ]);
+
+        for (const node of nodes) {
+            if (!node) continue;
+
+            if (node.matches && node.matches("input[type='radio'], input[type='checkbox']")) {
+                return { selected: Boolean(node.checked), source: 'input.checked' };
+            }
+
+            const ariaSelected = normalize(node.getAttribute && node.getAttribute('aria-selected'));
+            if (ariaSelected === 'true' || ariaSelected === 'false') {
+                return { selected: ariaSelected === 'true', source: 'aria-selected' };
+            }
+
+            const ariaChecked = normalize(node.getAttribute && node.getAttribute('aria-checked'));
+            if (ariaChecked === 'true' || ariaChecked === 'false') {
+                return { selected: ariaChecked === 'true', source: 'aria-checked' };
+            }
+
+            const ariaPressed = normalize(node.getAttribute && node.getAttribute('aria-pressed'));
+            if (ariaPressed === 'true' || ariaPressed === 'false') {
+                return { selected: ariaPressed === 'true', source: 'aria-pressed' };
+            }
+
+            const dataState = normalize(node.getAttribute && node.getAttribute('data-state'));
+            if (['checked', 'on', 'active', 'selected'].includes(dataState)) {
+                return { selected: true, source: 'data-state' };
+            }
+            if (['unchecked', 'off'].includes(dataState)) {
+                return { selected: false, source: 'data-state' };
+            }
+
+            if (hasSelectedClass(node)) {
+                return { selected: true, source: 'class' };
+            }
+        }
+
+        return null;
+    };
+
+    const labelMatches = (el, label) => {
+        const text = normalize(el.innerText || el.textContent);
+        const ariaLabel = normalize(el.getAttribute && el.getAttribute('aria-label'));
+        const title = normalize(el.getAttribute && el.getAttribute('title'));
+        return (
+            text === label ||
+            text.startsWith(label + ' ') ||
+            ariaLabel === label ||
+            title === label
+        );
+    };
+
+    const getAnchors = (label) => {
+        const candidates = Array.from(document.querySelectorAll(
+            "button, [role='button'], [role='tab'], [role='radio'], label, div, span"
+        ));
+
+        return candidates.filter((el) => isVisible(el) && labelMatches(el, label));
+    };
+
+    const getControlsForAnchor = (anchor) => unique([
+        anchor.closest && anchor.closest('button'),
+        anchor.closest && anchor.closest("[role='button']"),
+        anchor.closest && anchor.closest("[role='tab']"),
+        anchor.closest && anchor.closest("[role='radio']"),
+        anchor.closest && anchor.closest('label'),
+        anchor,
+        anchor.parentElement,
+        anchor.previousElementSibling,
+        anchor.nextElementSibling,
+        anchor.parentElement && anchor.parentElement.parentElement,
+    ].filter(Boolean)).filter(isVisible);
+
+    const scanLabel = (label) => {
+        const anchors = getAnchors(label);
+        for (const anchor of anchors) {
+            for (const control of getControlsForAnchor(anchor)) {
+                const state = readState(control);
+                if (state) {
+                    return {
+                        found: true,
+                        selected: state.selected,
+                        source: state.source,
+                    };
+                }
+            }
+        }
+
+        return {
+            found: anchors.length > 0,
+            selected: null,
+            source: null,
+        };
+    };
+
+    const isStandardSelected = (standardState, premiumState) =>
+        standardState.selected === true || premiumState.selected === false;
+
+    let standardState = scanLabel('standard');
+    let premiumState = scanLabel('premium');
+
+    if (!standardState.found) {
+        return {
+            found: false,
+            selected: false,
+            clicked: false,
+            state_source: null,
+            premium_selected: premiumState.selected,
+        };
+    }
+
+    if (isStandardSelected(standardState, premiumState)) {
+        return {
+            found: true,
+            selected: true,
+            clicked: false,
+            state_source: standardState.selected === true ? standardState.source : premiumState.source,
+            premium_selected: premiumState.selected,
+        };
+    }
+
+    if (!clickIfNeeded) {
+        return {
+            found: true,
+            selected: standardState.selected,
+            clicked: false,
+            state_source: standardState.source,
+            premium_selected: premiumState.selected,
+        };
+    }
+
+    let clickedAny = false;
+    for (const anchor of getAnchors('standard')) {
+        for (const control of getControlsForAnchor(anchor)) {
+            try {
+                control.scrollIntoView({ block: 'center', inline: 'center' });
+                control.click();
+                clickedAny = true;
+                standardState = scanLabel('standard');
+                premiumState = scanLabel('premium');
+                if (isStandardSelected(standardState, premiumState)) {
+                    return {
+                        found: true,
+                        selected: true,
+                        clicked: true,
+                        state_source: standardState.selected === true ? standardState.source : premiumState.source,
+                        premium_selected: premiumState.selected,
+                    };
+                }
+            } catch (error) {
+                // Try the next candidate.
+            }
+        }
+    }
+
+    standardState = scanLabel('standard');
+    premiumState = scanLabel('premium');
+    return {
+        found: true,
+        selected: isStandardSelected(standardState, premiumState),
+        clicked: clickedAny,
+        state_source: standardState.selected === true ? standardState.source : premiumState.source,
+        premium_selected: premiumState.selected,
+    };
+    """
+
+    standard_state = driver.execute_script(standard_script, True)
+
+    if not standard_state or not standard_state.get("found"):
+        raise Exception("Nie znaleziono przycisku Standard")
+
+    if standard_state.get("selected") is True:
+        return standard_state
+
+    if standard_state.get("clicked"):
+        time.sleep(1)
+        standard_state = driver.execute_script(standard_script, False)
+        if standard_state and standard_state.get("selected") is True:
+            return standard_state
+
+    raise Exception("Nie udalo sie potwierdzic wyboru Standard")
+
 def enable_turbo_mode(driver):
     # The Turbo control appears to be a custom-styled toggle, so use a DOM scan
     # that can work with checkbox, switch, button, and label-based variants.
@@ -279,7 +499,7 @@ def enable_turbo_mode(driver):
     raise Exception("Nie udalo sie potwierdzic wlaczenia Turbo")
 
 def capture_turbo_confirmation(driver, filepath):
-    turbo_element = driver.execute_script("""
+    control_elements = driver.execute_script("""
     const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
 
     const isVisible = (el) => {
@@ -290,76 +510,128 @@ def capture_turbo_confirmation(driver, filepath):
             rect.width > 0 && rect.height > 0;
     };
 
-    const candidates = Array.from(document.querySelectorAll(
-        "label, button, [role='checkbox'], [role='switch'], [role='button'], div, span"
-    )).filter(isVisible);
+    const unique = (elements) => {
+        const seen = new Set();
+        const result = [];
+        for (const el of elements) {
+            if (!el || seen.has(el)) continue;
+            seen.add(el);
+            result.push(el);
+        }
+        return result;
+    };
 
-    const anchors = candidates.filter((el) => {
+    const labelMatches = (el, label) => {
         const text = normalize(el.innerText || el.textContent);
         const ariaLabel = normalize(el.getAttribute && el.getAttribute('aria-label'));
         const title = normalize(el.getAttribute && el.getAttribute('title'));
-        return text === 'turbo' || ariaLabel === 'turbo' || title === 'turbo';
-    });
+        return text === label || text.startsWith(label + ' ') || ariaLabel === label || title === label;
+    };
 
-    if (!anchors.length) {
+    const getAnchor = (label) => {
+        const candidates = Array.from(document.querySelectorAll(
+            "button, label, [role='checkbox'], [role='switch'], [role='button'], [role='tab'], [role='radio'], div, span"
+        )).filter(isVisible);
+
+        return candidates.find((el) => labelMatches(el, label)) || null;
+    };
+
+    const getControl = (anchor) => {
+        if (!anchor) return null;
+
+        const candidates = unique([
+            anchor.closest && anchor.closest('button'),
+            anchor.closest && anchor.closest('label'),
+            anchor.closest && anchor.closest("[role='checkbox']"),
+            anchor.closest && anchor.closest("[role='switch']"),
+            anchor.closest && anchor.closest("[role='button']"),
+            anchor.closest && anchor.closest("[role='tab']"),
+            anchor.closest && anchor.closest("[role='radio']"),
+            anchor,
+            anchor.parentElement,
+            anchor.parentElement && anchor.parentElement.parentElement,
+        ].filter(Boolean)).filter(isVisible);
+
+        return candidates[0] || anchor;
+    };
+
+    const findCaptureElement = (first, second) => {
+        if (!first || !second) return first || second || null;
+
+        let current = first;
+        while (current) {
+            if (current.contains(second) && isVisible(current)) {
+                return current;
+            }
+            current = current.parentElement;
+        }
+
+        return null;
+    };
+
+    const standardControl = getControl(getAnchor('standard'));
+    const turboControl = getControl(getAnchor('turbo'));
+    const premiumControl = getControl(getAnchor('premium'));
+
+    const captureElement =
+        findCaptureElement(standardControl, turboControl) ||
+        standardControl ||
+        turboControl;
+
+    if (!captureElement || !standardControl || !turboControl) {
         return null;
     }
 
-    const anchor = anchors[0];
-    const containers = [
-        anchor.closest && anchor.closest('label'),
-        anchor.closest && anchor.closest('button'),
-        anchor.closest && anchor.closest("[role='checkbox']"),
-        anchor.closest && anchor.closest("[role='switch']"),
-        anchor.closest && anchor.closest("[role='button']"),
-        anchor.parentElement,
-        anchor.parentElement && anchor.parentElement.parentElement,
-        anchor.parentElement && anchor.parentElement.parentElement && anchor.parentElement.parentElement.parentElement,
-        anchor,
-    ].filter(Boolean).filter(isVisible);
-
-    const captureElement = containers.find((el) => {
-        const text = normalize(el.innerText || el.textContent);
-        return text.includes('turbo');
-    }) || anchor;
-
     captureElement.scrollIntoView({ block: 'center', inline: 'center' });
-    return captureElement;
+    return [captureElement, standardControl, turboControl, premiumControl];
     """)
 
-    if not turbo_element:
+    if not control_elements or len(control_elements) < 3:
         return False
 
-    driver.execute_script("""
-    const el = arguments[0];
-    el.dataset.codexTurboOutline = el.style.outline || '';
-    el.dataset.codexTurboBoxShadow = el.style.boxShadow || '';
-    el.dataset.codexTurboBorderRadius = el.style.borderRadius || '';
-    el.style.outline = '3px solid #00ff88';
-    el.style.boxShadow = '0 0 0 4px rgba(0, 255, 136, 0.25)';
-    el.style.borderRadius = '10px';
-    """, turbo_element)
+    capture_element = control_elements[0]
+    standard_element = control_elements[1]
+    turbo_element = control_elements[2]
+    premium_element = control_elements[3] if len(control_elements) > 3 else None
+
+    elements_to_outline = [
+        (standard_element, '#00ff88', 'rgba(0, 255, 136, 0.25)'),
+        (turbo_element, '#00ff88', 'rgba(0, 255, 136, 0.25)'),
+    ]
+    if premium_element:
+        elements_to_outline.append((premium_element, '#ffb703', 'rgba(255, 183, 3, 0.18)'))
+
+    for element, outline_color, shadow_color in elements_to_outline:
+        driver.execute_script("""
+        const el = arguments[0];
+        const outlineColor = arguments[1];
+        const shadowColor = arguments[2];
+        el.dataset.codexConfirmOutline = el.style.outline || '';
+        el.dataset.codexConfirmBoxShadow = el.style.boxShadow || '';
+        el.dataset.codexConfirmBorderRadius = el.style.borderRadius || '';
+        el.style.outline = `3px solid ${outlineColor}`;
+        el.style.boxShadow = `0 0 0 4px ${shadowColor}`;
+        el.style.borderRadius = '10px';
+        """, element, outline_color, shadow_color)
 
     time.sleep(0.5)
 
     try:
-        if turbo_element.screenshot(filepath):
+        if capture_element.screenshot(filepath):
             return True
     except Exception:
         pass
     finally:
-        try:
+        for element, _, _ in elements_to_outline:
             driver.execute_script("""
             const el = arguments[0];
-            el.style.outline = el.dataset.codexTurboOutline || '';
-            el.style.boxShadow = el.dataset.codexTurboBoxShadow || '';
-            el.style.borderRadius = el.dataset.codexTurboBorderRadius || '';
-            delete el.dataset.codexTurboOutline;
-            delete el.dataset.codexTurboBoxShadow;
-            delete el.dataset.codexTurboBorderRadius;
-            """, turbo_element)
-        except Exception:
-            pass
+            el.style.outline = el.dataset.codexConfirmOutline || '';
+            el.style.boxShadow = el.dataset.codexConfirmBoxShadow || '';
+            el.style.borderRadius = el.dataset.codexConfirmBorderRadius || '';
+            delete el.dataset.codexConfirmOutline;
+            delete el.dataset.codexConfirmBoxShadow;
+            delete el.dataset.codexConfirmBorderRadius;
+            """, element)
 
     try:
         return driver.save_screenshot(filepath)
@@ -381,6 +653,8 @@ def test_single_model(test_num, model_info):
         "user_email": user['email'],
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "headless": HEADLESS,
+        "quality_mode_requested": "standard",
+        "quality_mode_selected": None,
         "turbo_requested": True,
         "turbo_confirmation_screenshot": None
     }
@@ -515,6 +789,13 @@ def test_single_model(test_num, model_info):
         file_inputs[1].send_keys(garment_path)
         time.sleep(4)
 
+        print(f"  Standard...")
+        standard_state = ensure_standard_mode(driver)
+        if standard_state:
+            metadata["quality_mode_selected"] = "standard"
+            metadata["quality_mode_state_source"] = standard_state.get("state_source")
+            print(f"  OK Standard wybrane")
+
         print(f"  Turbo...")
         turbo_state = enable_turbo_mode(driver)
         if turbo_state:
@@ -525,9 +806,9 @@ def test_single_model(test_num, model_info):
             turbo_confirmation_path = os.path.join(test_folder, "turbo_confirmation.png")
             if capture_turbo_confirmation(driver, turbo_confirmation_path):
                 metadata["turbo_confirmation_screenshot"] = turbo_confirmation_path
-                print(f"  OK Screenshot Turbo zapisany: turbo_confirmation.png")
+                print(f"  OK Screenshot Standard + Turbo zapisany: turbo_confirmation.png")
             else:
-                print(f"  WARN Nie udalo sie zapisac screenshotu Turbo")
+                print(f"  WARN Nie udalo sie zapisac screenshotu Standard + Turbo")
 
         generate_btn = find_button_safe(driver, ['generuj', 'generate'])
         if not generate_btn:
