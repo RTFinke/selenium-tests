@@ -72,6 +72,11 @@ What matters most:
 - Do NOT treat a clean, natural-looking exposed neck as leftover turtleneck damage just because that area was hidden in PERSON.
 - Only treat the neck area as artifact or damage if there are clear remnants of the old neck covering, or if the generated neck looks malformed, implausible, mismatched, or corrupted.
 - If the transferred garment is a top, bottoms from PERSON should usually remain the same unless naturally covered.
+- If PERSON originally wears a dress, skirt, tunic, romper, pinafore, or another outfit with a lower portion visible below the transferred upper-body garment, that lower portion may remain visible in GENERATED_RESULT.
+- For top or outerwear transfers, it can be correct for GENERATED_RESULT to look like PERSON put a hoodie, jacket, cardigan, sweater, or similar upper-body layer on over the existing outfit.
+- Do NOT require the original dress or skirt to be fully replaced or hidden when the transferred garment is only an upper-body item and the result reads as a natural layered outfit.
+- Do NOT mistake the preserved lower part of an original dress for an invented skirt or extra lower-body garment if it looks coherent, intentional, and consistent with PERSON.
+- Only flag that preserved lower portion as damage if it is clearly recolored, corrupted, detached, implausibly reshaped, or appears to be a truly new invented garment not supported by PERSON.
 - Only if TARGET_GARMENT visibly appears tucked into bottoms in garment.png, GENERATED_RESULT may also reveal or synthesize the upper part of the bottoms that was hidden in PERSON.
 - A newly visible waistband, top of pants, top of skirt, or top of shorts caused by tucking is acceptable if it looks plausible, consistent with the rest of the bottoms, and visually fitting.
 - If garment.png does not visibly show the top tucked into bottoms, do NOT excuse a changed waistband or top-of-bottom area as a tuck effect.
@@ -169,6 +174,7 @@ Focus especially on:
 - neck and shoulder leftovers from the original clothing: old collars, hoods, padded neck shapes, scarf-like wraps, masks, or fragments that clearly do not belong to TARGET_GARMENT
 - non-target clothing damage: especially bottoms, skirts, pants, shorts, leggings, shoes, or socks that were recolored, changed, warped, erased, or partially replaced even though the try-on was only supposed to change another garment
 - added extra lower-body garments or layers, such as invented shorts, skirts, leggings, or overlays that were not present in MODEL_ORIGINAL and are not part of TARGET_GARMENT
+- preserved lower portions of an original dress, skirt, tunic, romper, or similar garment showing below a transferred top or outerwear are acceptable when the result reads as a natural layered outfit; do not treat that as an extra garment by default
 - obvious merged boundaries, ghost remnants, or corrupted clothing/body regions
 - If TARGET_GARMENT itself shows a visible inner collar, knit neck insert, mock neck, or neck underlayer, a similar visible neck element in GENERATED_RESULT can be correct and should not be treated as leftover clothing
 - BUT if MODEL_ORIGINAL had a turtleneck, high collar, or other neck coverage, a newly visible or newly synthesized neck can be acceptable and should be judged for natural appearance rather than treated as automatic leftover clothing
@@ -190,6 +196,8 @@ Rules:
 - Never return a perfect clean result if a clear artifact or collateral damage exists
 - Do NOT treat the original garment disappearing inside the replaced target area as damage; that replacement is expected
 - When MODEL_ORIGINAL is available, non-target garments such as bottoms and shoes should remain the same in GENERATED_RESULT unless naturally covered by the target garment
+- If MODEL_ORIGINAL wears a dress, skirt, tunic, romper, or similar lower garment and TARGET_GARMENT is a top or outerwear item, do NOT require that original lower garment to disappear; a visible lower portion can be correct
+- Do NOT call the visible lower part of an original dress a "new skirt" or "extra lower-body garment" when it simply remains visible beneath a newly added hoodie, jacket, cardigan, sweater, or other upper-body layer and still looks coherent
 - Only when TARGET_GARMENT visibly appears tucked into bottoms in garment.png, do NOT treat a newly visible or synthesized waistband, top of pants, top of skirt, or top of shorts as damage by itself
 - In tucked-in cases, judge that upper-bottom area by whether it looks plausible and consistent with the visible bottoms; do NOT require an exact reconstruction of the hidden original upper-bottom area
 - Elastic waistbands or gathered shorts/pants may appear higher, tighter, or more bunched after tucking; do NOT call that warped or detached unless there is a clear floating gap, broken outline, double layer, or impossible geometry
@@ -295,6 +303,13 @@ const TUCKED_UPPER_BOTTOM_PATTERNS = [
   /(shorts|pants|skirt).*(waistband|top).*(warping|distortion|detachment).*(tuck|tucked|tucked-in|newly visible|synthesized|generated)/i,
   /(tuck|tucked|tucked-in|newly visible|synthesized|generated).*(shorts|pants|skirt).*(waistband|top).*(warping|distortion|detachment)/i,
 ];
+const LAYERED_LOWER_GARMENT_PATTERNS = [
+  /(dress|skirt|tunic|romper|pinafore).*(remain|remains|remaining|still visible|visible|showing|left).*(under|beneath|below).*(hoodie|jacket|coat|cardigan|sweater|top|outerwear)/i,
+  /(dress|skirt|tunic|romper|pinafore).*(under|beneath|below).*(hoodie|jacket|coat|cardigan|sweater|top|outerwear)/i,
+  /(hoodie|jacket|coat|cardigan|sweater|top|outerwear).*(over|on top of|layered over|worn over).*(dress|skirt|tunic|romper|pinafore)/i,
+  /(layered outfit|layered look|natural layering|worn over a dress|over the dress|over a skirt|over the original dress)/i,
+  /(original dress|model_original.*dress).*(left as a skirt|visible as a skirt).*(under|beneath|below)/i,
+];
 const LOW_IMPACT_ARTIFACT_PATTERNS = [
   /(tiny|small|slight|subtle|faint|minor|localized|barely noticeable).*(artifact|leftover|remnant|trace|blur|boundary|warp|roughness)/i,
   /(artifact|leftover|remnant|trace|blur|boundary|warp|roughness).*(tiny|small|slight|subtle|faint|minor|localized|barely noticeable)/i,
@@ -310,6 +325,7 @@ const LOW_IMPACT_ARTIFACT_PATTERNS = [
   /(waistband|top of pants|top of shorts|top of skirt|upper bottoms?).*(slight|minor).*(warp|warping)/i,
   ...COVERED_NECK_SYNTHESIS_PATTERNS,
   ...TUCKED_UPPER_BOTTOM_PATTERNS,
+  ...LAYERED_LOWER_GARMENT_PATTERNS,
   /(pants|skirt|shorts|bottoms).*(newly visible|revealed|shown).*(because|due to).*(tuck|tucked)/i,
 ];
 const STRUCTURE_MAJOR_PATTERNS = [
@@ -344,6 +360,7 @@ const TOLERABLE_ISSUE_PATTERNS = [
   /slightly narrower on body than flatlay/i,
   ...COVERED_NECK_SYNTHESIS_PATTERNS,
   ...TUCKED_UPPER_BOTTOM_PATTERNS,
+  ...LAYERED_LOWER_GARMENT_PATTERNS,
   /(pants|skirt|shorts|bottoms).*(newly visible|revealed|shown).*(because|due to).*(tuck|tucked)/i,
 ];
 const CLEAN_ARTIFACT_PATTERNS = [
@@ -582,6 +599,14 @@ function matchesAnyPattern(text, patterns) {
   return patterns.some((pattern) => pattern.test(text));
 }
 
+function isContextualArtifactText(text) {
+  return (
+    matchesAnyPattern(text, COVERED_NECK_SYNTHESIS_PATTERNS) ||
+    matchesAnyPattern(text, TUCKED_UPPER_BOTTOM_PATTERNS) ||
+    matchesAnyPattern(text, LAYERED_LOWER_GARMENT_PATTERNS)
+  );
+}
+
 function sanitizeIssueLists(rating) {
   if (!rating) return rating;
 
@@ -611,8 +636,7 @@ function applyIssueConsistencyGuards(rating) {
     .filter(Boolean);
   const hasIndependentMajorArtifactSignal = artifactTexts.some((text) =>
     matchesAnyPattern(text, MAJOR_ARTIFACT_PATTERNS) &&
-    !matchesAnyPattern(text, COVERED_NECK_SYNTHESIS_PATTERNS) &&
-    !matchesAnyPattern(text, TUCKED_UPPER_BOTTOM_PATTERNS),
+    !isContextualArtifactText(text),
   );
   const hasActionableArtifactSignal = artifactTexts.some((text) =>
     matchesAnyPattern(text, ARTIFACT_PATTERNS) &&
@@ -652,14 +676,10 @@ function relaxContextualArtifactOvercalls(rating) {
   const artifactTexts = [...rating.critical_issues, ...rating.minor_issues, rating.notes]
     .map(normalizeString)
     .filter(Boolean);
-  const hasContextualSynthesisSignal = artifactTexts.some((text) =>
-    matchesAnyPattern(text, COVERED_NECK_SYNTHESIS_PATTERNS) ||
-    matchesAnyPattern(text, TUCKED_UPPER_BOTTOM_PATTERNS),
-  );
+  const hasContextualSynthesisSignal = artifactTexts.some((text) => isContextualArtifactText(text));
   const hasIndependentMajorArtifactSignal = artifactTexts.some((text) =>
     matchesAnyPattern(text, MAJOR_ARTIFACT_PATTERNS) &&
-    !matchesAnyPattern(text, COVERED_NECK_SYNTHESIS_PATTERNS) &&
-    !matchesAnyPattern(text, TUCKED_UPPER_BOTTOM_PATTERNS),
+    !isContextualArtifactText(text),
   );
 
   if (!hasContextualSynthesisSignal || hasIndependentMajorArtifactSignal) {
@@ -719,9 +739,7 @@ function demoteLowImpactArtifactCriticalIssues(rating) {
 
     const isArtifactIssue = matchesAnyPattern(text, ARTIFACT_PATTERNS);
     const isClearlyMajorArtifact = matchesAnyPattern(text, MAJOR_ARTIFACT_PATTERNS);
-    const isContextualSynthesisIssue =
-      matchesAnyPattern(text, COVERED_NECK_SYNTHESIS_PATTERNS) ||
-      matchesAnyPattern(text, TUCKED_UPPER_BOTTOM_PATTERNS);
+    const isContextualSynthesisIssue = isContextualArtifactText(text);
     const overlapsAnotherMajorCategory =
       matchesAnyPattern(text, STRUCTURE_MAJOR_PATTERNS) ||
       matchesAnyPattern(text, SILHOUETTE_MAJOR_PATTERNS) ||
