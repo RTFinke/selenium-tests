@@ -3,12 +3,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
-import time, random, string, os, sys, shutil, base64, json, traceback
+import time, random, string, os, sys, shutil, base64, json, traceback, hashlib
 from pathlib import Path
 
 GRID_URL = os.getenv('SELENIUM_GRID_URL', 'http://localhost:4444')
 PREFIX = "biztest_"
 HEADLESS = os.getenv('HEADLESS', 'false').lower() == 'true'
+PAIRING_MODE = os.getenv('TEST_PAIRING_MODE', 'deterministic').strip().lower()
+PAIRING_SEED = os.getenv('TEST_PAIRING_SEED', 'stable-v1').strip() or 'stable-v1'
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_PATH = os.path.join(SCRIPT_DIR, 'test_images')
@@ -26,6 +28,13 @@ def generate_user():
     uid = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
     return {"email": f"{PREFIX}{uid}@test.com", "password": "TestPass123!"}
 
+def list_supported_images(folder, sort_files=False):
+    images = [
+        f for f in os.listdir(folder)
+        if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and not f.startswith('.')
+    ]
+    return sorted(images) if sort_files else images
+
 def find_button_safe(driver, texts):
     buttons = driver.find_elements(By.TAG_NAME, "button")
     for btn in buttons:
@@ -41,33 +50,50 @@ def find_button_safe(driver, texts):
 def get_all_models():
     models = []
     women_folder = FOLDERS["women_people"]
-    for img in sorted(os.listdir(women_folder)):
-        if img.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and not img.startswith('.'):
-            models.append({
-                "gender": "women",
-                "person_path": os.path.join(women_folder, img),
-                "person_name": img,
-                "clothes_folder": FOLDERS["women_clothes"]
-            })
+    for img in list_supported_images(women_folder, sort_files=True):
+        models.append({
+            "gender": "women",
+            "person_path": os.path.join(women_folder, img),
+            "person_name": img,
+            "clothes_folder": FOLDERS["women_clothes"]
+        })
     
     men_folder = FOLDERS["men_people"]
-    for img in sorted(os.listdir(men_folder)):
-        if img.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and not img.startswith('.'):
-            models.append({
-                "gender": "men",
-                "person_path": os.path.join(men_folder, img),
-                "person_name": img,
-                "clothes_folder": FOLDERS["men_clothes"]
-            })
+    for img in list_supported_images(men_folder, sort_files=True):
+        models.append({
+            "gender": "men",
+            "person_path": os.path.join(men_folder, img),
+            "person_name": img,
+            "clothes_folder": FOLDERS["men_clothes"]
+        })
     
     return models
 
-def get_random_garment(clothes_folder):
-    images = [f for f in os.listdir(clothes_folder) 
-              if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and not f.startswith('.')]
+def get_garment_for_model(clothes_folder, model_info):
+    images = list_supported_images(clothes_folder, sort_files=True)
     if not images:
         raise Exception(f"Brak ubran w: {clothes_folder}")
-    return os.path.join(clothes_folder, random.choice(images))
+
+    if PAIRING_MODE == 'random':
+        chosen_image = random.choice(images)
+        return {
+            "path": os.path.join(clothes_folder, chosen_image),
+            "mode": "random",
+            "seed": None,
+            "index": images.index(chosen_image),
+            "pool_size": len(images),
+        }
+
+    selection_basis = f"{PAIRING_SEED}|{model_info['gender']}|{model_info['person_name']}"
+    digest = hashlib.sha256(selection_basis.encode('utf-8')).hexdigest()
+    image_index = int(digest[:8], 16) % len(images)
+    return {
+        "path": os.path.join(clothes_folder, images[image_index]),
+        "mode": "deterministic",
+        "seed": PAIRING_SEED,
+        "index": image_index,
+        "pool_size": len(images),
+    }
 
 def download_image_from_element(driver, img_element, filepath):
     try:
@@ -653,6 +679,8 @@ def test_single_model(test_num, model_info):
         "user_email": user['email'],
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "headless": HEADLESS,
+        "pairing_mode": PAIRING_MODE,
+        "pairing_seed": PAIRING_SEED if PAIRING_MODE != 'random' else None,
         "quality_mode_requested": "standard",
         "quality_mode_selected": None,
         "turbo_requested": True,
@@ -660,9 +688,14 @@ def test_single_model(test_num, model_info):
     }
     
     try:
-        garment_path = get_random_garment(model_info['clothes_folder'])
+        garment_selection = get_garment_for_model(model_info['clothes_folder'], model_info)
+        garment_path = garment_selection["path"]
         garment_name = os.path.basename(garment_path)
         metadata["garment_filename"] = garment_name
+        metadata["garment_selection_mode"] = garment_selection["mode"]
+        metadata["garment_selection_seed"] = garment_selection["seed"]
+        metadata["garment_selection_index"] = garment_selection["index"]
+        metadata["garment_pool_size"] = garment_selection["pool_size"]
         
         print(f"\n[{test_num}] {user['email']} | {model_info['gender']}")
         print(f"  Model: {model_info['person_name'][:40]}")
@@ -887,6 +920,9 @@ def test_single_model(test_num, model_info):
 if __name__ == "__main__":
     print("SIZ3R BUSINESS TESTS - ALL MODELS")
     print(f"Headless mode: {HEADLESS}")
+    print(f"Pairing mode: {PAIRING_MODE}")
+    if PAIRING_MODE != 'random':
+        print(f"Pairing seed: {PAIRING_SEED}")
     
     missing = [k for k, v in FOLDERS.items() if not os.path.exists(v)]
     if missing:
@@ -894,8 +930,7 @@ if __name__ == "__main__":
         sys.exit(1)
     
     for key, path in FOLDERS.items():
-        count = len([f for f in os.listdir(path) 
-                    if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and not f.startswith('.')])
+        count = len(list_supported_images(path))
         print(f"  {key}: {count} zdjec")
     
     all_models = get_all_models()
@@ -943,7 +978,9 @@ if __name__ == "__main__":
         "duration_seconds": int(elapsed_total),
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "test_results_folder": RESULTS_FOLDER,
-        "headless_mode": HEADLESS
+        "headless_mode": HEADLESS,
+        "pairing_mode": PAIRING_MODE,
+        "pairing_seed": PAIRING_SEED if PAIRING_MODE != 'random' else None,
     }
     
     with open(os.path.join(RESULTS_FOLDER, "summary.json"), 'w') as f:
