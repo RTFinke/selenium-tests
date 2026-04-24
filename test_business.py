@@ -526,7 +526,7 @@ def ensure_turbo_mode(driver, should_enable):
     desired_label = "wlaczenia" if should_enable else "wylaczenia"
     raise Exception(f"Nie udalo sie potwierdzic {desired_label} Turbo")
 
-def capture_turbo_confirmation(driver, filepath):
+def capture_option_confirmation(driver, filepath):
     control_elements = driver.execute_script("""
     const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
 
@@ -685,8 +685,11 @@ def test_single_model(test_num, model_info):
         "pairing_seed": PAIRING_SEED if PAIRING_MODE != 'random' else None,
         "quality_mode_requested": "standard",
         "quality_mode_selected": None,
+        "quality_mode_state_source": None,
         "turbo_requested": False,
-        "turbo_enabled": None
+        "turbo_enabled": None,
+        "turbo_state_source": None,
+        "option_confirmation_screenshot": None,
     }
     
     try:
@@ -837,6 +840,13 @@ def test_single_model(test_num, model_info):
             metadata["turbo_enabled"] = False
             metadata["turbo_state_source"] = turbo_state.get("state_source")
             print(f"  OK Turbo wylaczone")
+
+        option_confirmation_path = os.path.join(test_folder, "option_confirmation.png")
+        if capture_option_confirmation(driver, option_confirmation_path):
+            metadata["option_confirmation_screenshot"] = option_confirmation_path
+            print(f"  OK Screenshot opcji zapisany: option_confirmation.png")
+        else:
+            print(f"  WARN Nie udalo sie zapisac screenshotu opcji")
 
         generate_btn = find_button_safe(driver, ['generuj', 'generate'])
         if not generate_btn:
