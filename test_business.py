@@ -341,11 +341,12 @@ def ensure_standard_mode(driver):
 
     raise Exception("Nie udalo sie potwierdzic wyboru Standard")
 
-def enable_turbo_mode(driver):
+def ensure_turbo_mode(driver, should_enable):
     # The Turbo control appears to be a custom-styled toggle, so use a DOM scan
     # that can work with checkbox, switch, button, and label-based variants.
     turbo_script = """
     const clickIfNeeded = arguments[0];
+    const desiredEnabled = arguments[1];
 
     const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
 
@@ -459,10 +460,10 @@ def enable_turbo_mode(driver):
     };
 
     let scanned = scan();
-    if (scanned.state && scanned.state.checked === true) {
+    if (scanned.state && scanned.state.checked === desiredEnabled) {
         return {
             found: scanned.anchors.length > 0,
-            enabled: true,
+            enabled: desiredEnabled,
             clicked: false,
             state_source: scanned.state.source,
         };
@@ -485,10 +486,10 @@ def enable_turbo_mode(driver):
                 control.click();
                 clickedAny = true;
                 scanned = scan();
-                if (scanned.state && scanned.state.checked === true) {
+                if (scanned.state && scanned.state.checked === desiredEnabled) {
                     return {
                         found: true,
-                        enabled: true,
+                        enabled: desiredEnabled,
                         clicked: true,
                         state_source: scanned.state.source,
                     };
@@ -508,21 +509,22 @@ def enable_turbo_mode(driver):
     };
     """
 
-    turbo_state = driver.execute_script(turbo_script, True)
+    turbo_state = driver.execute_script(turbo_script, True, should_enable)
 
     if not turbo_state or not turbo_state.get("found"):
         raise Exception("Nie znaleziono kontrolki Turbo")
 
-    if turbo_state.get("enabled") is True:
+    if turbo_state.get("enabled") is should_enable:
         return turbo_state
 
     if turbo_state.get("clicked"):
         time.sleep(1)
-        turbo_state = driver.execute_script(turbo_script, False)
-        if turbo_state and turbo_state.get("enabled") is True:
+        turbo_state = driver.execute_script(turbo_script, False, should_enable)
+        if turbo_state and turbo_state.get("enabled") is should_enable:
             return turbo_state
 
-    raise Exception("Nie udalo sie potwierdzic wlaczenia Turbo")
+    desired_label = "wlaczenia" if should_enable else "wylaczenia"
+    raise Exception(f"Nie udalo sie potwierdzic {desired_label} Turbo")
 
 def capture_turbo_confirmation(driver, filepath):
     control_elements = driver.execute_script("""
@@ -683,8 +685,8 @@ def test_single_model(test_num, model_info):
         "pairing_seed": PAIRING_SEED if PAIRING_MODE != 'random' else None,
         "quality_mode_requested": "standard",
         "quality_mode_selected": None,
-        "turbo_requested": True,
-        "turbo_confirmation_screenshot": None
+        "turbo_requested": False,
+        "turbo_enabled": None
     }
     
     try:
@@ -830,18 +832,11 @@ def test_single_model(test_num, model_info):
             print(f"  OK Standard wybrane")
 
         print(f"  Turbo...")
-        turbo_state = enable_turbo_mode(driver)
+        turbo_state = ensure_turbo_mode(driver, False)
         if turbo_state:
-            metadata["turbo_enabled"] = True
+            metadata["turbo_enabled"] = False
             metadata["turbo_state_source"] = turbo_state.get("state_source")
-            print(f"  OK Turbo wlaczone")
-
-            turbo_confirmation_path = os.path.join(test_folder, "turbo_confirmation.png")
-            if capture_turbo_confirmation(driver, turbo_confirmation_path):
-                metadata["turbo_confirmation_screenshot"] = turbo_confirmation_path
-                print(f"  OK Screenshot Standard + Turbo zapisany: turbo_confirmation.png")
-            else:
-                print(f"  WARN Nie udalo sie zapisac screenshotu Standard + Turbo")
+            print(f"  OK Turbo wylaczone")
 
         generate_btn = find_button_safe(driver, ['generuj', 'generate'])
         if not generate_btn:
