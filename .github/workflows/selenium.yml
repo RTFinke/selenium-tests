@@ -40,7 +40,10 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: siz3r-test-results
-        path: test_results/
+        path: |
+          test_results_upper/
+          test_results_lower/
+          test_results_summary.json
         retention-days: 30
     
     - name: Stop Grid

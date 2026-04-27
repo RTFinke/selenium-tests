@@ -15,14 +15,35 @@ PAIRING_SEED = os.getenv('TEST_PAIRING_SEED', 'stable-v1').strip() or 'stable-v1
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_PATH = os.path.join(SCRIPT_DIR, 'test_images')
 
-FOLDERS = {
-    "women_people": os.path.join(BASE_PATH, "women_people"),
-    "women_clothes": os.path.join(BASE_PATH, "women_clothes"),
-    "men_people": os.path.join(BASE_PATH, "men_people"),
-    "men_clothes": os.path.join(BASE_PATH, "men_clothes")
+PEOPLE_FOLDERS = {
+    "women": os.path.join(BASE_PATH, "women_people"),
+    "men": os.path.join(BASE_PATH, "men_people"),
 }
 
-RESULTS_FOLDER = os.path.join(SCRIPT_DIR, "test_results")
+GARMENT_RUNS = [
+    {
+        "key": "upper",
+        "label": "Upper",
+        "site_mode": "upper",
+        "results_folder": os.path.join(SCRIPT_DIR, "test_results_upper"),
+        "clothes_folders": {
+            "women": os.path.join(BASE_PATH, "women_clothes"),
+            "men": os.path.join(BASE_PATH, "men_clothes"),
+        },
+    },
+    {
+        "key": "lower",
+        "label": "Lower",
+        "site_mode": "lower",
+        "results_folder": os.path.join(SCRIPT_DIR, "test_results_lower"),
+        "clothes_folders": {
+            "women": os.path.join(BASE_PATH, "women_lower_clothes"),
+            "men": os.path.join(BASE_PATH, "men_lower_clothes"),
+        },
+    },
+]
+
+RUN_SUMMARY_PATH = os.path.join(SCRIPT_DIR, "test_results_summary.json")
 
 def generate_user():
     uid = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -47,27 +68,30 @@ def find_button_safe(driver, texts):
             continue
     return None
 
-def get_all_models():
+def get_all_models(run_config):
     models = []
-    women_folder = FOLDERS["women_people"]
-    for img in list_supported_images(women_folder, sort_files=True):
-        models.append({
-            "gender": "women",
-            "person_path": os.path.join(women_folder, img),
-            "person_name": img,
-            "clothes_folder": FOLDERS["women_clothes"]
-        })
+    skipped_genders = []
+
+    for gender in ["women", "men"]:
+        people_folder = PEOPLE_FOLDERS[gender]
+        clothes_folder = run_config["clothes_folders"][gender]
+        garment_images = list_supported_images(clothes_folder, sort_files=True)
+
+        if not garment_images:
+            skipped_genders.append(gender)
+            continue
+
+        for img in list_supported_images(people_folder, sort_files=True):
+            models.append({
+                "gender": gender,
+                "person_path": os.path.join(people_folder, img),
+                "person_name": img,
+                "clothes_folder": clothes_folder,
+                "garment_run_key": run_config["key"],
+                "garment_site_mode": run_config["site_mode"],
+            })
     
-    men_folder = FOLDERS["men_people"]
-    for img in list_supported_images(men_folder, sort_files=True):
-        models.append({
-            "gender": "men",
-            "person_path": os.path.join(men_folder, img),
-            "person_name": img,
-            "clothes_folder": FOLDERS["men_clothes"]
-        })
-    
-    return models
+    return models, skipped_genders
 
 def get_garment_for_model(clothes_folder, model_info):
     images = list_supported_images(clothes_folder, sort_files=True)
@@ -238,6 +262,9 @@ def read_generation_option_state(driver):
     const standard = scan('standard');
     const premium = scan('premium');
     const turbo = scan('turbo');
+    const upper = scan('upper');
+    const lower = scan('lower');
+    const full = scan('full');
 
     let qualityMode = null;
     let qualitySource = null;
@@ -249,18 +276,357 @@ def read_generation_option_state(driver):
         qualitySource = premium.selected === true ? premium.source : standard.source;
     }
 
+    let garmentMode = null;
+    let garmentModeSource = null;
+    if (upper.selected === true) {
+        garmentMode = 'upper';
+        garmentModeSource = upper.source;
+    } else if (lower.selected === true) {
+        garmentMode = 'lower';
+        garmentModeSource = lower.source;
+    } else if (full.selected === true) {
+        garmentMode = 'full';
+        garmentModeSource = full.source;
+    }
+
     return {
         quality_mode_selected: qualityMode,
         quality_mode_state_source: qualitySource,
+        garment_mode_selected: garmentMode,
+        garment_mode_state_source: garmentModeSource,
         turbo_enabled: turbo.selected,
         turbo_state_source: turbo.source,
         standard_found: standard.found,
         premium_found: premium.found,
         turbo_found: turbo.found,
+        upper_found: upper.found,
+        lower_found: lower.found,
+        full_found: full.found,
     };
     """)
 
     return option_state if isinstance(option_state, dict) else None
+
+def ensure_garment_site_mode(driver, desired_mode):
+    mode_state = driver.execute_script("""
+    const desiredLabel = String(arguments[0] || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+    const clickIfNeeded = arguments[1];
+
+    const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+
+    const isVisible = (el) => {
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' &&
+            rect.width > 0 && rect.height > 0;
+    };
+
+    const unique = (elements) => {
+        const seen = new Set();
+        const result = [];
+        for (const el of elements) {
+            if (!el || seen.has(el)) continue;
+            seen.add(el);
+            result.push(el);
+        }
+        return result;
+    };
+
+    const labelMatches = (el, label) => {
+        const text = normalize(el.innerText || el.textContent);
+        const ariaLabel = normalize(el.getAttribute && el.getAttribute('aria-label'));
+        const title = normalize(el.getAttribute && el.getAttribute('title'));
+        return text === label || text.startsWith(label + ' ') || ariaLabel === label || title === label;
+    };
+
+    const getAnchors = (label) => {
+        const candidates = Array.from(document.querySelectorAll(
+            "button, label, [role='button'], [role='tab'], [role='radio'], div, span"
+        ));
+        return candidates.filter((el) => isVisible(el) && labelMatches(el, label));
+    };
+
+    const getControlsForAnchor = (anchor) => unique([
+        anchor.closest && anchor.closest('button'),
+        anchor.closest && anchor.closest('label'),
+        anchor.closest && anchor.closest("[role='button']"),
+        anchor.closest && anchor.closest("[role='tab']"),
+        anchor.closest && anchor.closest("[role='radio']"),
+        anchor,
+        anchor.parentElement,
+        anchor.previousElementSibling,
+        anchor.nextElementSibling,
+        anchor.parentElement && anchor.parentElement.parentElement,
+    ].filter(Boolean)).filter(isVisible);
+
+    const readState = (root) => {
+        if (!root) return null;
+
+        const nodes = unique([
+            root,
+            ...root.querySelectorAll(
+                "input[type='radio'], [role='tab'], [role='radio'], [aria-selected], [aria-checked], [aria-pressed], [data-state]"
+            ),
+        ]);
+
+        for (const node of nodes) {
+            if (!node) continue;
+
+            if (node.matches && node.matches("input[type='radio']")) {
+                return { selected: Boolean(node.checked), source: 'input.checked' };
+            }
+
+            const ariaSelected = normalize(node.getAttribute && node.getAttribute('aria-selected'));
+            if (ariaSelected === 'true' || ariaSelected === 'false') {
+                return { selected: ariaSelected === 'true', source: 'aria-selected' };
+            }
+
+            const ariaChecked = normalize(node.getAttribute && node.getAttribute('aria-checked'));
+            if (ariaChecked === 'true' || ariaChecked === 'false') {
+                return { selected: ariaChecked === 'true', source: 'aria-checked' };
+            }
+
+            const ariaPressed = normalize(node.getAttribute && node.getAttribute('aria-pressed'));
+            if (ariaPressed === 'true' || ariaPressed === 'false') {
+                return { selected: ariaPressed === 'true', source: 'aria-pressed' };
+            }
+
+            const dataState = normalize(node.getAttribute && node.getAttribute('data-state'));
+            if (['checked', 'on', 'active', 'selected'].includes(dataState)) {
+                return { selected: true, source: 'data-state' };
+            }
+            if (['unchecked', 'off'].includes(dataState)) {
+                return { selected: false, source: 'data-state' };
+            }
+
+            const className = normalize(node.className);
+            if (['mui-selected', 'selected', 'active', 'checked', 'current'].some((token) => className.includes(token))) {
+                return { selected: true, source: 'class' };
+            }
+        }
+
+        return null;
+    };
+
+    const labels = ['upper', 'lower', 'full'];
+
+    const scanLabel = (label) => {
+        const anchors = getAnchors(label);
+        for (const anchor of anchors) {
+            for (const control of getControlsForAnchor(anchor)) {
+                const state = readState(control);
+                if (state) {
+                    return { found: true, selected: state.selected, source: state.source };
+                }
+            }
+        }
+
+        return { found: anchors.length > 0, selected: null, source: null };
+    };
+
+    const scanAll = () => {
+        const states = {};
+        for (const label of labels) {
+            states[label] = scanLabel(label);
+        }
+        return states;
+    };
+
+    let states = scanAll();
+    if (!states[desiredLabel] || !states[desiredLabel].found) {
+        return {
+            found: false,
+            selected: false,
+            clicked: false,
+            state_source: null,
+            selected_label: null,
+        };
+    }
+
+    const getSelectedLabel = () => labels.find((label) => states[label] && states[label].selected === true) || null;
+    let selectedLabel = getSelectedLabel();
+
+    if (selectedLabel === desiredLabel) {
+        return {
+            found: true,
+            selected: true,
+            clicked: false,
+            state_source: states[desiredLabel].source,
+            selected_label: selectedLabel,
+        };
+    }
+
+    if (!clickIfNeeded) {
+        return {
+            found: true,
+            selected: states[desiredLabel].selected,
+            clicked: false,
+            state_source: states[desiredLabel].source,
+            selected_label: selectedLabel,
+        };
+    }
+
+    let clickedAny = false;
+    for (const anchor of getAnchors(desiredLabel)) {
+        for (const control of getControlsForAnchor(anchor)) {
+            try {
+                control.scrollIntoView({ block: 'center', inline: 'center' });
+                control.click();
+                clickedAny = true;
+                states = scanAll();
+                selectedLabel = getSelectedLabel();
+                if (selectedLabel === desiredLabel) {
+                    return {
+                        found: true,
+                        selected: true,
+                        clicked: true,
+                        state_source: states[desiredLabel].source,
+                        selected_label: selectedLabel,
+                    };
+                }
+            } catch (error) {
+                // Try the next candidate.
+            }
+        }
+    }
+
+    states = scanAll();
+    selectedLabel = getSelectedLabel();
+    return {
+        found: true,
+        selected: selectedLabel === desiredLabel,
+        clicked: clickedAny,
+        state_source: states[desiredLabel].source,
+        selected_label: selectedLabel,
+    };
+    """, desired_mode, True)
+
+    if not mode_state or not mode_state.get("found"):
+        raise Exception(f"Nie znaleziono przycisku trybu odziezy: {desired_mode}")
+
+    if mode_state.get("selected") is True:
+        return mode_state
+
+    if mode_state.get("clicked"):
+        time.sleep(1)
+        mode_state = driver.execute_script("""
+        const desiredLabel = String(arguments[0] || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+        const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+        const isVisible = (el) => {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            const rect = el.getBoundingClientRect();
+            return style.display !== 'none' && style.visibility !== 'hidden' &&
+                rect.width > 0 && rect.height > 0;
+        };
+        const unique = (elements) => {
+            const seen = new Set();
+            const result = [];
+            for (const el of elements) {
+                if (!el || seen.has(el)) continue;
+                seen.add(el);
+                result.push(el);
+            }
+            return result;
+        };
+        const labelMatches = (el, label) => {
+            const text = normalize(el.innerText || el.textContent);
+            const ariaLabel = normalize(el.getAttribute && el.getAttribute('aria-label'));
+            const title = normalize(el.getAttribute && el.getAttribute('title'));
+            return text === label || text.startsWith(label + ' ') || ariaLabel === label || title === label;
+        };
+        const getAnchors = (label) => {
+            const candidates = Array.from(document.querySelectorAll(
+                "button, label, [role='button'], [role='tab'], [role='radio'], div, span"
+            ));
+            return candidates.filter((el) => isVisible(el) && labelMatches(el, label));
+        };
+        const getControlsForAnchor = (anchor) => unique([
+            anchor.closest && anchor.closest('button'),
+            anchor.closest && anchor.closest('label'),
+            anchor.closest && anchor.closest("[role='button']"),
+            anchor.closest && anchor.closest("[role='tab']"),
+            anchor.closest && anchor.closest("[role='radio']"),
+            anchor,
+            anchor.parentElement,
+            anchor.previousElementSibling,
+            anchor.nextElementSibling,
+            anchor.parentElement && anchor.parentElement.parentElement,
+        ].filter(Boolean)).filter(isVisible);
+        const readState = (root) => {
+            if (!root) return null;
+            const nodes = unique([
+                root,
+                ...root.querySelectorAll(
+                    "input[type='radio'], [role='tab'], [role='radio'], [aria-selected], [aria-checked], [aria-pressed], [data-state]"
+                ),
+            ]);
+            for (const node of nodes) {
+                if (!node) continue;
+                if (node.matches && node.matches("input[type='radio']")) {
+                    return { selected: Boolean(node.checked), source: 'input.checked' };
+                }
+                const ariaSelected = normalize(node.getAttribute && node.getAttribute('aria-selected'));
+                if (ariaSelected === 'true' || ariaSelected === 'false') {
+                    return { selected: ariaSelected === 'true', source: 'aria-selected' };
+                }
+                const ariaChecked = normalize(node.getAttribute && node.getAttribute('aria-checked'));
+                if (ariaChecked === 'true' || ariaChecked === 'false') {
+                    return { selected: ariaChecked === 'true', source: 'aria-checked' };
+                }
+                const ariaPressed = normalize(node.getAttribute && node.getAttribute('aria-pressed'));
+                if (ariaPressed === 'true' || ariaPressed === 'false') {
+                    return { selected: ariaPressed === 'true', source: 'aria-pressed' };
+                }
+                const dataState = normalize(node.getAttribute && node.getAttribute('data-state'));
+                if (['checked', 'on', 'active', 'selected'].includes(dataState)) {
+                    return { selected: true, source: 'data-state' };
+                }
+                if (['unchecked', 'off'].includes(dataState)) {
+                    return { selected: false, source: 'data-state' };
+                }
+                const className = normalize(node.className);
+                if (['mui-selected', 'selected', 'active', 'checked', 'current'].some((token) => className.includes(token))) {
+                    return { selected: true, source: 'class' };
+                }
+            }
+            return null;
+        };
+        const labels = ['upper', 'lower', 'full'];
+        const states = {};
+        for (const label of labels) {
+            states[label] = { found: false, selected: null, source: null };
+            const anchors = getAnchors(label);
+            for (const anchor of anchors) {
+                for (const control of getControlsForAnchor(anchor)) {
+                    const state = readState(control);
+                    if (state) {
+                        states[label] = { found: true, selected: state.selected, source: state.source };
+                        break;
+                    }
+                }
+                if (states[label].found && states[label].selected !== null) {
+                    break;
+                }
+            }
+            if (!states[label].found) {
+                states[label].found = anchors.length > 0;
+            }
+        }
+        const selectedLabel = labels.find((label) => states[label] && states[label].selected === true) || null;
+        return {
+            found: states[desiredLabel] ? states[desiredLabel].found : false,
+            selected: selectedLabel === desiredLabel,
+            clicked: false,
+            state_source: states[desiredLabel] ? states[desiredLabel].source : null,
+            selected_label: selectedLabel,
+        };
+        """, desired_mode)
+        if mode_state and mode_state.get("selected") is True:
+            return mode_state
+
+    raise Exception(f"Nie udalo sie potwierdzic wyboru trybu odziezy: {desired_mode}")
 
 def capture_option_confirmation(driver, filepath):
     control_elements = driver.execute_script("""
@@ -336,14 +702,32 @@ def capture_option_confirmation(driver, filepath):
     const standardControl = getControl(getAnchor('standard'));
     const premiumControl = getControl(getAnchor('premium'));
     const turboControl = getControl(getAnchor('turbo'));
-    const captureElement = findCaptureElement([standardControl, premiumControl, turboControl]);
+    const upperControl = getControl(getAnchor('upper'));
+    const lowerControl = getControl(getAnchor('lower'));
+    const fullControl = getControl(getAnchor('full'));
+    const captureElement = findCaptureElement([
+        standardControl,
+        premiumControl,
+        turboControl,
+        upperControl,
+        lowerControl,
+        fullControl,
+    ]);
 
     if (!captureElement) {
         return null;
     }
 
     captureElement.scrollIntoView({ block: 'center', inline: 'center' });
-    return [captureElement, standardControl, premiumControl, turboControl];
+    return [
+        captureElement,
+        standardControl,
+        premiumControl,
+        turboControl,
+        upperControl,
+        lowerControl,
+        fullControl,
+    ];
     """)
 
     if not control_elements or len(control_elements) < 1:
@@ -387,7 +771,7 @@ def capture_option_confirmation(driver, filepath):
     except Exception:
         return False
 
-def test_single_model(test_num, model_info):
+def test_single_model(test_num, model_info, run_config):
     driver = None
     user = generate_user()
     
@@ -404,6 +788,11 @@ def test_single_model(test_num, model_info):
         "headless": HEADLESS,
         "pairing_mode": PAIRING_MODE,
         "pairing_seed": PAIRING_SEED if PAIRING_MODE != 'random' else None,
+        "garment_run_key": run_config["key"],
+        "garment_run_label": run_config["label"],
+        "garment_mode_requested": run_config["site_mode"],
+        "garment_mode_selected": None,
+        "garment_mode_state_source": None,
         "quality_mode_selected": None,
         "quality_mode_state_source": None,
         "turbo_enabled": None,
@@ -425,7 +814,7 @@ def test_single_model(test_num, model_info):
         print(f"  Model: {model_info['person_name'][:40]}")
         print(f"  Garment: {garment_name[:40]}")
         
-        test_folder = os.path.join(RESULTS_FOLDER, test_id)
+        test_folder = os.path.join(run_config["results_folder"], test_id)
         garment_folder = os.path.join(test_folder, "garment")
         model_folder = os.path.join(test_folder, "model")
         result_folder = os.path.join(test_folder, "result")
@@ -546,14 +935,23 @@ def test_single_model(test_num, model_info):
         file_inputs[1].send_keys(garment_path)
         time.sleep(4)
 
+        garment_mode_state = ensure_garment_site_mode(driver, run_config["site_mode"])
+        if garment_mode_state:
+            metadata["garment_mode_selected"] = garment_mode_state.get("selected_label")
+            metadata["garment_mode_state_source"] = garment_mode_state.get("state_source")
+            print(f"  OK Tryb odziezy: {metadata['garment_mode_selected']}")
+
         option_state = read_generation_option_state(driver)
         if option_state:
+            metadata["garment_mode_selected"] = option_state.get("garment_mode_selected") or metadata["garment_mode_selected"]
+            metadata["garment_mode_state_source"] = option_state.get("garment_mode_state_source") or metadata["garment_mode_state_source"]
             metadata["quality_mode_selected"] = option_state.get("quality_mode_selected")
             metadata["quality_mode_state_source"] = option_state.get("quality_mode_state_source")
             metadata["turbo_enabled"] = option_state.get("turbo_enabled")
             metadata["turbo_state_source"] = option_state.get("turbo_state_source")
             print(
-                f"  Opcje: quality={metadata['quality_mode_selected'] or 'unknown'} | "
+                f"  Opcje: garment={metadata['garment_mode_selected'] or 'unknown'} | "
+                f"quality={metadata['quality_mode_selected'] or 'unknown'} | "
                 f"turbo={metadata['turbo_enabled'] if metadata['turbo_enabled'] is not None else 'unknown'}"
             )
 
@@ -618,7 +1016,7 @@ def test_single_model(test_num, model_info):
         metadata["error"] = error_msg
         metadata["error_trace"] = error_trace
         
-        test_folder = os.path.join(RESULTS_FOLDER, test_id)
+        test_folder = os.path.join(run_config["results_folder"], test_id)
         os.makedirs(test_folder, exist_ok=True)
         with open(os.path.join(test_folder, "metadata.json"), 'w') as f:
             json.dump(metadata, f, indent=2)
@@ -638,75 +1036,125 @@ def test_single_model(test_num, model_info):
         
         return False
 
+def write_run_summary(run_config, total_tests, success, failed, elapsed_total, skipped_genders):
+    results_folder = run_config["results_folder"]
+    summary = {
+        "run_key": run_config["key"],
+        "run_label": run_config["label"],
+        "garment_mode": run_config["site_mode"],
+        "total_tests": total_tests,
+        "successful": success,
+        "failed": failed,
+        "success_rate": f"{(success / total_tests * 100):.1f}%" if total_tests > 0 else "0.0%",
+        "duration_seconds": int(elapsed_total),
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "test_results_folder": results_folder,
+        "headless_mode": HEADLESS,
+        "pairing_mode": PAIRING_MODE,
+        "pairing_seed": PAIRING_SEED if PAIRING_MODE != 'random' else None,
+        "skipped_genders_without_garments": skipped_genders,
+    }
+
+    with open(os.path.join(results_folder, "summary.json"), 'w') as f:
+        json.dump(summary, f, indent=2)
+
+    return summary
+
+def run_test_suite(run_config):
+    print(f"\n{'='*60}")
+    print(f"RUN: {run_config['label'].upper()}")
+    print(f"{'='*60}")
+
+    results_folder = run_config["results_folder"]
+    os.makedirs(results_folder, exist_ok=True)
+
+    all_models, skipped_genders = get_all_models(run_config)
+    total_tests = len(all_models)
+
+    if skipped_genders:
+        print(f"  Pomijam bez ubrań: {', '.join(skipped_genders)}")
+
+    print(f"  Wyniki: {results_folder}")
+    print(f"  Testowanie {total_tests} modeli")
+    print(f"  Women: {len([m for m in all_models if m['gender'] == 'women'])}")
+    print(f"  Men: {len([m for m in all_models if m['gender'] == 'men'])}")
+
+    if total_tests == 0:
+        summary = write_run_summary(run_config, 0, 0, 0, 0, skipped_genders)
+        print(f"  Brak testów do uruchomienia dla {run_config['label']}")
+        print(f"  Summary zapisane w: {results_folder}/summary.json")
+        return summary
+
+    success = 0
+    failed = 0
+    start_time = time.time()
+
+    for i, model in enumerate(all_models, 1):
+        if test_single_model(i, model, run_config):
+            success += 1
+        else:
+            failed += 1
+
+        if i < total_tests:
+            time.sleep(2)
+
+        elapsed = time.time() - start_time
+        avg_per_test = elapsed / i
+        remaining = (total_tests - i) * avg_per_test
+        print(f"  Progress: {i}/{total_tests} | ETA: {int(remaining/60)}min")
+
+    elapsed_total = time.time() - start_time
+    print(f"\n{'='*60}")
+    print(f"PODSUMOWANIE {run_config['label'].upper()}")
+    print(f"{'='*60}")
+    print(f"Sukces: {success}/{total_tests} ({success/total_tests*100:.1f}%)")
+    print(f"Bledy: {failed}/{total_tests}")
+    print(f"Czas: {int(elapsed_total/60)}min {int(elapsed_total%60)}s")
+    print(f"Wyniki: {results_folder}")
+
+    summary = write_run_summary(run_config, total_tests, success, failed, elapsed_total, skipped_genders)
+    print(f"\nSummary zapisane w: {results_folder}/summary.json")
+    return summary
+
 if __name__ == "__main__":
     print("SIZ3R BUSINESS TESTS - ALL MODELS")
     print(f"Headless mode: {HEADLESS}")
     print(f"Pairing mode: {PAIRING_MODE}")
     if PAIRING_MODE != 'random':
         print(f"Pairing seed: {PAIRING_SEED}")
-    
-    missing = [k for k, v in FOLDERS.items() if not os.path.exists(v)]
+
+    required_paths = {
+        "women_people": PEOPLE_FOLDERS["women"],
+        "men_people": PEOPLE_FOLDERS["men"],
+    }
+    for run_config in GARMENT_RUNS:
+        required_paths[f"{run_config['key']}_women_clothes"] = run_config["clothes_folders"]["women"]
+        required_paths[f"{run_config['key']}_men_clothes"] = run_config["clothes_folders"]["men"]
+
+    missing = [key for key, value in required_paths.items() if not os.path.exists(value)]
     if missing:
         print(f"Brakuje: {', '.join(missing)}")
         sys.exit(1)
-    
-    for key, path in FOLDERS.items():
+
+    print("Folder counts:")
+    for label, path in required_paths.items():
         count = len(list_supported_images(path))
-        print(f"  {key}: {count} zdjec")
-    
-    all_models = get_all_models()
-    
-    total_tests = len(all_models)
-    
-    print(f"\nTestowanie {total_tests} modeli")
-    print(f"  Women: {len([m for m in all_models if m['gender'] == 'women'])}")
-    print(f"  Men: {len([m for m in all_models if m['gender'] == 'men'])}")
-    
-    os.makedirs(RESULTS_FOLDER, exist_ok=True)
-    
-    success = 0
-    failed = 0
-    start_time = time.time()
-    
-    for i, model in enumerate(all_models, 1):
-        if test_single_model(i, model):
-            success += 1
-        else:
-            failed += 1
-        
-        if i < total_tests:
-            time.sleep(2)
-        
-        elapsed = time.time() - start_time
-        avg_per_test = elapsed / i
-        remaining = (total_tests - i) * avg_per_test
-        print(f"  Progress: {i}/{total_tests} | ETA: {int(remaining/60)}min")
-    
-    elapsed_total = time.time() - start_time
-    print(f"\n{'='*60}")
-    print(f"PODSUMOWANIE")
-    print(f"{'='*60}")
-    print(f"Sukces: {success}/{total_tests} ({success/total_tests*100:.1f}%)")
-    print(f"Bledy: {failed}/{total_tests}")
-    print(f"Czas: {int(elapsed_total/60)}min {int(elapsed_total%60)}s")
-    print(f"Wyniki: {RESULTS_FOLDER}")
-    
-    summary = {
-        "total_tests": total_tests,
-        "successful": success,
-        "failed": failed,
-        "success_rate": f"{(success/total_tests*100):.1f}%",
-        "duration_seconds": int(elapsed_total),
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "test_results_folder": RESULTS_FOLDER,
-        "headless_mode": HEADLESS,
-        "pairing_mode": PAIRING_MODE,
-        "pairing_seed": PAIRING_SEED if PAIRING_MODE != 'random' else None,
-    }
-    
-    with open(os.path.join(RESULTS_FOLDER, "summary.json"), 'w') as f:
-        json.dump(summary, f, indent=2)
-    
-    print(f"\nSummary zapisane w: {RESULTS_FOLDER}/summary.json")
-    
-    sys.exit(0 if success > 0 else 1)
+        print(f"  {label}: {count} zdjec")
+
+    run_summaries = {}
+    for run_config in GARMENT_RUNS:
+        run_summaries[run_config["key"]] = run_test_suite(run_config)
+
+    with open(RUN_SUMMARY_PATH, 'w') as f:
+        json.dump({
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "headless_mode": HEADLESS,
+            "pairing_mode": PAIRING_MODE,
+            "pairing_seed": PAIRING_SEED if PAIRING_MODE != 'random' else None,
+            "runs": run_summaries,
+        }, f, indent=2)
+
+    print(f"\nCombined summary zapisane w: {RUN_SUMMARY_PATH}")
+
+    any_success = any(summary.get("successful", 0) > 0 for summary in run_summaries.values())
+    sys.exit(0 if any_success else 1)
