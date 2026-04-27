@@ -43,6 +43,7 @@ jobs:
         path: |
           test_results_upper/
           test_results_lower/
+          test_results_full/
           test_results_summary.json
         retention-days: 30
     

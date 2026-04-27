@@ -61,7 +61,7 @@ jobs:
           cp "$src" "$target_dir/${base_name}.${ext}"
         }
 
-        for run_root in test_results/test_results_upper test_results/test_results_lower test_results_upper test_results_lower; do
+        for run_root in test_results/test_results_upper test_results/test_results_lower test_results/test_results_full test_results_upper test_results_lower test_results_full; do
           if [ -d "$run_root" ]; then
             run_name=$(basename "$run_root")
             run_prefix=${run_name#test_results_}

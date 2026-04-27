@@ -41,6 +41,16 @@ GARMENT_RUNS = [
             "men": os.path.join(BASE_PATH, "men_lower_clothes"),
         },
     },
+    {
+        "key": "full",
+        "label": "Full",
+        "site_mode": "full",
+        "results_folder": os.path.join(SCRIPT_DIR, "test_results_full"),
+        "clothes_folders": {
+            "women": os.path.join(BASE_PATH, "women_full_clothes"),
+            "men": os.path.join(BASE_PATH, "men_full_clothes"),
+        },
+    },
 ]
 
 RUN_SUMMARY_PATH = os.path.join(SCRIPT_DIR, "test_results_summary.json")
