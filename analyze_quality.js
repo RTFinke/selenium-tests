@@ -428,15 +428,60 @@ function listSubfoldersSorted(dir) {
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 }
 
+function scoreSourceDirCandidate(candidate) {
+  if (!fs.existsSync(candidate) || !fs.statSync(candidate).isDirectory()) {
+    return { score: -1, folderCount: 0 };
+  }
+
+  const folders = listSubfoldersSorted(candidate);
+  if (folders.length === 0) {
+    return { score: 0, folderCount: 0 };
+  }
+
+  const layout = detectSourceLayout(candidate, folders);
+  let usableFolders = 0;
+
+  for (const folderName of folders) {
+    const folderPath = path.join(candidate, folderName);
+    if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
+      continue;
+    }
+
+    const assets = collectFolderAssets(folderName, folderPath, layout);
+    if (assets.garmentPath && assets.resultPath) {
+      usableFolders++;
+    }
+  }
+
+  return { score: usableFolders, folderCount: folders.length };
+}
+
 function resolveSourceDir() {
   const envPath = normalizeString(process.env.ANALYZE_SOURCE_DIR);
   if (envPath) return path.resolve(envPath);
 
   const candidates = [path.resolve("test_results"), path.resolve("images")];
+  let firstExisting = null;
+  let bestCandidate = null;
+  let bestScore = -1;
+
   for (const candidate of candidates) {
     if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-      return candidate;
+      firstExisting ||= candidate;
+
+      const { score } = scoreSourceDirCandidate(candidate);
+      if (score > bestScore) {
+        bestScore = score;
+        bestCandidate = candidate;
+      }
     }
+  }
+
+  if (bestCandidate && bestScore > 0) {
+    return bestCandidate;
+  }
+  if (firstExisting) {
+    return firstExisting;
   }
 
   return candidates[0];
