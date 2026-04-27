@@ -1156,5 +1156,13 @@ if __name__ == "__main__":
 
     print(f"\nCombined summary zapisane w: {RUN_SUMMARY_PATH}")
 
-    any_success = any(summary.get("successful", 0) > 0 for summary in run_summaries.values())
-    sys.exit(0 if any_success else 1)
+    completed_run_summaries = [
+        summary for summary in run_summaries.values()
+        if summary.get("total_tests", 0) > 0
+    ]
+    all_completed_runs_clean = completed_run_summaries and all(
+        summary.get("failed", 0) == 0 and
+        summary.get("successful", 0) == summary.get("total_tests", 0)
+        for summary in completed_run_summaries
+    )
+    sys.exit(0 if all_completed_runs_clean else 1)
