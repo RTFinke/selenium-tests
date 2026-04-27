@@ -317,6 +317,409 @@ def read_generation_option_state(driver):
 
     return option_state if isinstance(option_state, dict) else None
 
+def ensure_standard_mode(driver):
+    standard_script = """
+    const clickIfNeeded = arguments[0];
+
+    const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+
+    const isVisible = (el) => {
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' &&
+            rect.width > 0 && rect.height > 0;
+    };
+
+    const unique = (elements) => {
+        const seen = new Set();
+        const result = [];
+        for (const el of elements) {
+            if (!el || seen.has(el)) continue;
+            seen.add(el);
+            result.push(el);
+        }
+        return result;
+    };
+
+    const hasSelectedClass = (el) => {
+        const className = normalize(el && el.className);
+        return ['mui-selected', 'selected', 'active', 'checked', 'current'].some((token) => className.includes(token));
+    };
+
+    const readState = (root) => {
+        if (!root) return null;
+
+        const nodes = unique([
+            root,
+            ...root.querySelectorAll(
+                "input[type='radio'], input[type='checkbox'], [role='tab'], [role='radio'], [role='button'], [aria-selected], [aria-checked], [aria-pressed], [data-state]"
+            ),
+        ]);
+
+        for (const node of nodes) {
+            if (!node) continue;
+
+            if (node.matches && node.matches("input[type='radio'], input[type='checkbox']")) {
+                return { selected: Boolean(node.checked), source: 'input.checked' };
+            }
+
+            const ariaSelected = normalize(node.getAttribute && node.getAttribute('aria-selected'));
+            if (ariaSelected === 'true' || ariaSelected === 'false') {
+                return { selected: ariaSelected === 'true', source: 'aria-selected' };
+            }
+
+            const ariaChecked = normalize(node.getAttribute && node.getAttribute('aria-checked'));
+            if (ariaChecked === 'true' || ariaChecked === 'false') {
+                return { selected: ariaChecked === 'true', source: 'aria-checked' };
+            }
+
+            const ariaPressed = normalize(node.getAttribute && node.getAttribute('aria-pressed'));
+            if (ariaPressed === 'true' || ariaPressed === 'false') {
+                return { selected: ariaPressed === 'true', source: 'aria-pressed' };
+            }
+
+            const dataState = normalize(node.getAttribute && node.getAttribute('data-state'));
+            if (['checked', 'on', 'active', 'selected'].includes(dataState)) {
+                return { selected: true, source: 'data-state' };
+            }
+            if (['unchecked', 'off'].includes(dataState)) {
+                return { selected: false, source: 'data-state' };
+            }
+
+            if (hasSelectedClass(node)) {
+                return { selected: true, source: 'class' };
+            }
+        }
+
+        return null;
+    };
+
+    const labelMatches = (el, label) => {
+        const text = normalize(el.innerText || el.textContent);
+        const ariaLabel = normalize(el.getAttribute && el.getAttribute('aria-label'));
+        const title = normalize(el.getAttribute && el.getAttribute('title'));
+        return (
+            text === label ||
+            text.startsWith(label + ' ') ||
+            ariaLabel === label ||
+            title === label
+        );
+    };
+
+    const getAnchors = (label) => {
+        const candidates = Array.from(document.querySelectorAll(
+            "button, [role='button'], [role='tab'], [role='radio'], label, div, span"
+        ));
+
+        return candidates.filter((el) => isVisible(el) && labelMatches(el, label));
+    };
+
+    const getControlsForAnchor = (anchor) => unique([
+        anchor.closest && anchor.closest('button'),
+        anchor.closest && anchor.closest("[role='button']"),
+        anchor.closest && anchor.closest("[role='tab']"),
+        anchor.closest && anchor.closest("[role='radio']"),
+        anchor.closest && anchor.closest('label'),
+        anchor,
+        anchor.parentElement,
+        anchor.previousElementSibling,
+        anchor.nextElementSibling,
+        anchor.parentElement && anchor.parentElement.parentElement,
+    ].filter(Boolean)).filter(isVisible);
+
+    const scanLabel = (label) => {
+        const anchors = getAnchors(label);
+        for (const anchor of anchors) {
+            for (const control of getControlsForAnchor(anchor)) {
+                const state = readState(control);
+                if (state) {
+                    return {
+                        found: true,
+                        selected: state.selected,
+                        source: state.source,
+                    };
+                }
+            }
+        }
+
+        return {
+            found: anchors.length > 0,
+            selected: null,
+            source: null,
+        };
+    };
+
+    const isStandardSelected = (standardState, premiumState) =>
+        standardState.selected === true || premiumState.selected === false;
+
+    let standardState = scanLabel('standard');
+    let premiumState = scanLabel('premium');
+
+    if (!standardState.found) {
+        return {
+            found: false,
+            selected: false,
+            clicked: false,
+            state_source: null,
+            premium_selected: premiumState.selected,
+        };
+    }
+
+    if (isStandardSelected(standardState, premiumState)) {
+        return {
+            found: true,
+            selected: true,
+            clicked: false,
+            state_source: standardState.selected === true ? standardState.source : premiumState.source,
+            premium_selected: premiumState.selected,
+        };
+    }
+
+    if (!clickIfNeeded) {
+        return {
+            found: true,
+            selected: standardState.selected,
+            clicked: false,
+            state_source: standardState.source,
+            premium_selected: premiumState.selected,
+        };
+    }
+
+    let clickedAny = false;
+    for (const anchor of getAnchors('standard')) {
+        for (const control of getControlsForAnchor(anchor)) {
+            try {
+                control.scrollIntoView({ block: 'center', inline: 'center' });
+                control.click();
+                clickedAny = true;
+                standardState = scanLabel('standard');
+                premiumState = scanLabel('premium');
+                if (isStandardSelected(standardState, premiumState)) {
+                    return {
+                        found: true,
+                        selected: true,
+                        clicked: true,
+                        state_source: standardState.selected === true ? standardState.source : premiumState.source,
+                        premium_selected: premiumState.selected,
+                    };
+                }
+            } catch (error) {
+                // Try the next candidate.
+            }
+        }
+    }
+
+    standardState = scanLabel('standard');
+    premiumState = scanLabel('premium');
+    return {
+        found: true,
+        selected: isStandardSelected(standardState, premiumState),
+        clicked: clickedAny,
+        state_source: standardState.selected === true ? standardState.source : premiumState.source,
+        premium_selected: premiumState.selected,
+    };
+    """
+
+    standard_state = driver.execute_script(standard_script, True)
+
+    if not standard_state or not standard_state.get("found"):
+        raise Exception("Nie znaleziono przycisku Standard")
+
+    if standard_state.get("selected") is True:
+        return standard_state
+
+    if standard_state.get("clicked"):
+        time.sleep(1)
+        standard_state = driver.execute_script(standard_script, False)
+        if standard_state and standard_state.get("selected") is True:
+            return standard_state
+
+    raise Exception("Nie udalo sie potwierdzic wyboru Standard")
+
+def enable_turbo_mode(driver):
+    # The Turbo control appears to be a custom-styled toggle, so use a DOM scan
+    # that can work with checkbox, switch, button, and label-based variants.
+    turbo_script = """
+    const clickIfNeeded = arguments[0];
+
+    const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+
+    const isVisible = (el) => {
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' &&
+            rect.width > 0 && rect.height > 0;
+    };
+
+    const unique = (elements) => {
+        const seen = new Set();
+        const result = [];
+        for (const el of elements) {
+            if (!el || seen.has(el)) continue;
+            seen.add(el);
+            result.push(el);
+        }
+        return result;
+    };
+
+    const readState = (root) => {
+        if (!root) return null;
+
+        const nodes = unique([
+            root,
+            ...root.querySelectorAll(
+                "input[type='checkbox'], [role='checkbox'], [role='switch'], [aria-checked], [aria-pressed], [data-state]"
+            ),
+        ]);
+
+        for (const node of nodes) {
+            if (!node) continue;
+
+            if (node.matches && node.matches("input[type='checkbox']")) {
+                return { checked: Boolean(node.checked), source: 'input.checked' };
+            }
+
+            const ariaChecked = normalize(node.getAttribute && node.getAttribute('aria-checked'));
+            if (ariaChecked === 'true' || ariaChecked === 'false') {
+                return { checked: ariaChecked === 'true', source: 'aria-checked' };
+            }
+
+            const ariaPressed = normalize(node.getAttribute && node.getAttribute('aria-pressed'));
+            if (ariaPressed === 'true' || ariaPressed === 'false') {
+                return { checked: ariaPressed === 'true', source: 'aria-pressed' };
+            }
+
+            const dataState = normalize(node.getAttribute && node.getAttribute('data-state'));
+            if (['checked', 'on', 'active', 'selected'].includes(dataState)) {
+                return { checked: true, source: 'data-state' };
+            }
+            if (['unchecked', 'off'].includes(dataState)) {
+                return { checked: false, source: 'data-state' };
+            }
+
+            const className = normalize(node.className);
+            if (className.includes('mui-checked') || className.includes(' checked') || className.startsWith('checked ')) {
+                return { checked: true, source: 'class' };
+            }
+        }
+
+        return null;
+    };
+
+    const getTurboAnchors = () => {
+        const candidates = Array.from(document.querySelectorAll(
+            "label, button, [role='checkbox'], [role='switch'], [role='button'], div, span"
+        ));
+
+        return candidates.filter((el) => {
+            if (!isVisible(el)) return false;
+
+            const text = normalize(el.innerText || el.textContent);
+            const ariaLabel = normalize(el.getAttribute && el.getAttribute('aria-label'));
+            const title = normalize(el.getAttribute && el.getAttribute('title'));
+
+            return text === 'turbo' || ariaLabel === 'turbo' || title === 'turbo';
+        });
+    };
+
+    const getControlsForAnchor = (anchor) => unique([
+        anchor,
+        anchor.closest && anchor.closest('label'),
+        anchor.closest && anchor.closest('button'),
+        anchor.closest && anchor.closest("[role='checkbox']"),
+        anchor.closest && anchor.closest("[role='switch']"),
+        anchor.closest && anchor.closest("[role='button']"),
+        anchor.parentElement,
+        anchor.previousElementSibling,
+        anchor.parentElement && anchor.parentElement.previousElementSibling,
+        anchor.parentElement && anchor.parentElement.parentElement,
+    ].filter(Boolean)).filter(isVisible);
+
+    const scan = () => {
+        const anchors = getTurboAnchors();
+        for (const anchor of anchors) {
+            for (const control of getControlsForAnchor(anchor)) {
+                const state = readState(control);
+                if (state) {
+                    return {
+                        anchors,
+                        state,
+                    };
+                }
+            }
+        }
+
+        return { anchors, state: null };
+    };
+
+    let scanned = scan();
+    if (scanned.state && scanned.state.checked === true) {
+        return {
+            found: scanned.anchors.length > 0,
+            enabled: true,
+            clicked: false,
+            state_source: scanned.state.source,
+        };
+    }
+
+    if (!clickIfNeeded) {
+        return {
+            found: scanned.anchors.length > 0,
+            enabled: scanned.state ? scanned.state.checked : null,
+            clicked: false,
+            state_source: scanned.state ? scanned.state.source : null,
+        };
+    }
+
+    let clickedAny = false;
+    for (const anchor of scanned.anchors) {
+        for (const control of getControlsForAnchor(anchor)) {
+            try {
+                control.scrollIntoView({ block: 'center', inline: 'center' });
+                control.click();
+                clickedAny = true;
+                scanned = scan();
+                if (scanned.state && scanned.state.checked === true) {
+                    return {
+                        found: true,
+                        enabled: true,
+                        clicked: true,
+                        state_source: scanned.state.source,
+                    };
+                }
+            } catch (error) {
+                // Try the next candidate.
+            }
+        }
+    }
+
+    scanned = scan();
+    return {
+        found: scanned.anchors.length > 0,
+        enabled: scanned.state ? scanned.state.checked : null,
+        clicked: clickedAny,
+        state_source: scanned.state ? scanned.state.source : null,
+    };
+    """
+
+    turbo_state = driver.execute_script(turbo_script, True)
+
+    if not turbo_state or not turbo_state.get("found"):
+        raise Exception("Nie znaleziono kontrolki Turbo")
+
+    if turbo_state.get("enabled") is True:
+        return turbo_state
+
+    if turbo_state.get("clicked"):
+        time.sleep(1)
+        turbo_state = driver.execute_script(turbo_script, False)
+        if turbo_state and turbo_state.get("enabled") is True:
+            return turbo_state
+
+    raise Exception("Nie udalo sie potwierdzic wlaczenia Turbo")
+
 def ensure_garment_site_mode(driver, desired_mode):
     mode_state = driver.execute_script("""
     const desiredLabel = String(arguments[0] || '').replace(/\\s+/g, ' ').trim().toLowerCase();
@@ -803,11 +1206,14 @@ def test_single_model(test_num, model_info, run_config):
         "garment_mode_requested": run_config["site_mode"],
         "garment_mode_selected": None,
         "garment_mode_state_source": None,
+        "quality_mode_requested": "standard",
         "quality_mode_selected": None,
         "quality_mode_state_source": None,
+        "turbo_requested": True,
         "turbo_enabled": None,
         "turbo_state_source": None,
         "option_confirmation_screenshot": None,
+        "turbo_confirmation_screenshot": None,
     }
     
     try:
@@ -951,6 +1357,20 @@ def test_single_model(test_num, model_info, run_config):
             metadata["garment_mode_state_source"] = garment_mode_state.get("state_source")
             print(f"  OK Tryb odziezy: {metadata['garment_mode_selected']}")
 
+        print(f"  Standard...")
+        standard_state = ensure_standard_mode(driver)
+        if standard_state:
+            metadata["quality_mode_selected"] = "standard"
+            metadata["quality_mode_state_source"] = standard_state.get("state_source")
+            print(f"  OK Standard wybrane")
+
+        print(f"  Turbo...")
+        turbo_state = enable_turbo_mode(driver)
+        if turbo_state:
+            metadata["turbo_enabled"] = True
+            metadata["turbo_state_source"] = turbo_state.get("state_source")
+            print(f"  OK Turbo wlaczone")
+
         option_state = read_generation_option_state(driver)
         if option_state:
             metadata["garment_mode_selected"] = option_state.get("garment_mode_selected") or metadata["garment_mode_selected"]
@@ -971,6 +1391,13 @@ def test_single_model(test_num, model_info, run_config):
             print(f"  OK Screenshot opcji zapisany: option_confirmation.png")
         else:
             print(f"  WARN Nie udalo sie zapisac screenshotu opcji")
+
+        turbo_confirmation_path = os.path.join(test_folder, "turbo_confirmation.png")
+        if capture_option_confirmation(driver, turbo_confirmation_path):
+            metadata["turbo_confirmation_screenshot"] = turbo_confirmation_path
+            print(f"  OK Screenshot Standard + Turbo zapisany: turbo_confirmation.png")
+        else:
+            print(f"  WARN Nie udalo sie zapisac screenshotu Standard + Turbo")
         
         generate_btn = find_button_safe(driver, ['generuj', 'generate'])
         if not generate_btn:
