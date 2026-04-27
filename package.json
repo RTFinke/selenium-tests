@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "OpenAI-based garment analysis",
   "dependencies": {
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.4.2",
+    "openai": "^6.34.0"
   }
 }
