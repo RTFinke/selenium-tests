@@ -41,6 +41,26 @@ jobs:
     - name: Convert structure
       run: |
         mkdir -p images
+        copy_first_image() {
+          local source_dir="$1"
+          local target_dir="$2"
+          local base_name="$3"
+          local src
+          local ext
+
+          if [ ! -d "$source_dir" ]; then
+            return 0
+          fi
+
+          src=$(find "$source_dir" -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.avif' \) | head -n 1)
+          if [ -z "$src" ]; then
+            return 0
+          fi
+
+          ext="${src##*.}"
+          cp "$src" "$target_dir/${base_name}.${ext}"
+        }
+
         for run_root in test_results/test_results_upper test_results/test_results_lower test_results_upper test_results_lower; do
           if [ -d "$run_root" ]; then
             run_name=$(basename "$run_root")
@@ -50,8 +70,9 @@ jobs:
                 test_name=$(basename "$test_dir")
                 target_dir="images/${run_prefix}_${test_name}"
                 mkdir -p "$target_dir"
-                find "$test_dir/garment" -type f -exec cp {} "$target_dir/garment.jpg" \; 2>/dev/null || true
-                find "$test_dir/result" -type f -exec cp {} "$target_dir/result.png" \; 2>/dev/null || true
+                copy_first_image "$test_dir/model" "$target_dir" "model"
+                copy_first_image "$test_dir/garment" "$target_dir" "garment"
+                copy_first_image "$test_dir/result" "$target_dir" "result"
               fi
             done
           fi
