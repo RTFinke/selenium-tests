@@ -41,13 +41,19 @@ jobs:
     - name: Convert structure
       run: |
         mkdir -p images
-        for test_dir in test_results/test_*; do
-          if [ -d "$test_dir" ]; then
-            test_name=$(basename "$test_dir")
-            target_dir="images/$test_name"
-            mkdir -p "$target_dir"
-            find "$test_dir/garment" -type f -exec cp {} "$target_dir/garment.jpg" \; 2>/dev/null || true
-            find "$test_dir/result" -type f -exec cp {} "$target_dir/result.png" \; 2>/dev/null || true
+        for run_root in test_results/test_results_upper test_results/test_results_lower test_results_upper test_results_lower; do
+          if [ -d "$run_root" ]; then
+            run_name=$(basename "$run_root")
+            run_prefix=${run_name#test_results_}
+            for test_dir in "$run_root"/test_*; do
+              if [ -d "$test_dir" ]; then
+                test_name=$(basename "$test_dir")
+                target_dir="images/${run_prefix}_${test_name}"
+                mkdir -p "$target_dir"
+                find "$test_dir/garment" -type f -exec cp {} "$target_dir/garment.jpg" \; 2>/dev/null || true
+                find "$test_dir/result" -type f -exec cp {} "$target_dir/result.png" \; 2>/dev/null || true
+              fi
+            done
           fi
         done
 
