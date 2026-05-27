@@ -41,9 +41,7 @@ jobs:
       with:
         name: siz3r-test-results
         path: |
-          test_results_upper/
-          test_results_lower/
-          test_results_full/
+          test_results_flat_vs_model/
           test_results_summary.json
         retention-days: 30
     
