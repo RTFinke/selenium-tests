@@ -16,6 +16,14 @@ PAIRING_SEED = os.getenv('TEST_PAIRING_SEED', 'stable-v1').strip() or 'stable-v1
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_PATH = os.path.join(SCRIPT_DIR, 'test_images')
 
+def first_existing_directory(*candidates):
+    for candidate in candidates:
+        if not candidate:
+            continue
+        if os.path.isdir(candidate):
+            return os.path.abspath(candidate)
+    return None
+
 def resolve_existing_folder(*relative_paths):
     candidates = [os.path.join(BASE_PATH, relative_path) for relative_path in relative_paths]
     for candidate in candidates:
@@ -72,9 +80,20 @@ GARMENT_RUNS = [
 ]
 
 RUN_SUMMARY_PATH = os.path.join(SCRIPT_DIR, "test_results_summary.json")
-FLAT_MODEL_SOURCE_ROOT = Path(os.getenv('FLAT_MODEL_SOURCE_ROOT', r'C:\Users\suici\OneDrive\Documents\FlatAndModel'))
-FLAT_GARMENTS_FOLDER = str(FLAT_MODEL_SOURCE_ROOT / "flat")
-MODEL_GARMENTS_FOLDER = str(FLAT_MODEL_SOURCE_ROOT / "model")
+DEFAULT_FLAT_MODEL_ROOT = first_existing_directory(
+    os.getenv('FLAT_MODEL_SOURCE_ROOT'),
+    os.path.join(SCRIPT_DIR, 'FlatAndModel'),
+    os.path.join(BASE_PATH, 'FlatAndModel'),
+    r'C:\Users\suici\OneDrive\Documents\FlatAndModel',
+)
+FLAT_GARMENTS_FOLDER = first_existing_directory(
+    os.getenv('FLAT_GARMENTS_FOLDER'),
+    os.path.join(DEFAULT_FLAT_MODEL_ROOT, 'flat') if DEFAULT_FLAT_MODEL_ROOT else None,
+) or os.path.abspath(os.path.join(SCRIPT_DIR, 'FlatAndModel', 'flat'))
+MODEL_GARMENTS_FOLDER = first_existing_directory(
+    os.getenv('MODEL_GARMENTS_FOLDER'),
+    os.path.join(DEFAULT_FLAT_MODEL_ROOT, 'model') if DEFAULT_FLAT_MODEL_ROOT else None,
+) or os.path.abspath(os.path.join(SCRIPT_DIR, 'FlatAndModel', 'model'))
 FLAT_MODEL_SITE_MODE = os.getenv('FLAT_MODEL_SITE_MODE', 'upper').strip().lower() or 'upper'
 PAIRED_RESULTS_FOLDER = os.path.join(SCRIPT_DIR, "test_results_flat_vs_model")
 PAIRED_REPORT_PATH = os.path.join(PAIRED_RESULTS_FOLDER, "index.html")
@@ -2134,9 +2153,11 @@ if __name__ == "__main__":
         "model_garments": MODEL_GARMENTS_FOLDER,
     }
 
-    missing = [key for key, value in required_paths.items() if not os.path.exists(value)]
+    missing = [(key, value) for key, value in required_paths.items() if not os.path.exists(value)]
     if missing:
-        print(f"Brakuje: {', '.join(missing)}")
+        print("Brakuje wymaganych folderow:")
+        for key, value in missing:
+            print(f"  {key}: {value}")
         sys.exit(1)
 
     print("Folder counts:")
