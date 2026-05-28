@@ -1695,9 +1695,10 @@ def load_paired_result_records(results_folder):
 
     return records
 
-def render_comparison_image_card(title, image_path, web_path, status_label, fallback_text):
+def render_comparison_image_card(title, image_path, web_path, status_label, fallback_text, status_kind="default"):
     safe_title = html_escape(title)
     safe_status = html_escape(status_label or "")
+    safe_status_kind = html_escape(status_kind or "default")
     if web_path:
         safe_href = html_escape(web_path, quote=True)
         return f"""
@@ -1705,7 +1706,7 @@ def render_comparison_image_card(title, image_path, web_path, status_label, fall
           <div class="image-card-header">
             <div>
               <span class="image-label">{safe_title}</span>
-              <span class="status-pill">{safe_status}</span>
+              <span class="status-pill status-{safe_status_kind}">{safe_status}</span>
             </div>
             <a class="open-link" href="{safe_href}" target="_blank" rel="noreferrer">Open</a>
           </div>
@@ -1720,7 +1721,7 @@ def render_comparison_image_card(title, image_path, web_path, status_label, fall
       <div class="image-card-header">
         <div>
           <span class="image-label">{safe_title}</span>
-          <span class="status-pill muted-pill">{safe_status}</span>
+          <span class="status-pill status-missing">{safe_status}</span>
         </div>
       </div>
       <p class="missing-copy">{html_escape(fallback_text)}</p>
@@ -1732,26 +1733,34 @@ def build_flat_model_comparison_html(results_folder, summary, pair_rows):
     for row in pair_rows:
         model_variant = row["model_variant"]
         flat_variant = row["flat_variant"]
-        garment_status = "Ready" if row["model_garment_web"] else "Missing"
         model_status = model_variant.get("status") or "missing"
         flat_status = flat_variant.get("status") or "missing"
         row_markup.append(f"""
         <article class="pair-row">
           <div class="pair-header">
-            <div>
-              <p class="pair-eyebrow">Pair {html_escape(row['pair_key'])}</p>
-              <h2>Garment {html_escape(row['pair_key'])}</h2>
-              <p class="pair-meta">
-                Model garment: {html_escape(row.get('model_garment_name') or 'n/a')}
-                | Model output: {html_escape(model_status)}
-                | Flat output: {html_escape(flat_status)}
-              </p>
-            </div>
+            <span class="pair-chip">{html_escape(row['pair_key'])}</span>
           </div>
-          <div class="comparison-grid">
-            {render_comparison_image_card("Clothes from model folder", row["model_garment_path"], row["model_garment_web"], garment_status, "Model garment image not found.")}
-            {render_comparison_image_card("Output of the model photo", model_variant.get("result_image"), model_variant.get("result_web"), model_status, model_variant.get("fallback_text") or "Model generation not available.")}
-            {render_comparison_image_card("Output of the flat photo", flat_variant.get("result_image"), flat_variant.get("result_web"), flat_status, flat_variant.get("fallback_text") or "Flat generation not available.")}
+          <div class="comparison-columns">
+            <section class="variant-column">
+              <div class="variant-header">
+                <h2>Model Folder</h2>
+                <p>{html_escape(row.get('model_garment_name') or 'n/a')}</p>
+              </div>
+              <div class="variant-stack">
+                {render_comparison_image_card("Garment", row["model_garment_path"], row["model_garment_web"], "Model source", "Model garment image not found.", "source")}
+                {render_comparison_image_card("Result", model_variant.get("result_image"), model_variant.get("result_web"), model_status, model_variant.get("fallback_text") or "Model generation not available.", "success" if model_status == "success" else "missing" if model_status == "missing" else "failed")}
+              </div>
+            </section>
+            <section class="variant-column">
+              <div class="variant-header">
+                <h2>Flat Folder</h2>
+                <p>{html_escape(row.get('flat_garment_name') or 'n/a')}</p>
+              </div>
+              <div class="variant-stack">
+                {render_comparison_image_card("Garment", row["flat_garment_path"], row["flat_garment_web"], "Flat source", "Flat garment image not found.", "source")}
+                {render_comparison_image_card("Result", flat_variant.get("result_image"), flat_variant.get("result_web"), flat_status, flat_variant.get("fallback_text") or "Flat generation not available.", "success" if flat_status == "success" else "missing" if flat_status == "missing" else "failed")}
+              </div>
+            </section>
           </div>
         </article>
         """)
@@ -1776,105 +1785,103 @@ def build_flat_model_comparison_html(results_folder, summary, pair_rows):
   <title>Flat vs Model Try-On Comparison</title>
   <style>
     :root {{
-      --page: #f6f1e8;
-      --panel: rgba(255, 251, 244, 0.96);
-      --line: #d9c9b2;
-      --ink: #221b14;
+      --page: #f4efe7;
+      --panel: rgba(255, 252, 247, 0.96);
+      --card: #fffdf9;
+      --line: #ddcfbd;
+      --ink: #201810;
       --muted: #6f6456;
-      --accent: #9c5a1a;
-      --accent-soft: rgba(156, 90, 26, 0.10);
-      --success: #245f45;
+      --accent: #8b5b34;
+      --accent-soft: rgba(139, 91, 52, 0.12);
+      --success: #2f6a4f;
+      --failed: #a14343;
       --missing: #8f8475;
+      --shadow: rgba(61, 42, 24, 0.08);
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
       color: var(--ink);
-      font-family: "Georgia", "Times New Roman", serif;
+      font-family: "Segoe UI", Arial, sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(156, 90, 26, 0.18), transparent 26%),
-        linear-gradient(180deg, #fbf7f0 0%, var(--page) 100%);
+        radial-gradient(circle at top left, rgba(139, 91, 52, 0.16), transparent 22%),
+        linear-gradient(180deg, #faf6f0 0%, var(--page) 100%);
     }}
     main {{
-      max-width: 1600px;
+      max-width: 1500px;
       margin: 0 auto;
-      padding: 32px 20px 44px;
+      padding: 20px 18px 36px;
     }}
-    h1, h2, p {{ margin: 0; }}
-    .hero {{
-      display: grid;
-      gap: 16px;
-      margin-bottom: 24px;
-    }}
-    .hero h1 {{
-      font-size: clamp(2.2rem, 4vw, 3.8rem);
-      letter-spacing: 0.02em;
-    }}
-    .hero p {{
-      max-width: 920px;
-      color: var(--muted);
-      line-height: 1.6;
-    }}
-    .summary-grid {{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-      margin-bottom: 18px;
-    }}
-    .summary-card {{
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 16px 18px;
-      box-shadow: 0 14px 28px rgba(48, 33, 15, 0.06);
-    }}
-    .summary-card strong {{
-      display: block;
-      font-size: 1.8rem;
-      margin-bottom: 4px;
-    }}
-    .summary-card span {{
-      color: var(--muted);
-      font-size: 0.95rem;
-    }}
+    h2, p {{ margin: 0; }}
     .rows {{
       display: grid;
-      gap: 18px;
+      gap: 16px;
     }}
     .pair-row {{
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 28px;
-      padding: 22px;
-      box-shadow: 0 18px 36px rgba(48, 33, 15, 0.08);
+      padding: 18px;
+      box-shadow: 0 18px 40px var(--shadow);
+      break-inside: avoid;
     }}
     .pair-header {{
-      margin-bottom: 16px;
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 14px;
     }}
-    .pair-eyebrow {{
+    .pair-chip {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      height: 44px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: var(--accent-soft);
       color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      font-size: 0.8rem;
-      margin-bottom: 6px;
+      font-weight: 700;
+      font-size: 1rem;
     }}
-    .pair-header h2 {{
-      font-size: 1.55rem;
-      margin-bottom: 6px;
-    }}
-    .pair-meta {{
-      color: var(--muted);
-      line-height: 1.5;
-    }}
-    .comparison-grid {{
+    .comparison-columns {{
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }}
+    .variant-column {{
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(221, 207, 189, 0.85);
+      border-radius: 22px;
+      padding: 14px;
+    }}
+    .variant-header {{
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(221, 207, 189, 0.85);
+    }}
+    .variant-header h2 {{
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }}
+    .variant-header p {{
+      color: var(--muted);
+      font-size: 0.88rem;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }}
+    .variant-stack {{
+      display: grid;
       gap: 14px;
     }}
     .image-card {{
-      border: 1px solid var(--line);
+      border: 1px solid rgba(221, 207, 189, 0.95);
       border-radius: 20px;
-      background: white;
+      background: var(--card);
       padding: 12px;
       min-height: 100%;
     }}
@@ -1888,7 +1895,7 @@ def build_flat_model_comparison_html(results_folder, summary, pair_rows):
     .image-card-header {{
       display: flex;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
       align-items: start;
       margin-bottom: 10px;
     }}
@@ -1904,24 +1911,40 @@ def build_flat_model_comparison_html(results_folder, summary, pair_rows):
       display: inline-flex;
       align-items: center;
       border-radius: 999px;
-      background: var(--accent-soft);
-      color: var(--accent);
       padding: 6px 10px;
       font-size: 0.85rem;
       line-height: 1;
+      font-weight: 600;
     }}
-    .muted-pill {{
+    .status-source {{
+      background: var(--accent-soft);
+      color: var(--accent);
+    }}
+    .status-success {{
+      background: rgba(47, 106, 79, 0.14);
+      color: var(--success);
+    }}
+    .status-failed {{
+      background: rgba(161, 67, 67, 0.14);
+      color: var(--failed);
+    }}
+    .status-missing {{
       background: rgba(111, 100, 86, 0.14);
       color: var(--missing);
     }}
+    .status-default {{
+      background: rgba(111, 100, 86, 0.14);
+      color: var(--muted);
+    }}
     .open-link {{
-      border: 1px solid var(--line);
+      border: 1px solid rgba(221, 207, 189, 0.95);
       border-radius: 999px;
       padding: 6px 10px;
       color: var(--accent);
       text-decoration: none;
       font-size: 0.85rem;
       line-height: 1;
+      white-space: nowrap;
     }}
     .image-frame {{
       display: block;
@@ -1929,10 +1952,10 @@ def build_flat_model_comparison_html(results_folder, summary, pair_rows):
     }}
     .image-frame img {{
       width: 100%;
-      height: 420px;
+      height: 330px;
       object-fit: contain;
       border-radius: 14px;
-      background: linear-gradient(180deg, #fffaf3 0%, #f1e7d9 100%);
+      background: linear-gradient(180deg, #fffaf3 0%, #f2e8db 100%);
     }}
     .missing-copy {{
       color: var(--muted);
@@ -1953,53 +1976,23 @@ def build_flat_model_comparison_html(results_folder, summary, pair_rows):
       color: var(--muted);
       line-height: 1.5;
     }}
-    .footer {{
-      margin-top: 22px;
-      color: var(--muted);
-      line-height: 1.5;
-    }}
-    @media (max-width: 960px) {{
-      .comparison-grid {{
+    @media (max-width: 980px) {{
+      .comparison-columns {{
         grid-template-columns: 1fr;
       }}
       .image-frame img {{
-        height: 340px;
+        height: 300px;
       }}
     }}
   </style>
 </head>
 <body>
   <main>
-    <section class="hero">
-      <div>
-        <h1>Flat vs Model Try-On Comparison</h1>
-        <p>
-          Each row matches the same numbered garment across both source folders.
-          The first pass used the flat garment image with the Flat toggle enabled.
-          The second pass used the model garment image with the Flat toggle disabled.
-        </p>
-      </div>
-    </section>
-
-    <section class="summary-grid">
-      <div class="summary-card"><strong>{summary['total_pairs']}</strong><span>Matched garment pairs</span></div>
-      <div class="summary-card"><strong>{summary['flat_successful']}</strong><span>Flat generations saved</span></div>
-      <div class="summary-card"><strong>{summary['model_successful']}</strong><span>Model generations saved</span></div>
-      <div class="summary-card"><strong>{summary['pairs_with_both_results']}</strong><span>Pairs with both outputs</span></div>
-      <div class="summary-card"><strong>{summary['failed_jobs']}</strong><span>Failed jobs</span></div>
-      <div class="summary-card"><strong>{html_escape(summary['woman_photo'])}</strong><span>Woman photo used</span></div>
-    </section>
-
     <section class="rows">
       {''.join(row_markup)}
     </section>
 
     {unmatched_markup}
-
-    <p class="footer">
-      Report folder: <code>{html_escape(results_folder)}</code><br>
-      Site mode: <code>{html_escape(summary['site_mode'])}</code> | Generated: <code>{html_escape(summary['generated_at'])}</code>
-    </p>
   </main>
 </body>
 </html>"""
@@ -2031,6 +2024,9 @@ def write_flat_model_report(results_folder, person_info, pairs, flat_only, model
             "model_garment_name": pair_info["model_name"],
             "model_garment_path": model_variant.get("garment_image") if model_variant else None,
             "model_garment_web": to_report_web_path(results_folder, model_variant.get("garment_image")) if model_variant and model_variant.get("garment_image") else None,
+            "flat_garment_name": pair_info["flat_name"],
+            "flat_garment_path": flat_variant.get("garment_image") if flat_variant else None,
+            "flat_garment_web": to_report_web_path(results_folder, flat_variant.get("garment_image")) if flat_variant and flat_variant.get("garment_image") else None,
             "model_variant": {
                 "status": model_status,
                 "result_image": model_variant.get("result_image") if model_variant else None,
