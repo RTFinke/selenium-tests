@@ -2,8 +2,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
-import time, random, string, os, sys, shutil, base64, json, traceback, hashlib
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
+import time, random, string, os, sys, shutil, base64, json, traceback, hashlib, re, unicodedata
 from pathlib import Path
 
 GRID_URL = os.getenv('SELENIUM_GRID_URL', 'http://localhost:4444')
@@ -14,6 +14,7 @@ PAIRING_SEED = os.getenv('TEST_PAIRING_SEED', 'stable-v1').strip() or 'stable-v1
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_PATH = os.path.join(SCRIPT_DIR, 'test_images')
+BUTTON_CANDIDATE_SELECTOR = "button, [role='button'], input[type='button'], input[type='submit']"
 
 PEOPLE_FOLDERS = {
     "women": os.path.join(BASE_PATH, "women_people"),
@@ -66,17 +67,143 @@ def list_supported_images(folder, sort_files=False):
     ]
     return sorted(images) if sort_files else images
 
+def canonicalize_ui_text(value):
+    normalized = unicodedata.normalize('NFKC', str(value or ''))
+    normalized = normalized.replace('\xa0', ' ')
+    normalized = ' '.join(normalized.split()).lower()
+    normalized = ''.join(
+        char for char in unicodedata.normalize('NFKD', normalized)
+        if not unicodedata.combining(char)
+    )
+    normalized = re.sub(r'[^a-z0-9]+', ' ', normalized)
+    return normalized.strip()
+
+def wait_for_document_ready(driver, timeout=30):
+    WebDriverWait(driver, timeout).until(
+        lambda current: current.execute_script("return document.readyState") == "complete"
+    )
+
+def get_button_text_variants(element):
+    values = []
+    for raw_value in [
+        element.text,
+        element.get_attribute('aria-label'),
+        element.get_attribute('title'),
+        element.get_attribute('value'),
+        element.get_attribute('name'),
+    ]:
+        normalized = canonicalize_ui_text(raw_value)
+        if normalized and normalized not in values:
+            values.append(normalized)
+    return values
+
+def is_button_interactable(element):
+    try:
+        if not element.is_displayed() or not element.is_enabled():
+            return False
+
+        disabled = canonicalize_ui_text(element.get_attribute('disabled'))
+        aria_disabled = canonicalize_ui_text(element.get_attribute('aria-disabled'))
+        return disabled not in ('true', 'disabled') and aria_disabled != 'true'
+    except (StaleElementReferenceException, NoSuchElementException):
+        return False
+
+def get_button_match_score(element, target_texts):
+    text_variants = get_button_text_variants(element)
+    if not text_variants:
+        return None
+
+    target_variants = []
+    for target_text in target_texts:
+        normalized = canonicalize_ui_text(target_text)
+        if normalized and normalized not in target_variants:
+            target_variants.append(normalized)
+
+    if not target_variants:
+        return None
+
+    tag_name = canonicalize_ui_text(getattr(element, 'tag_name', ''))
+    button_type = canonicalize_ui_text(element.get_attribute('type'))
+    role = canonicalize_ui_text(element.get_attribute('role'))
+    class_name = canonicalize_ui_text(element.get_attribute('class'))
+
+    best_score = None
+    for target in target_variants:
+        for text_value in text_variants:
+            if target not in text_value:
+                continue
+
+            score = 1
+            if text_value == target:
+                score += 4
+            elif text_value.startswith(target):
+                score += 2
+
+            if tag_name == 'button':
+                score += 2
+            if button_type == 'submit':
+                score += 3
+            if role == 'button':
+                score += 1
+            if 'tab' in class_name.split():
+                score -= 3
+
+            if best_score is None or score > best_score:
+                best_score = score
+
+    return best_score
+
 def find_button_safe(driver, texts):
-    buttons = driver.find_elements(By.TAG_NAME, "button")
-    for btn in buttons:
+    best_match = None
+    best_score = None
+    for btn in driver.find_elements(By.CSS_SELECTOR, BUTTON_CANDIDATE_SELECTOR):
         try:
-            btn_text = btn.text.strip().lower()
-            for text in texts:
-                if text.lower() in btn_text:
-                    return btn
-        except:
+            if not btn.is_displayed():
+                continue
+
+            score = get_button_match_score(btn, texts)
+            if score is None:
+                continue
+
+            if best_score is None or score > best_score or (score == best_score and is_button_interactable(btn)):
+                best_match = btn
+                best_score = score
+        except (StaleElementReferenceException, NoSuchElementException):
             continue
-    return None
+    return best_match
+
+def wait_for_button_safe(driver, texts, timeout=20, require_enabled=True):
+    try:
+        return WebDriverWait(driver, timeout).until(
+            lambda current: (
+                (button := find_button_safe(current, texts)) and
+                (not require_enabled or is_button_interactable(button)) and
+                button
+            ) or False
+        )
+    except TimeoutException:
+        return None
+
+def describe_button_candidates(driver, limit=12):
+    descriptions = []
+    for btn in driver.find_elements(By.CSS_SELECTOR, BUTTON_CANDIDATE_SELECTOR):
+        if len(descriptions) >= limit:
+            break
+
+        try:
+            text_variants = get_button_text_variants(btn)
+            descriptions.append(
+                "tag={tag} role={role} enabled={enabled} text={text}".format(
+                    tag=canonicalize_ui_text(getattr(btn, 'tag_name', '')) or '-',
+                    role=canonicalize_ui_text(btn.get_attribute('role')) or '-',
+                    enabled=is_button_interactable(btn),
+                    text=' | '.join(text_variants[:2]) or '<empty>',
+                )
+            )
+        except (StaleElementReferenceException, NoSuchElementException):
+            continue
+
+    return descriptions
 
 def get_all_models(run_config):
     models = []
@@ -854,6 +981,7 @@ def test_single_model(test_num, model_info, run_config):
         # REJESTRACJA
         print(f"  Rejestracja...")
         driver.get("https://siz3r-dev.vercel.app/business/register")
+        wait_for_document_ready(driver, 30)
         time.sleep(5)
         
         try:
@@ -919,6 +1047,7 @@ def test_single_model(test_num, model_info, run_config):
         # ============= PLAYGROUND =============
         print(f"  Playground...")
         driver.get("https://siz3r-dev.vercel.app/business/playground")
+        wait_for_document_ready(driver, 30)
         time.sleep(10)
         
         for attempt in range(3):
@@ -929,6 +1058,7 @@ def test_single_model(test_num, model_info, run_config):
                 if attempt < 2:
                     print(f"  Retry {attempt+1} - odswiezam strone...")
                     driver.refresh()
+                    wait_for_document_ready(driver, 20)
                     time.sleep(7)
                 else:
                     raise Exception("Timeout: nie znaleziono file inputs po 3 probach")
@@ -972,10 +1102,15 @@ def test_single_model(test_num, model_info, run_config):
         else:
             print(f"  WARN Nie udalo sie zapisac screenshotu opcji")
         
-        generate_btn = find_button_safe(driver, ['generuj', 'generate'])
+        generate_btn = wait_for_button_safe(driver, ['generuj', 'generate'], timeout=25, require_enabled=True)
         if not generate_btn:
-            raise Exception("Brak przycisku Generuj")
+            button_candidates = describe_button_candidates(driver)
+            metadata["visible_button_candidates"] = button_candidates
+            details = " | ".join(button_candidates[:6]) if button_candidates else "brak widocznych kandydatow"
+            raise Exception(f"Brak przycisku Generuj. Kandydaci: {details}")
         
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", generate_btn)
+        time.sleep(1)
         driver.execute_script("arguments[0].click();", generate_btn)
         print(f"  Generacja...")
         
@@ -995,9 +1130,9 @@ def test_single_model(test_num, model_info, run_config):
             return False
         
         try:
-            result_img = WebDriverWait(driver, 30).until(result_image_present)
+            result_img = WebDriverWait(driver, 60).until(result_image_present)
         except TimeoutException:
-            raise Exception("Timeout: nie znaleziono wyniku generacji po 30s")
+            raise Exception("Timeout: nie znaleziono wyniku generacji po 60s")
         
         time.sleep(2)
         
