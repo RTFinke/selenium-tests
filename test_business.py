@@ -222,17 +222,35 @@ def get_all_models(run_config):
     for gender in ["women", "men"]:
         people_folder = PEOPLE_FOLDERS[gender]
         clothes_folder = run_config["clothes_folders"][gender]
+        people_images = list_supported_images(people_folder, sort_files=True)
         garment_images = list_supported_images(clothes_folder, sort_files=True)
 
-        if not garment_images:
+        if not people_images or not garment_images:
             skipped_genders.append(gender)
             continue
 
-        for img in list_supported_images(people_folder, sort_files=True):
+        if PAIRING_MODE == 'all':
+            for person_name in people_images:
+                for garment_index, garment_name in enumerate(garment_images):
+                    models.append({
+                        "gender": gender,
+                        "person_path": os.path.join(people_folder, person_name),
+                        "person_name": person_name,
+                        "clothes_folder": clothes_folder,
+                        "garment_run_key": run_config["key"],
+                        "garment_site_mode": run_config["site_mode"],
+                        "preselected_garment_path": os.path.join(clothes_folder, garment_name),
+                        "preselected_garment_name": garment_name,
+                        "preselected_garment_index": garment_index,
+                        "preselected_garment_pool_size": len(garment_images),
+                    })
+            continue
+
+        for person_name in people_images:
             models.append({
                 "gender": gender,
-                "person_path": os.path.join(people_folder, img),
-                "person_name": img,
+                "person_path": os.path.join(people_folder, person_name),
+                "person_name": person_name,
                 "clothes_folder": clothes_folder,
                 "garment_run_key": run_config["key"],
                 "garment_site_mode": run_config["site_mode"],
@@ -241,6 +259,16 @@ def get_all_models(run_config):
     return models, skipped_genders
 
 def get_garment_for_model(clothes_folder, model_info):
+    preselected_garment_path = model_info.get("preselected_garment_path")
+    if preselected_garment_path:
+        return {
+            "path": preselected_garment_path,
+            "mode": "all",
+            "seed": None,
+            "index": model_info.get("preselected_garment_index"),
+            "pool_size": model_info.get("preselected_garment_pool_size"),
+        }
+
     images = list_supported_images(clothes_folder, sort_files=True)
     if not images:
         raise Exception(f"Brak ubran w: {clothes_folder}")
