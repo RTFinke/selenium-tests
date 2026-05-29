@@ -14,7 +14,8 @@ PAIRING_SEED = os.getenv('TEST_PAIRING_SEED', 'stable-v1').strip() or 'stable-v1
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_PATH = os.path.join(SCRIPT_DIR, 'test_images')
-BUTTON_CANDIDATE_SELECTOR = "button, [role='button'], input[type='button'], input[type='submit']"
+BUTTON_CANDIDATE_SELECTOR = "button, [role='button'], input[type='button'], input[type='submit'], [class*='button'], [class*='Button']"
+GENERATE_BUTTON_TEXTS = ['generuj', 'generate', 'try on', 'try-on', 'tryon']
 
 PEOPLE_FOLDERS = {
     "women": os.path.join(BASE_PATH, "women_people"),
@@ -87,6 +88,8 @@ def get_button_text_variants(element):
     values = []
     for raw_value in [
         element.text,
+        element.get_attribute('innerText'),
+        element.get_attribute('textContent'),
         element.get_attribute('aria-label'),
         element.get_attribute('title'),
         element.get_attribute('value'),
@@ -183,6 +186,13 @@ def wait_for_button_safe(driver, texts, timeout=20, require_enabled=True):
         )
     except TimeoutException:
         return None
+
+def dispatch_file_input_events(driver, input_element):
+    driver.execute_script("""
+    const input = arguments[0];
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    """, input_element)
 
 def describe_button_candidates(driver, limit=12):
     descriptions = []
@@ -1069,10 +1079,12 @@ def test_single_model(test_num, model_info, run_config):
             raise Exception(f"Za malo file inputs: {len(file_inputs)}")
         
         file_inputs[0].send_keys(model_info['person_path'])
+        dispatch_file_input_events(driver, file_inputs[0])
         time.sleep(4)
         
         file_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
         file_inputs[1].send_keys(garment_path)
+        dispatch_file_input_events(driver, file_inputs[1])
         time.sleep(4)
 
         garment_mode_state = ensure_garment_site_mode(driver, run_config["site_mode"])
@@ -1102,12 +1114,18 @@ def test_single_model(test_num, model_info, run_config):
         else:
             print(f"  WARN Nie udalo sie zapisac screenshotu opcji")
         
-        generate_btn = wait_for_button_safe(driver, ['generuj', 'generate'], timeout=25, require_enabled=True)
+        generate_btn = wait_for_button_safe(driver, GENERATE_BUTTON_TEXTS, timeout=25, require_enabled=True)
         if not generate_btn:
+            disabled_generate_btn = wait_for_button_safe(driver, GENERATE_BUTTON_TEXTS, timeout=1, require_enabled=False)
             button_candidates = describe_button_candidates(driver)
             metadata["visible_button_candidates"] = button_candidates
+            if disabled_generate_btn:
+                metadata["generate_button_detected_but_disabled"] = get_button_text_variants(disabled_generate_btn)
             details = " | ".join(button_candidates[:6]) if button_candidates else "brak widocznych kandydatow"
-            raise Exception(f"Brak przycisku Generuj. Kandydaci: {details}")
+            if disabled_generate_btn:
+                disabled_label = ' / '.join(get_button_text_variants(disabled_generate_btn)) or 'unknown'
+                raise Exception(f"Przycisk generacji istnieje, ale pozostal wylaczony: {disabled_label}. Kandydaci: {details}")
+            raise Exception(f"Brak przycisku Generuj/Tryon. Kandydaci: {details}")
         
         driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", generate_btn)
         time.sleep(1)
