@@ -9,7 +9,7 @@ from pathlib import Path
 GRID_URL = os.getenv('SELENIUM_GRID_URL', 'http://localhost:4444')
 PREFIX = "biztest_"
 HEADLESS = os.getenv('HEADLESS', 'false').lower() == 'true'
-PAIRING_MODE = os.getenv('TEST_PAIRING_MODE', 'deterministic').strip().lower()
+PAIRING_MODE = os.getenv('TEST_PAIRING_MODE', 'all').strip().lower()
 PAIRING_SEED = os.getenv('TEST_PAIRING_SEED', 'stable-v1').strip() or 'stable-v1'
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -951,7 +951,15 @@ def test_single_model(test_num, model_info, run_config):
     user = generate_user()
     
     model_name_clean = Path(model_info['person_name']).stem
-    test_id = f"test_{test_num}_{model_info['gender']}_{model_name_clean}"
+    garment_name_clean = None
+    preselected_garment_name = model_info.get("preselected_garment_name")
+    if preselected_garment_name:
+        garment_name_clean = Path(preselected_garment_name).stem
+
+    test_id_parts = [f"test_{test_num}", model_info['gender'], model_name_clean]
+    if garment_name_clean:
+        test_id_parts.append(garment_name_clean)
+    test_id = "_".join(test_id_parts)
     
     metadata = {
         "test_number": test_num,
@@ -962,7 +970,7 @@ def test_single_model(test_num, model_info, run_config):
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "headless": HEADLESS,
         "pairing_mode": PAIRING_MODE,
-        "pairing_seed": PAIRING_SEED if PAIRING_MODE != 'random' else None,
+        "pairing_seed": PAIRING_SEED if PAIRING_MODE == 'deterministic' else None,
         "garment_run_key": run_config["key"],
         "garment_run_label": run_config["label"],
         "garment_mode_requested": run_config["site_mode"],
@@ -1242,7 +1250,7 @@ def write_run_summary(run_config, total_tests, success, failed, elapsed_total, s
         "test_results_folder": results_folder,
         "headless_mode": HEADLESS,
         "pairing_mode": PAIRING_MODE,
-        "pairing_seed": PAIRING_SEED if PAIRING_MODE != 'random' else None,
+        "pairing_seed": PAIRING_SEED if PAIRING_MODE == 'deterministic' else None,
         "skipped_genders_without_garments": skipped_genders,
     }
 
@@ -1311,7 +1319,7 @@ if __name__ == "__main__":
     print("SIZ3R BUSINESS TESTS - ALL MODELS")
     print(f"Headless mode: {HEADLESS}")
     print(f"Pairing mode: {PAIRING_MODE}")
-    if PAIRING_MODE != 'random':
+    if PAIRING_MODE == 'deterministic':
         print(f"Pairing seed: {PAIRING_SEED}")
 
     required_paths = {
@@ -1341,7 +1349,7 @@ if __name__ == "__main__":
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "headless_mode": HEADLESS,
             "pairing_mode": PAIRING_MODE,
-            "pairing_seed": PAIRING_SEED if PAIRING_MODE != 'random' else None,
+            "pairing_seed": PAIRING_SEED if PAIRING_MODE == 'deterministic' else None,
             "runs": run_summaries,
         }, f, indent=2)
 
