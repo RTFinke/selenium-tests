@@ -956,7 +956,7 @@ def test_single_model(test_num, model_info, run_config):
     if preselected_garment_name:
         garment_name_clean = Path(preselected_garment_name).stem
 
-    test_id_parts = [f"test_{test_num}", model_info['gender'], model_name_clean]
+    test_id_parts = [f"test_{test_num}", run_config["key"], model_info['gender'], model_name_clean]
     if garment_name_clean:
         test_id_parts.append(garment_name_clean)
     test_id = "_".join(test_id_parts)

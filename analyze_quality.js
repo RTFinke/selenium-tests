@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || "").trim();
+const HAS_OPENAI_API_KEY = OPENAI_API_KEY.length > 0;
 const MODEL = String(process.env.OPENAI_MODEL || "gpt-4.1").trim();
 const ENDPOINT = "https://api.openai.com/v1/chat/completions";
 const TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 180000);
@@ -16,10 +17,6 @@ const ENABLE_ARTIFACT_AUDIT = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_
 const OUTPUTS_DIR = path.resolve(process.env.ANALYSIS_OUTPUT_DIR || "outputs");
 const REVIEW_DIR_NAME = String(process.env.ANALYSIS_REVIEW_DIR || "review").trim() || "review";
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif"]);
-
-if (!OPENAI_API_KEY) {
-  throw new Error("Missing OPENAI_API_KEY.");
-}
 
 const PROMPT = `You are a common-sense QA evaluator for virtual try-on transfer quality.
 Your job is to judge whether the clothing from garment.png was transferred well onto the person from model.png, creating result.png.
@@ -1406,6 +1403,7 @@ function createPerFolderPayload(folderName, folderContext, record) {
   return {
     folder: folderName,
     timestamp: new Date().toISOString(),
+    evaluation_mode: record.evaluation_mode ?? "llm",
     source_layout: folderContext.sourceLayout,
     source_folder: projectRelative(folderContext.folderPath),
     metadata: summarizeMetadata(folderContext.metadata),
@@ -1484,7 +1482,12 @@ function buildTextSummary(payload) {
     }
   } else {
     lines.push(`AI pass: not available`);
-    lines.push(`Error: ${payload.error || payload.message || payload.parse_error || "Unknown error"}`);
+    if (payload.evaluation_mode === "comparison_only") {
+      lines.push(`Evaluation mode: comparison only`);
+      lines.push(`Notes: ${payload.message || "AI evaluation skipped; review bundle generated from raw test outputs."}`);
+    } else {
+      lines.push(`Error: ${payload.error || payload.message || payload.parse_error || "Unknown error"}`);
+    }
   }
 
   return `${lines.join("\n").trim()}\n`;
@@ -1577,6 +1580,7 @@ function createReviewEntry(payload, bundle) {
     gender: payload.metadata?.gender ?? null,
     selenium_status: payload.metadata?.status ?? null,
     evaluation_ok: payload.ok,
+    evaluation_mode: payload.evaluation_mode ?? "llm",
     ai_successful: rating?.successful ?? null,
     quality_percent: rating?.quality_percent ?? null,
     garment_category: rating?.garment_category ?? null,
@@ -1606,7 +1610,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
   const cards = reviewEntries
     .map((entry) => {
       const score = entry.quality_percent ?? "ERR";
-      const aiStatus = entry.ai_successful || "ERROR";
+      const aiStatus = entry.evaluation_mode === "comparison_only" ? "SKIPPED" : entry.ai_successful || "ERROR";
       const scoreClass =
         entry.quality_percent === null || entry.quality_percent === undefined
           ? "score-error"
@@ -1978,6 +1982,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       <div class="summary-card"><strong>${escapeHtml(summary.total)}</strong><span>Total evaluated</span></div>
       <div class="summary-card"><strong>${escapeHtml(summary.successful)}</strong><span>AI pass</span></div>
       <div class="summary-card"><strong>${escapeHtml(summary.failed)}</strong><span>AI fail</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.comparison_only || 0)}</strong><span>Comparison Only</span></div>
       <div class="summary-card"><strong>${escapeHtml(summary.errors)}</strong><span>Errors</span></div>
     </section>
 
@@ -2138,6 +2143,7 @@ async function main() {
 
   console.log(`OpenAI endpoint: ${ENDPOINT}`);
   console.log(`Model: ${MODEL}`);
+  console.log(`AI analysis enabled: ${HAS_OPENAI_API_KEY ? "YES" : "NO (comparison-only bundle mode)"}`);
   console.log(`Source dir: ${projectRelative(sourceDir) || sourceDir}`);
   console.log(`Source layout: ${sourceLayout}`);
   console.log(`Folders: ${folders.length}`);
@@ -2150,6 +2156,7 @@ async function main() {
     total: 0,
     successful: 0,
     failed: 0,
+    comparison_only: 0,
     errors: 0,
     by_category: {},
     silhouette_stats: { YES: 0, PARTIAL: 0, NO: 0 },
@@ -2170,17 +2177,28 @@ async function main() {
     console.log(`\n=== Evaluating: ${folderName} ===`);
 
     let record;
-    try {
-      record = await evaluateFolder(folderName, folderContext);
-    } catch (err) {
+    if (!HAS_OPENAI_API_KEY) {
       record = {
         folder: folderName,
-        ok: false,
-        error: "LLM request failed",
-        status: err?.status ?? null,
-        message: err?.message ?? String(err),
-        body: err?.body ?? null,
+        ok: true,
+        rating: null,
+        evaluation_mode: "comparison_only",
+        message: "AI evaluation skipped because OPENAI_API_KEY is not configured.",
       };
+    } else {
+      try {
+        record = await evaluateFolder(folderName, folderContext);
+      } catch (err) {
+        record = {
+          folder: folderName,
+          ok: false,
+          evaluation_mode: "llm",
+          error: "LLM request failed",
+          status: err?.status ?? null,
+          message: err?.message ?? String(err),
+          body: err?.body ?? null,
+        };
+      }
     }
 
     const perFolderPayload = createPerFolderPayload(folderName, folderContext, record);
@@ -2199,7 +2217,9 @@ async function main() {
 
     summary.total++;
 
-    if (record.ok && record.rating) {
+    if (record.evaluation_mode === "comparison_only") {
+      summary.comparison_only++;
+    } else if (record.ok && record.rating) {
       console.log(JSON.stringify(record.rating, null, 2));
 
       const rating = record.rating;
@@ -2241,6 +2261,7 @@ async function main() {
   console.log(`Total evaluated: ${summary.total}`);
   console.log(`Successful (YES): ${summary.successful}`);
   console.log(`Failed (NO): ${summary.failed}`);
+  console.log(`Comparison only: ${summary.comparison_only}`);
   console.log(`Errors: ${summary.errors}`);
   console.log(`\nBy garment category:`);
   for (const [cat, stats] of Object.entries(summary.by_category)) {

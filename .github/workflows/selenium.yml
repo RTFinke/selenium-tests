@@ -17,10 +17,18 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install selenium
+
+      - name: Install Node dependencies
+        run: npm ci
 
       - name: Run tests
         env:
@@ -33,6 +41,24 @@ jobs:
         run: |
           chmod +x run_selenium.sh
           ./run_selenium.sh
+
+      - name: Build review gallery input
+        if: always()
+        run: |
+          mkdir -p test_results
+          for dir in test_results_upper test_results_lower test_results_full; do
+            if [ -d "$dir" ]; then
+              find "$dir" -mindepth 1 -maxdepth 1 -type d -name 'test_*' -exec cp -R {} test_results/ \;
+            fi
+          done
+
+      - name: Generate review gallery
+        if: always()
+        env:
+          ANALYZE_SOURCE_DIR: test_results
+          ANALYSIS_OUTPUT_DIR: outputs
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node analyze_quality.js
 
       - name: Upload results
         if: always()
@@ -47,3 +73,6 @@ jobs:
             test_results_full/
             test_results_summary.json
             selenium-grid-logs.txt
+            outputs/review/
+            outputs/analysis_summary.json
+            outputs/evals.jsonl
