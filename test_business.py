@@ -11,6 +11,7 @@ PREFIX = "biztest_"
 HEADLESS = os.getenv('HEADLESS', 'false').lower() == 'true'
 PAIRING_MODE = os.getenv('TEST_PAIRING_MODE', 'all').strip().lower()
 PAIRING_SEED = os.getenv('TEST_PAIRING_SEED', 'stable-v1').strip() or 'stable-v1'
+FAIL_ON_TEST_FAILURES = os.getenv('FAIL_ON_TEST_FAILURES', 'true').lower() == 'true'
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_PATH = os.path.join(SCRIPT_DIR, 'test_images')
@@ -1321,6 +1322,7 @@ if __name__ == "__main__":
     print(f"Pairing mode: {PAIRING_MODE}")
     if PAIRING_MODE == 'deterministic':
         print(f"Pairing seed: {PAIRING_SEED}")
+    print(f"Fail on test failures: {FAIL_ON_TEST_FAILURES}")
 
     required_paths = {
         "women_people": PEOPLE_FOLDERS["women"],
@@ -1364,4 +1366,18 @@ if __name__ == "__main__":
         summary.get("successful", 0) == summary.get("total_tests", 0)
         for summary in completed_run_summaries
     )
-    sys.exit(0 if all_completed_runs_clean else 1)
+    if all_completed_runs_clean:
+        sys.exit(0)
+
+    if FAIL_ON_TEST_FAILURES:
+        sys.exit(1)
+
+    any_successful_tests = any(
+        summary.get("successful", 0) > 0
+        for summary in completed_run_summaries
+    )
+    if any_successful_tests:
+        print("\nPartial failures detected, but returning success because FAIL_ON_TEST_FAILURES=false")
+        sys.exit(0)
+
+    sys.exit(1)

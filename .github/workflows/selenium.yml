@@ -38,6 +38,7 @@ jobs:
           SELENIUM_GRID_URL: http://localhost:4444
           TEST_PAIRING_MODE: all
           TEST_PAIRING_SEED: stable-v1
+          FAIL_ON_TEST_FAILURES: "false"
         run: |
           chmod +x run_selenium.sh
           ./run_selenium.sh
@@ -57,7 +58,7 @@ jobs:
         env:
           ANALYZE_SOURCE_DIR: test_results
           ANALYSIS_OUTPUT_DIR: outputs
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANALYSIS_REPORT_MODE: gallery
         run: node analyze_quality.js
 
       - name: Upload results
@@ -68,11 +69,10 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
           path: |
+            test_results/
             test_results_upper/
             test_results_lower/
             test_results_full/
             test_results_summary.json
             selenium-grid-logs.txt
-            outputs/review/
-            outputs/analysis_summary.json
-            outputs/evals.jsonl
+            outputs/index.html

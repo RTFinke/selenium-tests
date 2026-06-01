@@ -14,8 +14,9 @@ const MIN_RETRY_DELAY_MS = Math.max(250, Number(process.env.OPENAI_MIN_RETRY_DEL
 const RATE_LIMIT_JITTER_MS = Math.max(0, Number(process.env.OPENAI_RATE_LIMIT_JITTER_MS || 250));
 const INCLUDE_MODEL_IN_MAIN = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_INCLUDE_MODEL_IN_MAIN || "1").trim());
 const ENABLE_ARTIFACT_AUDIT = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_ENABLE_ARTIFACT_AUDIT || "").trim());
+const REPORT_MODE = String(process.env.ANALYSIS_REPORT_MODE || "review").trim().toLowerCase();
+const GALLERY_ONLY_MODE = REPORT_MODE === "gallery";
 const OUTPUTS_DIR = path.resolve(process.env.ANALYSIS_OUTPUT_DIR || "outputs");
-const REVIEW_DIR_NAME = String(process.env.ANALYSIS_REVIEW_DIR || "review").trim() || "review";
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif"]);
 
 const PROMPT = `You are a common-sense QA evaluator for virtual try-on transfer quality.
@@ -414,6 +415,13 @@ function projectRelative(filePath) {
 
 function toWebPath(filePath) {
   return String(filePath || "").replace(/\\/g, "/");
+}
+
+function toReviewAssetPath(reviewRoot, sourcePath) {
+  if (!sourcePath || !fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isFile()) {
+    return null;
+  }
+  return toWebPath(path.relative(reviewRoot, sourcePath));
 }
 
 function listSubfoldersSorted(dir) {
@@ -1431,102 +1439,14 @@ function createPerFolderPayload(folderName, folderContext, record) {
   };
 }
 
-function copyAsset(sourcePath, targetDir, targetBaseName) {
-  if (!sourcePath || !fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isFile()) {
-    return null;
-  }
-
-  const ext = path.extname(sourcePath);
-  const targetPath = path.join(targetDir, `${targetBaseName}${ext}`);
-  fs.copyFileSync(sourcePath, targetPath);
-  return targetPath;
-}
-
-function formatBulletSection(title, items) {
-  if (!items || items.length === 0) {
-    return `${title}: none`;
-  }
-  return `${title}:\n${items.map((item) => `- ${item}`).join("\n")}`;
-}
-
-function buildTextSummary(payload) {
-  const lines = [];
-  const rating = payload.rating;
-
-  lines.push(`Folder: ${payload.folder}`);
-  lines.push(`Source folder: ${payload.source_folder || "(unknown)"}`);
-
-  if (payload.metadata?.test_id) lines.push(`Test ID: ${payload.metadata.test_id}`);
-  if (payload.metadata?.test_number !== undefined) lines.push(`Test number: ${payload.metadata.test_number}`);
-  if (payload.metadata?.gender) lines.push(`Gender: ${payload.metadata.gender}`);
-  if (payload.metadata?.status) lines.push(`Selenium status: ${payload.metadata.status}`);
-
-  if (rating) {
-    lines.push(`AI pass: ${rating.successful}`);
-    lines.push(`Quality score: ${rating.quality_percent}%`);
-    lines.push(`Garment category: ${rating.garment_category || "n/a"}`);
-    lines.push(`Garment type: ${rating.garment_type || "(blank)"}`);
-    lines.push(`Intended fit: ${rating.intended_fit || "n/a"}`);
-    lines.push(`Silhouette preserved: ${rating.silhouette_preserved || "n/a"}`);
-    lines.push(`Notes: ${rating.notes || "none"}`);
-    lines.push("");
-    lines.push(formatBulletSection("Critical issues", rating.critical_issues));
-    lines.push("");
-    lines.push(formatBulletSection("Minor issues", rating.minor_issues));
-    lines.push("");
-    lines.push(formatBulletSection("Positives", rating.positives));
-    lines.push("");
-    lines.push("Severity labels:");
-    for (const key of LABEL_KEYS) {
-      lines.push(`- ${key}: ${rating.labels?.[key] || "NONE"}`);
-    }
-  } else {
-    lines.push(`AI pass: not available`);
-    if (payload.evaluation_mode === "comparison_only") {
-      lines.push(`Evaluation mode: comparison only`);
-      lines.push(`Notes: ${payload.message || "AI evaluation skipped; review bundle generated from raw test outputs."}`);
-    } else {
-      lines.push(`Error: ${payload.error || payload.message || payload.parse_error || "Unknown error"}`);
-    }
-  }
-
-  return `${lines.join("\n").trim()}\n`;
-}
-
 function writeReviewBundle(reviewRoot, payload, folderContext) {
-  const bundleDir = ensureDir(path.join(reviewRoot, payload.folder));
-  const copied = {
-    model: copyAsset(folderContext.modelPath, bundleDir, "model"),
-    garment: copyAsset(folderContext.garmentPath, bundleDir, "garment"),
-    result: copyAsset(folderContext.resultPath, bundleDir, "result"),
-    metadata: null,
-    quality: null,
-    summary: null,
-  };
-
-  if (folderContext.metadataPath && fs.existsSync(folderContext.metadataPath)) {
-    const metadataTarget = path.join(bundleDir, "metadata.json");
-    fs.copyFileSync(folderContext.metadataPath, metadataTarget);
-    copied.metadata = metadataTarget;
-  }
-
-  const qualityPath = path.join(bundleDir, "quality.json");
-  fs.writeFileSync(qualityPath, JSON.stringify(payload, null, 2), "utf8");
-  copied.quality = qualityPath;
-
-  const summaryPath = path.join(bundleDir, "summary.txt");
-  fs.writeFileSync(summaryPath, buildTextSummary(payload), "utf8");
-  copied.summary = summaryPath;
-
   return {
-    bundleDir,
+    bundleDir: null,
     files: {
-      model: copied.model ? toWebPath(path.relative(reviewRoot, copied.model)) : null,
-      garment: copied.garment ? toWebPath(path.relative(reviewRoot, copied.garment)) : null,
-      result: copied.result ? toWebPath(path.relative(reviewRoot, copied.result)) : null,
-      metadata: copied.metadata ? toWebPath(path.relative(reviewRoot, copied.metadata)) : null,
-      quality: toWebPath(path.relative(reviewRoot, copied.quality)),
-      summary: toWebPath(path.relative(reviewRoot, copied.summary)),
+      model: toReviewAssetPath(reviewRoot, folderContext.modelPath),
+      garment: toReviewAssetPath(reviewRoot, folderContext.garmentPath),
+      result: toReviewAssetPath(reviewRoot, folderContext.resultPath),
+      metadata: toReviewAssetPath(reviewRoot, folderContext.metadataPath),
     },
   };
 }
@@ -1593,20 +1513,12 @@ function createReviewEntry(payload, bundle) {
     minor_issues: rating?.minor_issues ?? [],
     positives: rating?.positives ?? [],
     source_folder: payload.source_folder,
-    bundle_folder: toWebPath(payload.folder),
     files: bundle.files,
   };
 }
 
-function csvEscape(value) {
-  const text = String(value ?? "");
-  if (/[",\n]/.test(text)) {
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-  return text;
-}
-
 function buildReviewHtml(reviewEntries, summary, meta) {
+  const isGalleryOnly = meta.reportMode === "gallery";
   const cards = reviewEntries
     .map((entry) => {
       const score = entry.quality_percent ?? "ERR";
@@ -1617,30 +1529,18 @@ function buildReviewHtml(reviewEntries, summary, meta) {
           : aiStatus === "YES"
             ? "score-pass"
             : "score-fail";
-
-      return `
-        <article class="card">
-          <div class="card-top">
-            <div>
-              <h2>${escapeHtml(entry.test_id)}</h2>
-              <p class="meta">
-                Folder: ${escapeHtml(entry.folder)}
-                ${entry.test_number !== null ? ` | Test #${escapeHtml(entry.test_number)}` : ""}
-                ${entry.gender ? ` | ${escapeHtml(entry.gender)}` : ""}
-              </p>
-            </div>
+      const seleniumStatus = normalizeString(entry.selenium_status)?.toUpperCase() || null;
+      const galleryBadges = seleniumStatus
+        ? `<div class="badges"><span class="badge badge-neutral">Generation: ${escapeHtml(seleniumStatus)}</span></div>`
+        : "";
+      const reviewBadges = `
             <div class="badges">
               <span class="badge ${scoreClass}">Score: ${escapeHtml(score)}</span>
               <span class="badge ${aiStatus === "YES" ? "score-pass" : aiStatus === "NO" ? "score-fail" : "score-error"}">AI: ${escapeHtml(aiStatus)}</span>
-            </div>
-          </div>
-
-          <div class="images">
-            ${renderImageCard("Model", entry.files.model)}
-            ${renderImageCard("Garment", entry.files.garment)}
-            ${renderImageCard("Result", entry.files.result)}
-          </div>
-
+            </div>`;
+      const detailSections = isGalleryOnly
+        ? ""
+        : `
           <div class="details">
             <p><strong>Type:</strong> ${escapeHtml(entry.garment_type || "n/a")}</p>
             <p><strong>Category:</strong> ${escapeHtml(entry.garment_category || "n/a")}</p>
@@ -1667,13 +1567,28 @@ function buildReviewHtml(reviewEntries, summary, meta) {
               <h3>Positives</h3>
               ${renderHtmlList(entry.positives, "None")}
             </section>
+          </div>`;
+
+      return `
+        <article class="card">
+          <div class="card-top">
+            <div>
+              <h2>${escapeHtml(entry.test_id)}</h2>
+              <p class="meta">
+                Folder: ${escapeHtml(entry.folder)}
+                ${entry.test_number !== null ? ` | Test #${escapeHtml(entry.test_number)}` : ""}
+                ${entry.gender ? ` | ${escapeHtml(entry.gender)}` : ""}
+              </p>
+            </div>
+            ${isGalleryOnly ? galleryBadges : reviewBadges}
           </div>
 
-          <p class="links">
-            <a href="${encodeURI(entry.files.summary)}">summary.txt</a>
-            <a href="${encodeURI(entry.files.quality)}">quality.json</a>
-            ${entry.files.metadata ? `<a href="${encodeURI(entry.files.metadata)}">metadata.json</a>` : ""}
-          </p>
+          <div class="images">
+            ${renderImageCard("Model", entry.files.model)}
+            ${renderImageCard("Garment", entry.files.garment)}
+            ${renderImageCard("Result", entry.files.result)}
+          </div>
+          ${detailSections}
         </article>
       `;
     })
@@ -1684,7 +1599,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Try-On Review</title>
+  <title>${isGalleryOnly ? "Try-On Results" : "Try-On Review"}</title>
   <style>
     :root {
       --bg: #f4f0e8;
@@ -1781,6 +1696,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       font-weight: 600;
       white-space: nowrap;
     }
+    .badge-neutral { background: #6b6257; }
     .score-pass { background: var(--pass); }
     .score-fail { background: var(--fail); }
     .score-error { background: var(--error); }
@@ -1887,12 +1803,6 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       padding-left: 18px;
       line-height: 1.45;
     }
-    .links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin: 0;
-    }
     a {
       color: #7a3e07;
       text-decoration-thickness: 1px;
@@ -1971,19 +1881,26 @@ function buildReviewHtml(reviewEntries, summary, meta) {
 </head>
 <body>
   <main>
-    <h1>Try-On Review</h1>
+    <h1>${isGalleryOnly ? "Try-On Results" : "Try-On Review"}</h1>
     <p class="intro">
-      Source: <strong>${escapeHtml(meta.sourceDir)}</strong> (${escapeHtml(meta.sourceLayout)} layout).
-      Generated ${escapeHtml(meta.generatedAt)}.
-      Click any preview to open a full-resolution zoom view, or use the Open button for the raw file.
+      ${isGalleryOnly
+        ? `Source: <strong>${escapeHtml(meta.sourceDir)}</strong> (${escapeHtml(meta.sourceLayout)} layout). Generated ${escapeHtml(meta.generatedAt)}. This gallery shows the original inputs and generated outputs only.`
+        : `Source: <strong>${escapeHtml(meta.sourceDir)}</strong> (${escapeHtml(meta.sourceLayout)} layout). Generated ${escapeHtml(meta.generatedAt)}. Click any preview to open a full-resolution zoom view, or use the Open button for the raw file.`}
     </p>
 
     <section class="summary">
+      ${isGalleryOnly
+        ? `
+      <div class="summary-card"><strong>${escapeHtml(summary.total)}</strong><span>Total results</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.generation_successful || 0)}</strong><span>Successful generations</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.generation_failed || 0)}</strong><span>Failed generations</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.generation_unknown || 0)}</strong><span>Unknown status</span></div>`
+        : `
       <div class="summary-card"><strong>${escapeHtml(summary.total)}</strong><span>Total evaluated</span></div>
       <div class="summary-card"><strong>${escapeHtml(summary.successful)}</strong><span>AI pass</span></div>
       <div class="summary-card"><strong>${escapeHtml(summary.failed)}</strong><span>AI fail</span></div>
       <div class="summary-card"><strong>${escapeHtml(summary.comparison_only || 0)}</strong><span>Comparison Only</span></div>
-      <div class="summary-card"><strong>${escapeHtml(summary.errors)}</strong><span>Errors</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.errors)}</strong><span>Errors</span></div>`}
     </section>
 
     <section class="cards">
@@ -1991,7 +1908,9 @@ function buildReviewHtml(reviewEntries, summary, meta) {
     </section>
 
     <p class="footer">
-      Files in this folder: <code>index.html</code>, <code>index.csv</code>, <code>index.json</code>, plus one subfolder per try-on result.
+      ${isGalleryOnly
+        ? `This gallery reads the original files directly from <code>${escapeHtml(meta.sourceDir)}</code>. The only generated artifact is this <code>index.html</code> file.`
+        : `This report reads the original files directly from <code>${escapeHtml(meta.sourceDir)}</code>. The only generated artifact is this <code>index.html</code> file.`}
     </p>
   </main>
   <div class="lightbox" id="lightbox" hidden>
@@ -2050,77 +1969,11 @@ function buildReviewHtml(reviewEntries, summary, meta) {
 function writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDir, sourceLayout) {
   const generatedAt = new Date().toISOString();
 
-  const indexJsonPath = path.join(reviewRoot, "index.json");
-  fs.writeFileSync(
-    indexJsonPath,
-    JSON.stringify(
-      {
-        generated_at: generatedAt,
-        source_dir: projectRelative(sourceDir),
-        source_layout: sourceLayout,
-        review_dir: projectRelative(reviewRoot),
-        summary,
-        entries: reviewEntries,
-      },
-      null,
-      2,
-    ),
-    "utf8",
-  );
-
-  const csvColumns = [
-    "folder",
-    "test_number",
-    "test_id",
-    "gender",
-    "selenium_status",
-    "evaluation_ok",
-    "ai_successful",
-    "quality_percent",
-    "garment_category",
-    "garment_type",
-    "intended_fit",
-    "silhouette_preserved",
-    "notes",
-    "model_file",
-    "garment_file",
-    "result_file",
-    "summary_file",
-    "quality_file",
-  ];
-  const csvRows = [
-    csvColumns.join(","),
-    ...reviewEntries.map((entry) =>
-      [
-        entry.folder,
-        entry.test_number,
-        entry.test_id,
-        entry.gender,
-        entry.selenium_status,
-        entry.evaluation_ok,
-        entry.ai_successful,
-        entry.quality_percent,
-        entry.garment_category,
-        entry.garment_type,
-        entry.intended_fit,
-        entry.silhouette_preserved,
-        entry.notes,
-        entry.files.model,
-        entry.files.garment,
-        entry.files.result,
-        entry.files.summary,
-        entry.files.quality,
-      ]
-        .map(csvEscape)
-        .join(","),
-    ),
-  ];
-  fs.writeFileSync(path.join(reviewRoot, "index.csv"), `${csvRows.join("\n")}\n`, "utf8");
-
   const html = buildReviewHtml(reviewEntries, summary, {
     generatedAt,
     sourceDir: projectRelative(sourceDir) || sourceDir,
     sourceLayout,
+    reportMode: GALLERY_ONLY_MODE ? "gallery" : "review",
   });
   fs.writeFileSync(path.join(reviewRoot, "index.html"), html, "utf8");
 }
@@ -2137,13 +1990,16 @@ async function main() {
 
   const sourceLayout = detectSourceLayout(sourceDir, folders);
   const outDir = ensureDir(OUTPUTS_DIR);
-  const reviewRoot = ensureDir(path.join(outDir, REVIEW_DIR_NAME));
-  const outPath = path.join(outDir, "evals.jsonl");
-  fs.writeFileSync(outPath, "", "utf8");
+  const reviewRoot = outDir;
 
+  console.log(`Report mode: ${GALLERY_ONLY_MODE ? "GALLERY" : "REVIEW"}`);
   console.log(`OpenAI endpoint: ${ENDPOINT}`);
   console.log(`Model: ${MODEL}`);
-  console.log(`AI analysis enabled: ${HAS_OPENAI_API_KEY ? "YES" : "NO (comparison-only bundle mode)"}`);
+  console.log(
+    `AI analysis enabled: ${
+      GALLERY_ONLY_MODE ? "NO (gallery-only mode)" : HAS_OPENAI_API_KEY ? "YES" : "NO (comparison-only review mode)"
+    }`,
+  );
   console.log(`Source dir: ${projectRelative(sourceDir) || sourceDir}`);
   console.log(`Source layout: ${sourceLayout}`);
   console.log(`Folders: ${folders.length}`);
@@ -2158,6 +2014,9 @@ async function main() {
     failed: 0,
     comparison_only: 0,
     errors: 0,
+    generation_successful: 0,
+    generation_failed: 0,
+    generation_unknown: 0,
     by_category: {},
     silhouette_stats: { YES: 0, PARTIAL: 0, NO: 0 },
     by_fit: {
@@ -2177,7 +2036,22 @@ async function main() {
     console.log(`\n=== Evaluating: ${folderName} ===`);
 
     let record;
-    if (!HAS_OPENAI_API_KEY) {
+    if (GALLERY_ONLY_MODE) {
+      record = folderContext.ok
+        ? {
+            folder: folderName,
+            ok: true,
+            rating: null,
+            evaluation_mode: "gallery_only",
+            message: "Gallery-only mode: AI evaluation skipped.",
+          }
+        : {
+            folder: folderName,
+            ok: false,
+            evaluation_mode: "gallery_only",
+            error: folderContext.error,
+          };
+    } else if (!HAS_OPENAI_API_KEY) {
       record = {
         folder: folderName,
         ok: true,
@@ -2202,9 +2076,6 @@ async function main() {
     }
 
     const perFolderPayload = createPerFolderPayload(folderName, folderContext, record);
-    const sourceQualityPath = path.join(folderPath, "quality.json");
-    fs.writeFileSync(sourceQualityPath, JSON.stringify(perFolderPayload, null, 2), "utf8");
-
     const bundle = writeReviewBundle(reviewRoot, perFolderPayload, folderContext);
 
     return { folderContext, record, perFolderPayload, bundle };
@@ -2216,8 +2087,14 @@ async function main() {
     const { record, perFolderPayload, bundle } = evaluation;
 
     summary.total++;
+    const seleniumStatus = normalizeString(perFolderPayload.metadata?.status);
+    if (seleniumStatus === "success") summary.generation_successful++;
+    else if (seleniumStatus === "failed") summary.generation_failed++;
+    else summary.generation_unknown++;
 
-    if (record.evaluation_mode === "comparison_only") {
+    if (record.evaluation_mode === "gallery_only") {
+      // Gallery mode intentionally skips AI evaluation and only builds the visual result index.
+    } else if (record.evaluation_mode === "comparison_only") {
       summary.comparison_only++;
     } else if (record.ok && record.rating) {
       console.log(JSON.stringify(record.rating, null, 2));
@@ -2247,12 +2124,9 @@ async function main() {
       summary.errors++;
     }
 
-    fs.appendFileSync(outPath, JSON.stringify(perFolderPayload) + "\n", "utf8");
     reviewEntries.push(createReviewEntry(perFolderPayload, bundle));
   }
 
-  const summaryPath = path.join(outDir, "analysis_summary.json");
-  fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2), "utf8");
   writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDir, sourceLayout);
 
   console.log(`\n${"=".repeat(60)}`);
@@ -2277,8 +2151,6 @@ async function main() {
       console.log(`  ${fit}: ${stats.pass}/${stats.total} passed`);
     }
   }
-  console.log(`\nResults saved to: ${projectRelative(outPath) || outPath}`);
-  console.log(`Summary saved to: ${projectRelative(summaryPath) || summaryPath}`);
   console.log(`Review index saved to: ${projectRelative(path.join(reviewRoot, "index.html")) || path.join(reviewRoot, "index.html")}`);
 }
 

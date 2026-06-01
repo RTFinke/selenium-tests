@@ -81,6 +81,7 @@ jobs:
     - name: Run analysis
       env:
         ANALYZE_SOURCE_DIR: images
+        ANALYSIS_REPORT_MODE: review
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         OPENAI_CONCURRENCY: 1
         OPENAI_DELAY_MS: 750
