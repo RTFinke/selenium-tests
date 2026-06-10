@@ -17,6 +17,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_PATH = os.path.join(SCRIPT_DIR, 'test_images')
 BUTTON_CANDIDATE_SELECTOR = "button, [role='button'], input[type='button'], input[type='submit'], [class*='button'], [class*='Button']"
 GENERATE_BUTTON_TEXTS = ['generuj', 'generate', 'try on', 'try-on', 'tryon']
+REGISTER_BUTTON_TEXTS = ['zarejestruj', 'register', 'sign up']
+CREDIT_MODAL_SKIP_TEXTS = ['nie dziękuję', 'nie dziekuje', 'no thank', 'no thanks']
 
 PEOPLE_FOLDERS = {
     "women": os.path.join(BASE_PATH, "women_people"),
@@ -84,6 +86,92 @@ def wait_for_document_ready(driver, timeout=30):
     WebDriverWait(driver, timeout).until(
         lambda current: current.execute_script("return document.readyState") == "complete"
     )
+
+def wait_for_registration_form(driver, timeout=20):
+    def registration_form_ready(current):
+        email_inputs = current.find_elements(By.CSS_SELECTOR, "input[type='email']")
+        password_inputs = current.find_elements(By.CSS_SELECTOR, "input[type='password']")
+        if not email_inputs or len(password_inputs) < 2:
+            return False
+        return {
+            "email_input": email_inputs[0],
+            "password_inputs": password_inputs,
+        }
+
+    return WebDriverWait(driver, timeout, poll_frequency=0.25).until(registration_form_ready)
+
+def wait_for_post_registration_state(driver, timeout=7):
+    def registration_progressed(current):
+        current_url = ''
+        try:
+            current_url = current.current_url or ''
+        except Exception:
+            current_url = ''
+
+        if '/business/register' not in current_url:
+            return True
+
+        skip_button = find_button_safe(current, CREDIT_MODAL_SKIP_TEXTS)
+        if skip_button and is_button_interactable(skip_button):
+            return True
+
+        email_inputs = current.find_elements(By.CSS_SELECTOR, "input[type='email']")
+        password_inputs = current.find_elements(By.CSS_SELECTOR, "input[type='password']")
+        if not email_inputs and len(password_inputs) < 2:
+            return True
+
+        return False
+
+    return WebDriverWait(driver, timeout, poll_frequency=0.25).until(registration_progressed)
+
+def wait_for_file_inputs(driver, minimum_count=2, timeout=20):
+    def file_inputs_ready(current):
+        inputs = current.find_elements(By.CSS_SELECTOR, "input[type='file']")
+        return inputs if len(inputs) >= minimum_count else False
+
+    return WebDriverWait(driver, timeout, poll_frequency=0.25).until(file_inputs_ready)
+
+def wait_for_generation_surface(driver, timeout=4):
+    def generation_surface_ready(current):
+        option_state = read_generation_option_state(current)
+        if option_state and any(
+            option_state.get(key) for key in [
+                "standard_found",
+                "premium_found",
+                "turbo_found",
+                "upper_found",
+                "lower_found",
+                "full_found",
+            ]
+        ):
+            return option_state
+
+        button = find_button_safe(current, GENERATE_BUTTON_TEXTS)
+        return button or False
+
+    return WebDriverWait(driver, timeout, poll_frequency=0.25).until(generation_surface_ready)
+
+def wait_for_image_render_complete(driver, image_element, timeout=2):
+    def image_ready(current):
+        try:
+            return current.execute_script("""
+            const img = arguments[0];
+            if (!img) return false;
+            return Boolean(img.complete && img.naturalWidth > 0 && img.naturalHeight > 0);
+            """, image_element)
+        except (StaleElementReferenceException, NoSuchElementException):
+            return False
+
+    return WebDriverWait(driver, timeout, poll_frequency=0.2).until(image_ready)
+
+def wait_for_element_to_disappear(driver, element, timeout=3):
+    def element_gone(_):
+        try:
+            return not element.is_displayed()
+        except (StaleElementReferenceException, NoSuchElementException):
+            return True
+
+    return WebDriverWait(driver, timeout, poll_frequency=0.2).until(element_gone)
 
 def get_button_text_variants(element):
     values = []
@@ -1029,41 +1117,27 @@ def test_single_model(test_num, model_info, run_config):
         print(f"  Rejestracja...")
         driver.get("https://siz3r-dev.vercel.app/business/register")
         wait_for_document_ready(driver, 30)
-        time.sleep(5)
         
         try:
-            email_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='email']")))
+            registration_form = wait_for_registration_form(driver, 40)
+            email_input = registration_form["email_input"]
+            password_inputs = registration_form["password_inputs"]
             email_input.send_keys(user['email'])
         except TimeoutException:
             raise Exception("Timeout: nie znaleziono pola email")
         
-        password_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='password']")
-        if len(password_inputs) < 2:
-            raise Exception(f"Za malo pol hasla: {len(password_inputs)}")
-        
         password_inputs[0].send_keys(user['password'])
         password_inputs[1].send_keys(user['password'])
-        time.sleep(2)
-        
-        buttons = driver.find_elements(By.TAG_NAME, "button")
-        register_btn = None
-        for btn in buttons:
-            try:
-                btn_text = btn.text.strip().lower()
-                btn_class = (btn.get_attribute('class') or '').lower()
-                if 'tab' in btn_class:
-                    continue
-                if any(t in btn_text for t in ['zarejestruj', 'register', 'sign up']):
-                    register_btn = btn
-                    break
-            except:
-                continue
+        register_btn = wait_for_button_safe(driver, REGISTER_BUTTON_TEXTS, timeout=10, require_enabled=True)
         
         if not register_btn:
             raise Exception("Brak przycisku rejestracji")
         
         driver.execute_script("arguments[0].click();", register_btn)
-        time.sleep(7)
+        try:
+            wait_for_post_registration_state(driver, timeout=7)
+        except TimeoutException:
+            print(f"  WARN Nie wykryto od razu potwierdzenia rejestracji, sprawdzam dalej...")
         
         # ============= HANDLE CREDITS MODAL =============
         print(f"  Sprawdzam modal kredytow...")
@@ -1236,6 +1310,280 @@ def test_single_model(test_num, model_info, run_config):
         
         return False
 
+def test_single_model_wait_optimized(test_num, model_info, run_config):
+    driver = None
+    user = generate_user()
+
+    model_name_clean = Path(model_info['person_name']).stem
+    garment_name_clean = None
+    preselected_garment_name = model_info.get("preselected_garment_name")
+    if preselected_garment_name:
+        garment_name_clean = Path(preselected_garment_name).stem
+
+    test_id_parts = [f"test_{test_num}", run_config["key"], model_info['gender'], model_name_clean]
+    if garment_name_clean:
+        test_id_parts.append(garment_name_clean)
+    test_id = "_".join(test_id_parts)
+
+    metadata = {
+        "test_number": test_num,
+        "test_id": test_id,
+        "gender": model_info['gender'],
+        "model_filename": model_info['person_name'],
+        "user_email": user['email'],
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "headless": HEADLESS,
+        "pairing_mode": PAIRING_MODE,
+        "pairing_seed": PAIRING_SEED if PAIRING_MODE == 'deterministic' else None,
+        "garment_run_key": run_config["key"],
+        "garment_run_label": run_config["label"],
+        "garment_mode_requested": run_config["site_mode"],
+        "garment_mode_selected": None,
+        "garment_mode_state_source": None,
+        "quality_mode_selected": None,
+        "quality_mode_state_source": None,
+        "turbo_enabled": None,
+        "turbo_state_source": None,
+        "option_confirmation_screenshot": None,
+    }
+
+    try:
+        garment_selection = get_garment_for_model(model_info['clothes_folder'], model_info)
+        garment_path = garment_selection["path"]
+        garment_name = os.path.basename(garment_path)
+        metadata["garment_filename"] = garment_name
+        metadata["garment_selection_mode"] = garment_selection["mode"]
+        metadata["garment_selection_seed"] = garment_selection["seed"]
+        metadata["garment_selection_index"] = garment_selection["index"]
+        metadata["garment_pool_size"] = garment_selection["pool_size"]
+
+        print(f"\n[{test_num}] {user['email']} | {model_info['gender']}")
+        print(f"  Model: {model_info['person_name'][:40]}")
+        print(f"  Garment: {garment_name[:40]}")
+
+        test_folder = os.path.join(run_config["results_folder"], test_id)
+        garment_folder = os.path.join(test_folder, "garment")
+        model_folder = os.path.join(test_folder, "model")
+        result_folder = os.path.join(test_folder, "result")
+
+        os.makedirs(garment_folder, exist_ok=True)
+        os.makedirs(model_folder, exist_ok=True)
+        os.makedirs(result_folder, exist_ok=True)
+
+        garment_ext = os.path.splitext(garment_path)[1]
+        model_ext = os.path.splitext(model_info['person_path'])[1]
+
+        shutil.copy2(garment_path, os.path.join(garment_folder, f"garment{garment_ext}"))
+        shutil.copy2(model_info['person_path'], os.path.join(model_folder, f"model{model_ext}"))
+
+        opts = webdriver.ChromeOptions()
+        if HEADLESS:
+            opts.add_argument('--headless=new')
+            opts.add_argument('--disable-gpu')
+            opts.add_argument('--window-size=1920,1080')
+        opts.add_argument('--no-sandbox')
+        opts.add_argument('--disable-dev-shm-usage')
+
+        driver = webdriver.Remote(GRID_URL, options=opts)
+        driver.set_page_load_timeout(60)
+
+        print(f"  Rejestracja...")
+        driver.get("https://siz3r-dev.vercel.app/business/register")
+        wait_for_document_ready(driver, 30)
+
+        try:
+            registration_form = wait_for_registration_form(driver, 40)
+            email_input = registration_form["email_input"]
+            password_inputs = registration_form["password_inputs"]
+            email_input.send_keys(user['email'])
+        except TimeoutException:
+            raise Exception("Timeout: nie znaleziono pola email")
+
+        if len(password_inputs) < 2:
+            raise Exception(f"Za malo pol hasla: {len(password_inputs)}")
+
+        password_inputs[0].send_keys(user['password'])
+        password_inputs[1].send_keys(user['password'])
+
+        register_btn = wait_for_button_safe(driver, REGISTER_BUTTON_TEXTS, timeout=10, require_enabled=True)
+        if not register_btn:
+            raise Exception("Brak przycisku rejestracji")
+
+        driver.execute_script("arguments[0].click();", register_btn)
+        try:
+            wait_for_post_registration_state(driver, timeout=7)
+        except TimeoutException:
+            print(f"  WARN Nie wykryto od razu potwierdzenia rejestracji, sprawdzam dalej...")
+
+        print(f"  Sprawdzam modal kredytow...")
+        try:
+            skip_button = wait_for_button_safe(driver, CREDIT_MODAL_SKIP_TEXTS, timeout=5, require_enabled=True)
+            if skip_button:
+                button_label = ' / '.join(get_button_text_variants(skip_button)[:2]) or 'skip'
+                print(f"  OK Znalazlem przycisk pomijania ({button_label}), klikam...")
+                driver.execute_script("arguments[0].click();", skip_button)
+                try:
+                    wait_for_element_to_disappear(driver, skip_button, timeout=3)
+                except TimeoutException:
+                    pass
+                print(f"  OK Modal pominiety")
+            else:
+                print(f"  WARN Modal nie pojawil sie (lub juz zamkniety)")
+        except Exception as e:
+            print(f"  WARN Blad przy modal: {e}")
+
+        print(f"  Playground...")
+        driver.get("https://siz3r-dev.vercel.app/business/playground")
+        wait_for_document_ready(driver, 30)
+
+        file_inputs = None
+        for attempt in range(3):
+            try:
+                file_inputs = wait_for_file_inputs(driver, minimum_count=2, timeout=12)
+                break
+            except TimeoutException:
+                if attempt < 2:
+                    print(f"  Retry {attempt+1} - odswiezam strone...")
+                    driver.refresh()
+                    wait_for_document_ready(driver, 20)
+                else:
+                    raise Exception("Timeout: nie znaleziono file inputs po 3 probach")
+
+        if not file_inputs or len(file_inputs) < 2:
+            raise Exception(f"Za malo file inputs: {len(file_inputs) if file_inputs else 0}")
+
+        file_inputs[0].send_keys(model_info['person_path'])
+        dispatch_file_input_events(driver, file_inputs[0])
+        try:
+            wait_for_file_inputs(driver, minimum_count=2, timeout=4)
+        except TimeoutException:
+            pass
+
+        file_inputs = wait_for_file_inputs(driver, minimum_count=2, timeout=12)
+        if len(file_inputs) < 2:
+            raise Exception(f"Za malo file inputs po modelu: {len(file_inputs)}")
+
+        file_inputs[1].send_keys(garment_path)
+        dispatch_file_input_events(driver, file_inputs[1])
+        try:
+            wait_for_generation_surface(driver, timeout=4)
+        except TimeoutException:
+            pass
+
+        garment_mode_state = ensure_garment_site_mode(driver, run_config["site_mode"])
+        if garment_mode_state:
+            metadata["garment_mode_selected"] = garment_mode_state.get("selected_label")
+            metadata["garment_mode_state_source"] = garment_mode_state.get("state_source")
+            print(f"  OK Tryb odziezy: {metadata['garment_mode_selected']}")
+
+        option_state = read_generation_option_state(driver)
+        if option_state:
+            metadata["garment_mode_selected"] = option_state.get("garment_mode_selected") or metadata["garment_mode_selected"]
+            metadata["garment_mode_state_source"] = option_state.get("garment_mode_state_source") or metadata["garment_mode_state_source"]
+            metadata["quality_mode_selected"] = option_state.get("quality_mode_selected")
+            metadata["quality_mode_state_source"] = option_state.get("quality_mode_state_source")
+            metadata["turbo_enabled"] = option_state.get("turbo_enabled")
+            metadata["turbo_state_source"] = option_state.get("turbo_state_source")
+            print(
+                f"  Opcje: garment={metadata['garment_mode_selected'] or 'unknown'} | "
+                f"quality={metadata['quality_mode_selected'] or 'unknown'} | "
+                f"turbo={metadata['turbo_enabled'] if metadata['turbo_enabled'] is not None else 'unknown'}"
+            )
+
+        option_confirmation_path = os.path.join(test_folder, "option_confirmation.png")
+        if capture_option_confirmation(driver, option_confirmation_path):
+            metadata["option_confirmation_screenshot"] = option_confirmation_path
+            print(f"  OK Screenshot opcji zapisany: option_confirmation.png")
+        else:
+            print(f"  WARN Nie udalo sie zapisac screenshotu opcji")
+
+        generate_btn = wait_for_button_safe(driver, GENERATE_BUTTON_TEXTS, timeout=25, require_enabled=True)
+        if not generate_btn:
+            disabled_generate_btn = wait_for_button_safe(driver, GENERATE_BUTTON_TEXTS, timeout=1, require_enabled=False)
+            button_candidates = describe_button_candidates(driver)
+            metadata["visible_button_candidates"] = button_candidates
+            if disabled_generate_btn:
+                metadata["generate_button_detected_but_disabled"] = get_button_text_variants(disabled_generate_btn)
+            details = " | ".join(button_candidates[:6]) if button_candidates else "brak widocznych kandydatow"
+            if disabled_generate_btn:
+                disabled_label = ' / '.join(get_button_text_variants(disabled_generate_btn)) or 'unknown'
+                raise Exception(f"Przycisk generacji istnieje, ale pozostal wylaczony: {disabled_label}. Kandydaci: {details}")
+            raise Exception(f"Brak przycisku Generuj/Tryon. Kandydaci: {details}")
+
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", generate_btn)
+        driver.execute_script("arguments[0].click();", generate_btn)
+        print(f"  Generacja...")
+
+        def result_image_present(current):
+            try:
+                imgs = current.find_elements(By.TAG_NAME, "img")
+                for img in imgs:
+                    src = img.get_attribute('src') or ''
+                    if ('gradio_api' in src or 'demo.siz3r.com' in src or 'data:image' in src):
+                        rect = img.rect
+                        width = rect['width']
+                        height = rect['height']
+                        if width > 300 and height > 400:
+                            return img
+            except Exception:
+                pass
+            return False
+
+        try:
+            result_img = WebDriverWait(driver, 60).until(result_image_present)
+        except TimeoutException:
+            raise Exception("Timeout: nie znaleziono wyniku generacji po 60s")
+
+        try:
+            wait_for_image_render_complete(driver, result_img, timeout=2)
+        except TimeoutException:
+            pass
+
+        print(f"  Zapisuje wynik...")
+        result_path = os.path.join(result_folder, "result.png")
+        if download_image_from_element(driver, result_img, result_path):
+            metadata["status"] = "success"
+            metadata["result_path"] = result_path
+
+            with open(os.path.join(test_folder, "metadata.json"), 'w') as f:
+                json.dump(metadata, f, indent=2)
+
+            print(f"  OK - {test_id}")
+            driver.quit()
+            return True
+
+        raise Exception("Nie udalo sie pobrac wyniku")
+
+    except Exception as e:
+        error_msg = str(e)
+        error_trace = traceback.format_exc()
+
+        print(f"  FAIL: {error_msg}")
+
+        metadata["status"] = "failed"
+        metadata["error"] = error_msg
+        metadata["error_trace"] = error_trace
+
+        test_folder = os.path.join(run_config["results_folder"], test_id)
+        os.makedirs(test_folder, exist_ok=True)
+        with open(os.path.join(test_folder, "metadata.json"), 'w') as f:
+            json.dump(metadata, f, indent=2)
+
+        if driver:
+            try:
+                screenshot_path = os.path.join(test_folder, "error_screenshot.png")
+                driver.save_screenshot(screenshot_path)
+                print(f"  Screenshot zapisany: error_screenshot.png")
+            except Exception:
+                pass
+
+            try:
+                driver.quit()
+            except Exception:
+                pass
+
+        return False
+
 def write_run_summary(run_config, total_tests, success, failed, elapsed_total, skipped_genders):
     results_folder = run_config["results_folder"]
     summary = {
@@ -1290,7 +1638,7 @@ def run_test_suite(run_config):
     start_time = time.time()
 
     for i, model in enumerate(all_models, 1):
-        if test_single_model(i, model, run_config):
+        if test_single_model_wait_optimized(i, model, run_config):
             success += 1
         else:
             failed += 1
