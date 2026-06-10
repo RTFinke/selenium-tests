@@ -461,9 +461,22 @@ function scoreSourceDirCandidate(candidate) {
   return { score: usableFolders, folderCount: folders.length };
 }
 
-function resolveSourceDir() {
-  const envPath = normalizeString(process.env.ANALYZE_SOURCE_DIR);
-  if (envPath) return path.resolve(envPath);
+function parseSourceDirList(value) {
+  const normalized = normalizeString(value);
+  if (!normalized) return [];
+
+  return [...new Set(
+    normalized
+      .split(/[\r\n,;]+/)
+      .map((part) => normalizeString(part))
+      .filter(Boolean)
+      .map((part) => path.resolve(part)),
+  )];
+}
+
+function resolveSourceDirs() {
+  const envPaths = parseSourceDirList(process.env.ANALYZE_SOURCE_DIR);
+  if (envPaths.length > 0) return envPaths;
 
   const candidates = [path.resolve("test_results"), path.resolve("images")];
   let firstExisting = null;
@@ -483,13 +496,13 @@ function resolveSourceDir() {
   }
 
   if (bestCandidate && bestScore > 0) {
-    return bestCandidate;
+    return [bestCandidate];
   }
   if (firstExisting) {
-    return firstExisting;
+    return [firstExisting];
   }
 
-  return candidates[0];
+  return [candidates[0]];
 }
 
 function detectSourceLayout(sourceDir, folders) {
@@ -1439,6 +1452,38 @@ function createPerFolderPayload(folderName, folderContext, record) {
   };
 }
 
+function describeSourceLayouts(layouts) {
+  const uniqueLayouts = [...new Set(layouts.filter(Boolean))];
+  if (uniqueLayouts.length === 0) return "unknown";
+  if (uniqueLayouts.length === 1) return uniqueLayouts[0];
+  return `mixed (${uniqueLayouts.join(", ")})`;
+}
+
+function collectSourceEntries(sourceDirs) {
+  const sources = [];
+
+  for (const sourceDir of sourceDirs) {
+    const folders = listSubfoldersSorted(sourceDir);
+    if (folders.length === 0) continue;
+
+    const sourceLayout = detectSourceLayout(sourceDir, folders);
+    const entries = folders.map((folderName) => ({
+      folderName,
+      folderPath: path.join(sourceDir, folderName),
+      sourceDir,
+      sourceLayout,
+    }));
+
+    sources.push({ sourceDir, sourceLayout, folders, entries });
+  }
+
+  const entries = sources
+    .flatMap((source) => source.entries)
+    .sort((a, b) => a.folderName.localeCompare(b.folderName, undefined, { numeric: true, sensitivity: "base" }));
+
+  return { sources, entries };
+}
+
 function writeReviewBundle(reviewRoot, payload, folderContext) {
   return {
     bundleDir: null,
@@ -1467,26 +1512,76 @@ function renderHtmlList(items, emptyText) {
   return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 }
 
-function renderImageCard(label, relativePath) {
+function renderImageCard(label, relativePath, options = {}) {
+  const variant = normalizeString(options.variant) || "standard";
+  const description = normalizeString(options.description);
   if (!relativePath) {
-    return `<div class="image-card missing"><div class="image-label">${escapeHtml(label)}</div><div class="missing-text">Missing</div></div>`;
+    return `
+      <div class="image-card image-card-${escapeHtml(variant)} missing">
+        <div class="image-label">${escapeHtml(label)}</div>
+        ${description ? `<div class="image-subtitle">${escapeHtml(description)}</div>` : ""}
+        <div class="missing-text">Missing</div>
+      </div>
+    `;
   }
 
   const safeSrc = encodeURI(relativePath);
   const safeLabel = escapeHtml(label);
   const safeSrcAttr = escapeHtml(safeSrc);
   return `
-    <div class="image-card">
+    <div class="image-card image-card-${escapeHtml(variant)}">
       <div class="image-card-header">
-        <div class="image-label">${safeLabel}</div>
+        <div>
+          <div class="image-label">${safeLabel}</div>
+          ${description ? `<div class="image-subtitle">${escapeHtml(description)}</div>` : ""}
+        </div>
         <div class="image-actions">
           <button type="button" class="image-action zoom-button" data-full-src="${safeSrcAttr}" data-full-label="${safeLabel}">Zoom</button>
           <a class="image-action" href="${safeSrcAttr}" target="_blank" rel="noreferrer">Open</a>
         </div>
       </div>
       <button type="button" class="image-frame zoom-button" data-full-src="${safeSrcAttr}" data-full-label="${safeLabel}">
-        <img src="${safeSrcAttr}" alt="${safeLabel}" loading="lazy" decoding="async">
+        <img src="${safeSrcAttr}" alt="${safeLabel}" decoding="async">
       </button>
+    </div>
+  `;
+}
+
+function renderMetaChips(entry) {
+  const chips = [];
+  if (entry.test_number !== null && entry.test_number !== undefined) {
+    chips.push(`Test #${entry.test_number}`);
+  }
+  if (entry.gender) {
+    chips.push(entry.gender);
+  }
+  if (entry.folder) {
+    chips.push(`Folder: ${entry.folder}`);
+  }
+
+  if (chips.length === 0) return "";
+  return `<div class="meta-chips">${chips.map((item) => `<span class="meta-chip">${escapeHtml(item)}</span>`).join("")}</div>`;
+}
+
+function renderGalleryBoard(entry) {
+  return `
+    <div class="gallery-board">
+      <section class="gallery-hero">
+        ${renderImageCard("Result", entry.files.result, {
+          variant: "hero",
+          description: "Generated try-on output",
+        })}
+      </section>
+      <section class="gallery-support">
+        ${renderImageCard("Model", entry.files.model, {
+          variant: "support",
+          description: "Source person image",
+        })}
+        ${renderImageCard("Garment", entry.files.garment, {
+          variant: "support",
+          description: "Source garment image",
+        })}
+      </section>
     </div>
   `;
 }
@@ -1519,6 +1614,11 @@ function createReviewEntry(payload, bundle) {
 
 function buildReviewHtml(reviewEntries, summary, meta) {
   const isGalleryOnly = meta.reportMode === "gallery";
+  const reportLabel = isGalleryOnly ? "Siz3r Model Tests" : "Analyze with LLM";
+  const reportTitle = isGalleryOnly ? "Try-On Gallery Report" : "Try-On Review Report";
+  const reportSubtitle = isGalleryOnly
+    ? "A print-friendly presentation of generated try-on results, ready for PDF export."
+    : "A review-ready presentation of generated try-on results and AI evaluation notes.";
   const cards = reviewEntries
     .map((entry) => {
       const score = entry.quality_percent ?? "ERR";
@@ -1530,8 +1630,10 @@ function buildReviewHtml(reviewEntries, summary, meta) {
             ? "score-pass"
             : "score-fail";
       const seleniumStatus = normalizeString(entry.selenium_status)?.toUpperCase() || null;
+      const galleryBadgeClass =
+        seleniumStatus === "SUCCESS" ? "score-pass" : seleniumStatus === "FAILED" ? "score-fail" : "badge-neutral";
       const galleryBadges = seleniumStatus
-        ? `<div class="badges"><span class="badge badge-neutral">Generation: ${escapeHtml(seleniumStatus)}</span></div>`
+        ? `<div class="badges"><span class="badge ${galleryBadgeClass}">Generation: ${escapeHtml(seleniumStatus)}</span></div>`
         : "";
       const reviewBadges = `
             <div class="badges">
@@ -1570,24 +1672,23 @@ function buildReviewHtml(reviewEntries, summary, meta) {
           </div>`;
 
       return `
-        <article class="card">
+        <article class="card ${isGalleryOnly ? "card-gallery" : "card-review"}">
           <div class="card-top">
-            <div>
+            <div class="card-heading">
+              <div class="card-kicker">${isGalleryOnly ? "Result Sheet" : "Review Entry"}</div>
               <h2>${escapeHtml(entry.test_id)}</h2>
-              <p class="meta">
-                Folder: ${escapeHtml(entry.folder)}
-                ${entry.test_number !== null ? ` | Test #${escapeHtml(entry.test_number)}` : ""}
-                ${entry.gender ? ` | ${escapeHtml(entry.gender)}` : ""}
-              </p>
+              ${renderMetaChips(entry)}
             </div>
             ${isGalleryOnly ? galleryBadges : reviewBadges}
           </div>
 
-          <div class="images">
+          ${isGalleryOnly
+            ? renderGalleryBoard(entry)
+            : `<div class="images">
             ${renderImageCard("Model", entry.files.model)}
             ${renderImageCard("Garment", entry.files.garment)}
             ${renderImageCard("Result", entry.files.result)}
-          </div>
+          </div>`}
           ${detailSections}
         </article>
       `;
@@ -1599,88 +1700,183 @@ function buildReviewHtml(reviewEntries, summary, meta) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${isGalleryOnly ? "Try-On Results" : "Try-On Review"}</title>
+  <title>${escapeHtml(reportTitle)}</title>
   <style>
     :root {
-      --bg: #f4f0e8;
+      --bg: #efe7da;
+      --panel: #faf6ef;
       --card: #fffdf8;
-      --ink: #1f1b16;
-      --muted: #6b6257;
-      --line: #ded3c2;
+      --ink: #1d1a16;
+      --muted: #6a6257;
+      --line: #d8cbba;
       --pass: #2d6a4f;
       --fail: #9d0208;
       --error: #6a4c93;
-      --accent: #c97b31;
+      --accent: #b56a2b;
+      --accent-soft: #eadbc6;
+      --shadow: 0 20px 48px rgba(56, 39, 19, 0.10);
     }
     * { box-sizing: border-box; }
+    html {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
     body {
       margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at top left, rgba(201, 123, 49, 0.18), transparent 28%),
-        linear-gradient(180deg, #f9f4eb 0%, var(--bg) 100%);
+        radial-gradient(circle at top left, rgba(181, 106, 43, 0.20), transparent 28%),
+        linear-gradient(180deg, #f7f1e7 0%, var(--bg) 100%);
     }
     main {
-      max-width: 1440px;
+      max-width: 1280px;
       margin: 0 auto;
-      padding: 32px 20px 48px;
+      padding: 28px 18px 40px;
     }
     h1, h2, h3 { margin: 0; }
+    .hero {
+      background:
+        linear-gradient(135deg, rgba(255, 253, 248, 0.96), rgba(249, 239, 224, 0.96)),
+        linear-gradient(180deg, rgba(181, 106, 43, 0.10), transparent);
+      border: 1px solid rgba(181, 106, 43, 0.18);
+      border-radius: 28px;
+      padding: 28px 28px 24px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+    .eyebrow {
+      margin-bottom: 10px;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
     h1 {
-      font-size: clamp(2rem, 4vw, 3.5rem);
-      letter-spacing: 0.02em;
-      margin-bottom: 8px;
+      font-size: clamp(2.2rem, 4.6vw, 4rem);
+      line-height: 1.02;
+      letter-spacing: 0.01em;
+      margin-bottom: 10px;
     }
     .intro {
       color: var(--muted);
-      max-width: 960px;
-      margin-bottom: 24px;
-      line-height: 1.5;
+      max-width: 920px;
+      margin: 0;
+      font-size: 1.02rem;
+      line-height: 1.65;
+    }
+    .hero-meta {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .hero-meta-item {
+      background: rgba(255, 255, 255, 0.62);
+      border: 1px solid rgba(216, 203, 186, 0.85);
+      border-radius: 16px;
+      padding: 12px 14px;
+    }
+    .hero-meta-label {
+      display: block;
+      margin-bottom: 4px;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .hero-meta-value {
+      font-size: 0.98rem;
+      line-height: 1.45;
+      word-break: break-word;
     }
     .summary {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-      margin-bottom: 28px;
+      gap: 14px;
+      margin-bottom: 24px;
     }
     .summary-card {
-      background: rgba(255, 253, 248, 0.9);
+      background: rgba(255, 253, 248, 0.92);
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 16px;
+      border-radius: 20px;
+      padding: 18px 18px 16px;
+      box-shadow: 0 10px 24px rgba(56, 39, 19, 0.06);
     }
     .summary-card strong {
       display: block;
-      font-size: 1.7rem;
-      margin-bottom: 4px;
+      font-size: 2rem;
+      line-height: 1;
+      margin-bottom: 6px;
     }
     .summary-card span {
       color: var(--muted);
-      font-size: 0.95rem;
+      font-size: 0.92rem;
+      line-height: 1.4;
     }
     .cards {
       display: grid;
-      gap: 18px;
+      gap: 20px;
     }
     .card {
       background: rgba(255, 253, 248, 0.97);
       border: 1px solid var(--line);
-      border-radius: 24px;
-      padding: 20px;
-      box-shadow: 0 12px 30px rgba(56, 39, 19, 0.08);
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .card-top {
       display: flex;
       justify-content: space-between;
-      gap: 16px;
+      gap: 18px;
       align-items: start;
       margin-bottom: 18px;
+    }
+    .card-heading {
+      max-width: 820px;
+    }
+    .card-kicker {
+      margin-bottom: 8px;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .card h2 {
+      font-size: clamp(1.5rem, 3vw, 2.15rem);
+      line-height: 1.08;
+      word-break: break-word;
     }
     .meta {
       margin-top: 6px;
       color: var(--muted);
       font-size: 0.95rem;
+    }
+    .meta-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .meta-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(216, 203, 186, 0.95);
+      background: rgba(234, 219, 198, 0.42);
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.84rem;
+      color: #44382b;
     }
     .badges {
       display: flex;
@@ -1690,8 +1886,9 @@ function buildReviewHtml(reviewEntries, summary, meta) {
     }
     .badge {
       border-radius: 999px;
-      padding: 8px 12px;
-      font-size: 0.9rem;
+      padding: 8px 13px;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.88rem;
       color: white;
       font-weight: 600;
       white-space: nowrap;
@@ -1703,14 +1900,23 @@ function buildReviewHtml(reviewEntries, summary, meta) {
     .images {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
+      gap: 16px;
       margin-bottom: 18px;
       align-items: start;
     }
+    .gallery-board {
+      display: grid;
+      gap: 18px;
+    }
+    .gallery-support {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
     .image-card {
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 12px;
+      border-radius: 20px;
+      padding: 14px;
       background: #fff;
       min-height: 100%;
     }
@@ -1718,8 +1924,8 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       display: flex;
       justify-content: space-between;
       gap: 12px;
-      align-items: center;
-      margin-bottom: 10px;
+      align-items: start;
+      margin-bottom: 12px;
     }
     .image-actions {
       display: flex;
@@ -1729,17 +1935,18 @@ function buildReviewHtml(reviewEntries, summary, meta) {
     .image-action {
       appearance: none;
       border: 1px solid var(--line);
-      background: #fffaf2;
+      background: #fff8ee;
       color: #7a3e07;
       border-radius: 999px;
       padding: 6px 10px;
-      font: inherit;
-      font-size: 0.85rem;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.84rem;
       cursor: pointer;
       text-decoration: none;
       line-height: 1;
     }
     .image-frame {
+      appearance: none;
       display: block;
       width: 100%;
       padding: 0;
@@ -1752,22 +1959,37 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       width: 100%;
       height: 400px;
       object-fit: contain;
-      border-radius: 12px;
-      background: linear-gradient(180deg, #fffaf2, #f3eadf);
+      border-radius: 14px;
+      background:
+        radial-gradient(circle at top, rgba(181, 106, 43, 0.10), transparent 28%),
+        linear-gradient(180deg, #fffaf2, #f3eadf);
+    }
+    .image-card-hero img {
+      height: min(68vh, 760px);
+    }
+    .image-card-support img {
+      height: min(31vh, 340px);
     }
     .image-card.missing {
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      min-height: 160px;
+      min-height: 220px;
     }
     .image-label {
-      font-size: 0.85rem;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.12em;
       color: var(--muted);
-      margin-bottom: 10px;
+    }
+    .image-subtitle {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.35;
     }
     .missing-text, .muted {
       color: var(--muted);
@@ -1812,6 +2034,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       margin-top: 28px;
       color: var(--muted);
       font-size: 0.95rem;
+      line-height: 1.5;
     }
     .lightbox[hidden] {
       display: none;
@@ -1866,13 +2089,99 @@ function buildReviewHtml(reviewEntries, summary, meta) {
     body.lightbox-open {
       overflow: hidden;
     }
+    @page {
+      size: A4 portrait;
+      margin: 12mm;
+    }
+    @media print {
+      body {
+        background: white;
+      }
+      main {
+        max-width: none;
+        padding: 0;
+      }
+      .hero,
+      .summary-card,
+      .card {
+        box-shadow: none;
+      }
+      .hero {
+        margin-bottom: 10mm;
+        padding: 0 0 8mm;
+        border-radius: 0;
+        border: 0;
+        border-bottom: 1px solid #cfc4b5;
+        background: transparent;
+      }
+      .summary {
+        margin-bottom: 8mm;
+        gap: 4mm;
+      }
+      .summary-card {
+        padding: 4mm;
+        border-radius: 12px;
+      }
+      .cards {
+        gap: 8mm;
+      }
+      .card {
+        padding: 0;
+        border-radius: 0;
+        border: 0;
+        background: white;
+      }
+      .card-gallery {
+        min-height: 250mm;
+      }
+      .card-top {
+        margin-bottom: 5mm;
+      }
+      .badges {
+        justify-content: start;
+      }
+      .image-actions,
+      .lightbox {
+        display: none !important;
+      }
+      .gallery-board {
+        gap: 5mm;
+      }
+      .image-card {
+        padding: 0;
+        border-radius: 0;
+        border: 0;
+        background: white;
+      }
+      .image-card-header {
+        margin-bottom: 3mm;
+      }
+      .image-card img {
+        border-radius: 0;
+        background: white;
+      }
+      .image-card-hero img {
+        height: 165mm;
+      }
+      .image-card-support img {
+        height: 72mm;
+      }
+      .footer {
+        margin-top: 8mm;
+      }
+    }
     @media (max-width: 720px) {
-      main { padding: 20px 14px 32px; }
+      main { padding: 16px 12px 26px; }
+      .hero { padding: 20px 18px; border-radius: 22px; }
+      .hero-meta { grid-template-columns: 1fr; }
       .card { padding: 16px; }
       .card-top { flex-direction: column; }
       .badges { justify-content: start; }
+      .gallery-support { grid-template-columns: 1fr; }
       .images { grid-template-columns: 1fr; }
       .image-card img { height: 320px; }
+      .image-card-hero img { height: 380px; }
+      .image-card-support img { height: 280px; }
       .image-card-header { align-items: start; flex-direction: column; }
       .lightbox { padding: 10px; }
       .lightbox-inner { width: 100%; height: min(92vh, 960px); padding: 52px 12px 12px; }
@@ -1881,12 +2190,30 @@ function buildReviewHtml(reviewEntries, summary, meta) {
 </head>
 <body>
   <main>
-    <h1>${isGalleryOnly ? "Try-On Results" : "Try-On Review"}</h1>
-    <p class="intro">
-      ${isGalleryOnly
-        ? `Source: <strong>${escapeHtml(meta.sourceDir)}</strong> (${escapeHtml(meta.sourceLayout)} layout). Generated ${escapeHtml(meta.generatedAt)}. This gallery shows the original inputs and generated outputs only.`
-        : `Source: <strong>${escapeHtml(meta.sourceDir)}</strong> (${escapeHtml(meta.sourceLayout)} layout). Generated ${escapeHtml(meta.generatedAt)}. Click any preview to open a full-resolution zoom view, or use the Open button for the raw file.`}
-    </p>
+    <section class="hero">
+      <div class="eyebrow">${escapeHtml(reportLabel)}</div>
+      <h1>${escapeHtml(reportTitle)}</h1>
+      <p class="intro">
+        ${escapeHtml(reportSubtitle)}
+        ${isGalleryOnly
+          ? ` This version contains the original model, garment, and generated result only, with no AI judgment.`
+          : ` This version includes the original model, garment, generated result, and AI review signals.`}
+      </p>
+      <div class="hero-meta">
+        <div class="hero-meta-item">
+          <span class="hero-meta-label">Source</span>
+          <span class="hero-meta-value">${escapeHtml(meta.sourceDir)}</span>
+        </div>
+        <div class="hero-meta-item">
+          <span class="hero-meta-label">Layout</span>
+          <span class="hero-meta-value">${escapeHtml(meta.sourceLayout)}</span>
+        </div>
+        <div class="hero-meta-item">
+          <span class="hero-meta-label">Generated</span>
+          <span class="hero-meta-value">${escapeHtml(meta.generatedAt)}</span>
+        </div>
+      </div>
+    </section>
 
     <section class="summary">
       ${isGalleryOnly
@@ -1909,8 +2236,8 @@ function buildReviewHtml(reviewEntries, summary, meta) {
 
     <p class="footer">
       ${isGalleryOnly
-        ? `This gallery reads the original files directly from <code>${escapeHtml(meta.sourceDir)}</code>. The only generated artifact is this <code>index.html</code> file.`
-        : `This report reads the original files directly from <code>${escapeHtml(meta.sourceDir)}</code>. The only generated artifact is this <code>index.html</code> file.`}
+        ? `This gallery reads the original files directly from <code>${escapeHtml(meta.sourceDir)}</code>. For PDF export, use your browser print dialog and keep background graphics enabled if you want the on-screen styling to carry over.`
+        : `This report reads the original files directly from <code>${escapeHtml(meta.sourceDir)}</code>. For PDF export, use your browser print dialog and keep background graphics enabled if you want the on-screen styling to carry over.`}
     </p>
   </main>
   <div class="lightbox" id="lightbox" hidden>
@@ -1966,12 +2293,15 @@ function buildReviewHtml(reviewEntries, summary, meta) {
 </html>`;
 }
 
-function writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDir, sourceLayout) {
+function writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDirs, sourceLayout) {
   const generatedAt = new Date().toISOString();
+  const sourceDirLabel = sourceDirs
+    .map((dir) => projectRelative(dir) || dir)
+    .join(", ");
 
   const html = buildReviewHtml(reviewEntries, summary, {
     generatedAt,
-    sourceDir: projectRelative(sourceDir) || sourceDir,
+    sourceDir: sourceDirLabel,
     sourceLayout,
     reportMode: GALLERY_ONLY_MODE ? "gallery" : "review",
   });
@@ -1979,18 +2309,21 @@ function writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDir, sourceL
 }
 
 async function main() {
-  const sourceDir = resolveSourceDir();
-  const folders = listSubfoldersSorted(sourceDir);
+  const sourceDirs = resolveSourceDirs();
+  const { sources, entries } = collectSourceEntries(sourceDirs);
 
-  if (folders.length === 0) {
-    console.error(`No subfolders found in ${projectRelative(sourceDir) || sourceDir}.`);
-    console.error(`Expected either test_results/<test_id>/... or images/<folder>/...`);
+  if (entries.length === 0) {
+    const attemptedDirs = sourceDirs.map((dir) => projectRelative(dir) || dir).join(", ");
+    console.error(`No subfolders found in: ${attemptedDirs}.`);
+    console.error(`Expected either <source>/<test_id>/... or <source>/<folder>/...`);
     process.exit(1);
   }
 
-  const sourceLayout = detectSourceLayout(sourceDir, folders);
+  const sourceLayouts = sources.map((source) => source.sourceLayout);
+  const sourceLayout = describeSourceLayouts(sourceLayouts);
   const outDir = ensureDir(OUTPUTS_DIR);
   const reviewRoot = outDir;
+  const sourceDirLabel = sourceDirs.map((dir) => projectRelative(dir) || dir).join(", ");
 
   console.log(`Report mode: ${GALLERY_ONLY_MODE ? "GALLERY" : "REVIEW"}`);
   console.log(`OpenAI endpoint: ${ENDPOINT}`);
@@ -2000,9 +2333,9 @@ async function main() {
       GALLERY_ONLY_MODE ? "NO (gallery-only mode)" : HAS_OPENAI_API_KEY ? "YES" : "NO (comparison-only review mode)"
     }`,
   );
-  console.log(`Source dir: ${projectRelative(sourceDir) || sourceDir}`);
+  console.log(`Source dirs: ${sourceDirLabel}`);
   console.log(`Source layout: ${sourceLayout}`);
-  console.log(`Folders: ${folders.length}`);
+  console.log(`Folders: ${entries.length}`);
   console.log(`Concurrency: ${CONCURRENCY}`);
   console.log(`Main evaluation uses model image: ${INCLUDE_MODEL_IN_MAIN ? "YES" : "NO"}`);
   console.log(`Artifact audit mode: ${ENABLE_ARTIFACT_AUDIT ? "ALWAYS" : "AUTO ON CLEAN PASS CANDIDATES"}`);
@@ -2025,35 +2358,37 @@ async function main() {
       loose: { total: 0, pass: 0 },
       oversized: { total: 0, pass: 0 },
     },
-    source_dir: projectRelative(sourceDir),
+    source_dir: sourceDirLabel,
+    source_dirs: sourceDirs.map((dir) => projectRelative(dir) || dir),
     source_layout: sourceLayout,
+    source_layouts: sourceLayouts,
     review_dir: projectRelative(reviewRoot),
   };
 
-  const evaluations = await mapWithConcurrency(folders, CONCURRENCY, async (folderName) => {
-    const folderPath = path.join(sourceDir, folderName);
-    const folderContext = collectFolderAssets(folderName, folderPath, sourceLayout);
-    console.log(`\n=== Evaluating: ${folderName} ===`);
+  const evaluations = await mapWithConcurrency(entries, CONCURRENCY, async (entry) => {
+    const folderContext = collectFolderAssets(entry.folderName, entry.folderPath, entry.sourceLayout);
+    const sourceLabel = projectRelative(entry.sourceDir) || entry.sourceDir;
+    console.log(`\n=== Evaluating: ${entry.folderName} (${sourceLabel}) ===`);
 
     let record;
     if (GALLERY_ONLY_MODE) {
       record = folderContext.ok
         ? {
-            folder: folderName,
+            folder: entry.folderName,
             ok: true,
             rating: null,
             evaluation_mode: "gallery_only",
             message: "Gallery-only mode: AI evaluation skipped.",
           }
         : {
-            folder: folderName,
+            folder: entry.folderName,
             ok: false,
             evaluation_mode: "gallery_only",
             error: folderContext.error,
           };
     } else if (!HAS_OPENAI_API_KEY) {
       record = {
-        folder: folderName,
+        folder: entry.folderName,
         ok: true,
         rating: null,
         evaluation_mode: "comparison_only",
@@ -2061,10 +2396,10 @@ async function main() {
       };
     } else {
       try {
-        record = await evaluateFolder(folderName, folderContext);
+        record = await evaluateFolder(entry.folderName, folderContext);
       } catch (err) {
         record = {
-          folder: folderName,
+          folder: entry.folderName,
           ok: false,
           evaluation_mode: "llm",
           error: "LLM request failed",
@@ -2075,7 +2410,7 @@ async function main() {
       }
     }
 
-    const perFolderPayload = createPerFolderPayload(folderName, folderContext, record);
+    const perFolderPayload = createPerFolderPayload(entry.folderName, folderContext, record);
     const bundle = writeReviewBundle(reviewRoot, perFolderPayload, folderContext);
 
     return { folderContext, record, perFolderPayload, bundle };
@@ -2127,7 +2462,7 @@ async function main() {
     reviewEntries.push(createReviewEntry(perFolderPayload, bundle));
   }
 
-  writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDir, sourceLayout);
+  writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDirs, sourceLayout);
 
   console.log(`\n${"=".repeat(60)}`);
   console.log("ANALYSIS SUMMARY");

@@ -3,6 +3,7 @@
 ## Local workflow
 
 `analyze_quality.js` looks for results in `test_results/` by default. If that folder does not exist, it falls back to `images/`.
+You can also point it at multiple source directories by setting `ANALYZE_SOURCE_DIR` to a comma-, semicolon-, or newline-separated list.
 
 After analysis you get:
 - `outputs/index.html` - a single review report for manual QA
@@ -10,36 +11,49 @@ After analysis you get:
 The report:
 - shows the model, garment, and result images
 - can render either a generation-only gallery or an AI review summary, depending on `ANALYSIS_REPORT_MODE`
-- reads the original files directly from `test_results/` or `images/`
+- reads the original files directly from the source folders you provide
 - does not create extra `json`, `csv`, or review subfolders
 
 Useful environment variables:
-- `ANALYZE_SOURCE_DIR` - force the input directory
+- `ANALYZE_SOURCE_DIR` - force the input directory or directories
 - `ANALYSIS_OUTPUT_DIR` - change the `outputs/` directory
 - `ANALYSIS_REPORT_MODE` - `gallery` for generation-only HTML, `review` for AI evaluation HTML
 - `OPENAI_CONCURRENCY` - number of parallel evaluations
 
 GitHub Actions usage:
-- `Siz3r Model Tests` should run with `ANALYSIS_REPORT_MODE=gallery` so `outputs/index.html` is just the generation gallery
-- `Analyze with LLM` should run with `ANALYSIS_REPORT_MODE=review` and `OPENAI_API_KEY` for AI judgments
+- `Siz3r Model Tests` should run with `ANALYZE_SOURCE_DIR=test_results_upper,test_results_lower,test_results_full` and `ANALYSIS_REPORT_MODE=gallery` so `outputs/index.html` is just the generation gallery
+- `Analyze with LLM` should run with `ANALYZE_SOURCE_DIR=test_results/test_results_upper,test_results/test_results_lower,test_results/test_results_full`, `ANALYSIS_REPORT_MODE=review`, and `OPENAI_API_KEY` for AI judgments
 
 ## Results structure
 
-GitHub Actions artifacts are expected in a structure like this:
+`Siz3r Model Tests` artifacts are expected in a structure like this:
 
 ```text
-test_results/
+test_results_upper/
 |-- summary.json
-|-- test_1_women_model123/
+|-- test_1_upper_women_model123/
 |   |-- metadata.json
 |   |-- garment/garment.jpg
 |   |-- model/model.jpg
 |   `-- result/result.png
-|-- test_2_men_model456/
+|-- test_2_upper_men_model456/
 |   `-- ...
-`-- test_62_women_model789/
-    `-- ...
+|
+test_results_lower/
+|-- summary.json
+|-- test_1_lower_women_model123/
+|   `-- ...
+|
+test_results_full/
+|-- summary.json
+|-- test_1_full_women_model123/
+|   `-- ...
+|
+test_results_summary.json
+`-- outputs/index.html
 ```
+
+There is no merged `test_results/` copy in the artifact, so each test folder is stored only once.
 
 ## metadata.json format
 
@@ -96,6 +110,7 @@ jobs:
 
     - name: Run LLM analysis
       env:
+        ANALYZE_SOURCE_DIR: test_results/test_results_upper,test_results/test_results_lower,test_results/test_results_full
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       run: |
         npm ci
