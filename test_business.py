@@ -1282,6 +1282,43 @@ def close_driver_safely(driver):
     except Exception:
         pass
 
+def get_generation_file_inputs(driver):
+    file_inputs = None
+    for attempt in range(3):
+        try:
+            file_inputs = wait_for_file_inputs(driver, minimum_count=2, timeout=12)
+            break
+        except TimeoutException:
+            if attempt < 2:
+                print(f"  Retry {attempt+1} - odswiezam strone...")
+                driver.refresh()
+                wait_for_document_ready(driver, 20)
+            else:
+                raise Exception("Timeout: nie znaleziono file inputs po 3 probach")
+
+    if not file_inputs or len(file_inputs) < 2:
+        raise Exception(f"Za malo file inputs: {len(file_inputs) if file_inputs else 0}")
+
+    return file_inputs
+
+def ensure_person_uploaded(driver, model_info, session_state=None):
+    active_person_path = session_state.get("active_person_path") if session_state else None
+    if active_person_path == model_info['person_path']:
+        return
+
+    print(f"  Wgrywam model osoby...")
+    file_inputs = get_generation_file_inputs(driver)
+    file_inputs[0].send_keys(model_info['person_path'])
+    dispatch_file_input_events(driver, file_inputs[0])
+    try:
+        wait_for_file_inputs(driver, minimum_count=2, timeout=4)
+    except TimeoutException:
+        pass
+
+    if session_state is not None:
+        session_state["active_person_path"] = model_info['person_path']
+        session_state["active_person_name"] = model_info['person_name']
+
 def test_single_model(test_num, model_info, run_config):
     driver = None
     # user = generate_user()
@@ -1585,7 +1622,7 @@ def test_single_model(test_num, model_info, run_config):
         
         return False
 
-def test_single_model_wait_optimized(test_num, model_info, run_config, driver=None, user=None):
+def test_single_model_wait_optimized(test_num, model_info, run_config, driver=None, user=None, session_state=None):
     owns_driver = driver is None
     # user = generate_user()
     user = user or get_test_account()
@@ -1657,30 +1694,18 @@ def test_single_model_wait_optimized(test_num, model_info, run_config, driver=No
         elif not is_driver_alive(driver):
             raise Exception("Sesja przegladarki jest niedostepna")
 
-        open_authenticated_playground(driver, user)
+        should_open_playground = True
+        if session_state is not None:
+            should_open_playground = not session_state.get("playground_ready", False)
 
-        file_inputs = None
-        for attempt in range(3):
-            try:
-                file_inputs = wait_for_file_inputs(driver, minimum_count=2, timeout=12)
-                break
-            except TimeoutException:
-                if attempt < 2:
-                    print(f"  Retry {attempt+1} - odswiezam strone...")
-                    driver.refresh()
-                    wait_for_document_ready(driver, 20)
-                else:
-                    raise Exception("Timeout: nie znaleziono file inputs po 3 probach")
+        if should_open_playground:
+            open_authenticated_playground(driver, user)
+            if session_state is not None:
+                session_state["playground_ready"] = True
+                session_state["active_person_path"] = None
+                session_state["active_person_name"] = None
 
-        if not file_inputs or len(file_inputs) < 2:
-            raise Exception(f"Za malo file inputs: {len(file_inputs) if file_inputs else 0}")
-
-        file_inputs[0].send_keys(model_info['person_path'])
-        dispatch_file_input_events(driver, file_inputs[0])
-        try:
-            wait_for_file_inputs(driver, minimum_count=2, timeout=4)
-        except TimeoutException:
-            pass
+        ensure_person_uploaded(driver, model_info, session_state=session_state)
 
         file_inputs = wait_for_file_inputs(driver, minimum_count=2, timeout=12)
         if len(file_inputs) < 2:
@@ -1802,6 +1827,11 @@ def test_single_model_wait_optimized(test_num, model_info, run_config, driver=No
             except Exception:
                 pass
 
+            if session_state is not None:
+                session_state["playground_ready"] = False
+                session_state["active_person_path"] = None
+                session_state["active_person_name"] = None
+
             if owns_driver:
                 close_driver_safely(driver)
 
@@ -1864,6 +1894,11 @@ def run_test_suite(run_config):
     start_time = time.time()
     shared_user = get_test_account() if REUSE_BROWSER_SESSION else None
     shared_driver = None
+    shared_session_state = {
+        "playground_ready": False,
+        "active_person_path": None,
+        "active_person_name": None,
+    } if REUSE_BROWSER_SESSION else None
 
     print(f"  Browser session reuse: {'enabled' if REUSE_BROWSER_SESSION else 'disabled'}")
 
@@ -1886,10 +1921,14 @@ def run_test_suite(run_config):
                     run_config,
                     driver=shared_driver,
                     user=shared_user,
+                    session_state=shared_session_state,
                 )
                 if not is_driver_alive(shared_driver):
                     close_driver_safely(shared_driver)
                     shared_driver = None
+                    shared_session_state["playground_ready"] = False
+                    shared_session_state["active_person_path"] = None
+                    shared_session_state["active_person_name"] = None
             else:
                 test_passed = test_single_model_wait_optimized(i, model, run_config)
         else:
