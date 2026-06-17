@@ -1398,7 +1398,9 @@ def test_single_model(test_num, model_info, run_config):
         except TimeoutException:
             raise Exception("Timeout: nie znaleziono wyniku generacji po 60s")
         
-        time.sleep(2)
+        # The result image is already gated by explicit waits above, so this extra
+        # pause is disabled to keep serial runs moving faster.
+        # time.sleep(2)
         
         print(f"  Zapisuje wynik...")
         result_path = os.path.join(result_folder, "result.png")
@@ -1809,8 +1811,9 @@ def run_test_suite(run_config):
         else:
             failed += 1
 
-        if i < total_tests:
-            time.sleep(2)
+        # Extra pacing between serial tests is disabled to reduce total runtime.
+        # if i < total_tests:
+        #     time.sleep(2)
 
         elapsed = time.time() - start_time
         avg_per_test = elapsed / i
