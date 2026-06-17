@@ -2,6 +2,21 @@ name: Siz3r Model Tests
 
 on:
   workflow_dispatch:
+    inputs:
+      pairing_mode:
+        description: How to pair garments with each model
+        required: true
+        default: all
+        type: choice
+        options:
+          - deterministic
+          - random
+          - all
+      garments_per_person:
+        description: Optional garment cap per person per run. Leave blank for the selected mode default.
+        required: false
+        default: ""
+        type: string
 
 jobs:
   test-all-models:
@@ -36,8 +51,9 @@ jobs:
           PYTHON_BIN: python
           SELENIUM_COMPOSE_FILE: docker-compose.cloud.yml
           SELENIUM_GRID_URL: http://localhost:4444
-          TEST_PAIRING_MODE: all
+          TEST_PAIRING_MODE: ${{ inputs.pairing_mode }}
           TEST_PAIRING_SEED: stable-v1
+          TEST_GARMENTS_PER_PERSON: ${{ inputs.garments_per_person }}
           FAIL_ON_TEST_FAILURES: "false"
         run: |
           chmod +x run_selenium.sh

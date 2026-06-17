@@ -12,12 +12,16 @@ HEADLESS = os.getenv('HEADLESS', 'false').lower() == 'true'
 PAIRING_MODE = os.getenv('TEST_PAIRING_MODE', 'all').strip().lower()
 PAIRING_SEED = os.getenv('TEST_PAIRING_SEED', 'stable-v1').strip() or 'stable-v1'
 FAIL_ON_TEST_FAILURES = os.getenv('FAIL_ON_TEST_FAILURES', 'true').lower() == 'true'
+GARMENTS_PER_PERSON_RAW = os.getenv('TEST_GARMENTS_PER_PERSON', '').strip()
+SHARED_TEST_ACCOUNT_EMAIL = "massTest@gmail.com"
+SHARED_TEST_ACCOUNT_PASSWORD = "massTest@gmail.com"
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_PATH = os.path.join(SCRIPT_DIR, 'test_images')
 BUTTON_CANDIDATE_SELECTOR = "button, [role='button'], input[type='button'], input[type='submit'], [class*='button'], [class*='Button']"
 GENERATE_BUTTON_TEXTS = ['generuj', 'generate', 'try on', 'try-on', 'tryon']
 REGISTER_BUTTON_TEXTS = ['zarejestruj', 'register', 'sign up']
+LOGIN_BUTTON_TEXTS = ['zaloguj', 'login', 'log in', 'sign in']
 CREDIT_MODAL_SKIP_TEXTS = ['nie dziękuję', 'nie dziekuje', 'no thank', 'no thanks']
 
 PEOPLE_FOLDERS = {
@@ -60,9 +64,35 @@ GARMENT_RUNS = [
 
 RUN_SUMMARY_PATH = os.path.join(SCRIPT_DIR, "test_results_summary.json")
 
-def generate_user():
-    uid = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-    return {"email": f"{PREFIX}{uid}@test.com", "password": "TestPass123!"}
+def parse_optional_positive_int(value, variable_name):
+    if not value:
+        return None
+
+    try:
+        parsed_value = int(value)
+    except ValueError as exc:
+        raise ValueError(f"{variable_name} must be a positive integer, got: {value}") from exc
+
+    if parsed_value <= 0:
+        raise ValueError(f"{variable_name} must be a positive integer, got: {value}")
+
+    return parsed_value
+
+GARMENTS_PER_PERSON = parse_optional_positive_int(GARMENTS_PER_PERSON_RAW, 'TEST_GARMENTS_PER_PERSON')
+PAIRING_SEED_ACTIVE = PAIRING_MODE == 'deterministic' or (
+    GARMENTS_PER_PERSON is not None and PAIRING_MODE != 'random'
+)
+
+# Account creation is intentionally disabled for large shared test runs.
+# def generate_user():
+#     uid = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+#     return {"email": f"{PREFIX}{uid}@test.com", "password": "TestPass123!"}
+
+def get_test_account():
+    return {
+        "email": SHARED_TEST_ACCOUNT_EMAIL,
+        "password": SHARED_TEST_ACCOUNT_PASSWORD,
+    }
 
 def list_supported_images(folder, sort_files=False):
     images = [
@@ -123,6 +153,43 @@ def wait_for_post_registration_state(driver, timeout=7):
         return False
 
     return WebDriverWait(driver, timeout, poll_frequency=0.25).until(registration_progressed)
+
+def wait_for_auth_form(driver, minimum_password_inputs=1, timeout=20):
+    def auth_form_ready(current):
+        email_inputs = current.find_elements(By.CSS_SELECTOR, "input[type='email']")
+        password_inputs = current.find_elements(By.CSS_SELECTOR, "input[type='password']")
+        if not email_inputs or len(password_inputs) < minimum_password_inputs:
+            return False
+        return {
+            "email_input": email_inputs[0],
+            "password_inputs": password_inputs,
+        }
+
+    return WebDriverWait(driver, timeout, poll_frequency=0.25).until(auth_form_ready)
+
+def wait_for_post_auth_state(driver, auth_path, minimum_password_inputs=1, timeout=7):
+    def auth_progressed(current):
+        current_url = ''
+        try:
+            current_url = current.current_url or ''
+        except Exception:
+            current_url = ''
+
+        if auth_path not in current_url:
+            return True
+
+        skip_button = find_button_safe(current, CREDIT_MODAL_SKIP_TEXTS)
+        if skip_button and is_button_interactable(skip_button):
+            return True
+
+        email_inputs = current.find_elements(By.CSS_SELECTOR, "input[type='email']")
+        password_inputs = current.find_elements(By.CSS_SELECTOR, "input[type='password']")
+        if not email_inputs and len(password_inputs) < minimum_password_inputs:
+            return True
+
+        return False
+
+    return WebDriverWait(driver, timeout, poll_frequency=0.25).until(auth_progressed)
 
 def wait_for_file_inputs(driver, minimum_count=2, timeout=20):
     def file_inputs_ready(current):
@@ -264,6 +331,46 @@ def find_button_safe(driver, texts):
             continue
     return best_match
 
+def get_preselected_garments_for_person(garment_images, gender, person_name):
+    if not garment_images:
+        return []
+
+    if GARMENTS_PER_PERSON is None:
+        if PAIRING_MODE == 'all':
+            return {
+                "mode": "all",
+                "seed": None,
+                "garments": list(enumerate(garment_images)),
+            }
+        return None
+
+    garment_count = min(GARMENTS_PER_PERSON, len(garment_images))
+    if garment_count == len(garment_images):
+        return {
+            "mode": "all",
+            "seed": None,
+            "garments": list(enumerate(garment_images)),
+        }
+
+    if PAIRING_MODE == 'random':
+        selected_indexes = sorted(random.sample(range(len(garment_images)), garment_count))
+        selection_mode = "sample-random"
+        selection_seed = None
+    else:
+        selection_seed = f"{PAIRING_SEED}|{gender}|{person_name}|sample"
+        rng = random.Random(selection_seed)
+        selected_indexes = sorted(rng.sample(range(len(garment_images)), garment_count))
+        selection_mode = "sample-deterministic"
+
+    return {
+        "mode": selection_mode,
+        "seed": selection_seed,
+        "garments": [
+            (index, garment_images[index])
+            for index in selected_indexes
+        ],
+    }
+
 def wait_for_button_safe(driver, texts, timeout=20, require_enabled=True):
     try:
         return WebDriverWait(driver, timeout).until(
@@ -318,9 +425,10 @@ def get_all_models(run_config):
             skipped_genders.append(gender)
             continue
 
-        if PAIRING_MODE == 'all':
-            for person_name in people_images:
-                for garment_index, garment_name in enumerate(garment_images):
+        for person_name in people_images:
+            preselected_garments = get_preselected_garments_for_person(garment_images, gender, person_name)
+            if preselected_garments:
+                for garment_index, garment_name in preselected_garments["garments"]:
                     models.append({
                         "gender": gender,
                         "person_path": os.path.join(people_folder, person_name),
@@ -332,10 +440,11 @@ def get_all_models(run_config):
                         "preselected_garment_name": garment_name,
                         "preselected_garment_index": garment_index,
                         "preselected_garment_pool_size": len(garment_images),
+                        "preselected_garment_mode": preselected_garments["mode"],
+                        "preselected_garment_seed": preselected_garments["seed"],
                     })
-            continue
+                continue
 
-        for person_name in people_images:
             models.append({
                 "gender": gender,
                 "person_path": os.path.join(people_folder, person_name),
@@ -352,8 +461,8 @@ def get_garment_for_model(clothes_folder, model_info):
     if preselected_garment_path:
         return {
             "path": preselected_garment_path,
-            "mode": "all",
-            "seed": None,
+            "mode": model_info.get("preselected_garment_mode", "all"),
+            "seed": model_info.get("preselected_garment_seed"),
             "index": model_info.get("preselected_garment_index"),
             "pool_size": model_info.get("preselected_garment_pool_size"),
         }
@@ -1037,7 +1146,8 @@ def capture_option_confirmation(driver, filepath):
 
 def test_single_model(test_num, model_info, run_config):
     driver = None
-    user = generate_user()
+    # user = generate_user()
+    user = get_test_account()
     
     model_name_clean = Path(model_info['person_name']).stem
     garment_name_clean = None
@@ -1059,7 +1169,7 @@ def test_single_model(test_num, model_info, run_config):
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "headless": HEADLESS,
         "pairing_mode": PAIRING_MODE,
-        "pairing_seed": PAIRING_SEED if PAIRING_MODE == 'deterministic' else None,
+        "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
         "garment_run_key": run_config["key"],
         "garment_run_label": run_config["label"],
         "garment_mode_requested": run_config["site_mode"],
@@ -1069,7 +1179,7 @@ def test_single_model(test_num, model_info, run_config):
         "quality_mode_state_source": None,
         "turbo_enabled": None,
         "turbo_state_source": None,
-        "option_confirmation_screenshot": None,
+        # "option_confirmation_screenshot": None,
     }
     
     try:
@@ -1113,31 +1223,55 @@ def test_single_model(test_num, model_info, run_config):
         driver.set_page_load_timeout(60)
         wait = WebDriverWait(driver, 40)
         
-        # REJESTRACJA
-        print(f"  Rejestracja...")
-        driver.get("https://siz3r-dev.vercel.app/business/register")
+        print(f"  Logowanie...")
+        driver.get("https://siz3r-dev.vercel.app/business/login")
         wait_for_document_ready(driver, 30)
-        
+
         try:
-            registration_form = wait_for_registration_form(driver, 40)
-            email_input = registration_form["email_input"]
-            password_inputs = registration_form["password_inputs"]
+            auth_form = wait_for_auth_form(driver, minimum_password_inputs=1, timeout=40)
+            email_input = auth_form["email_input"]
+            password_inputs = auth_form["password_inputs"]
             email_input.send_keys(user['email'])
         except TimeoutException:
-            raise Exception("Timeout: nie znaleziono pola email")
-        
+            raise Exception("Timeout: nie znaleziono pola email logowania")
+
         password_inputs[0].send_keys(user['password'])
-        password_inputs[1].send_keys(user['password'])
-        register_btn = wait_for_button_safe(driver, REGISTER_BUTTON_TEXTS, timeout=10, require_enabled=True)
-        
-        if not register_btn:
-            raise Exception("Brak przycisku rejestracji")
-        
-        driver.execute_script("arguments[0].click();", register_btn)
+        login_btn = wait_for_button_safe(driver, LOGIN_BUTTON_TEXTS, timeout=10, require_enabled=True)
+
+        if not login_btn:
+            raise Exception("Brak przycisku logowania")
+
+        driver.execute_script("arguments[0].click();", login_btn)
         try:
-            wait_for_post_registration_state(driver, timeout=7)
+            wait_for_post_auth_state(driver, '/business/login', minimum_password_inputs=1, timeout=7)
         except TimeoutException:
-            print(f"  WARN Nie wykryto od razu potwierdzenia rejestracji, sprawdzam dalej...")
+            print(f"  WARN Nie wykryto od razu potwierdzenia logowania, sprawdzam dalej...")
+
+        # Registration flow kept for quick rollback if shared-account login is no longer desired.
+        # print(f"  Rejestracja...")
+        # driver.get("https://siz3r-dev.vercel.app/business/register")
+        # wait_for_document_ready(driver, 30)
+        #
+        # try:
+        #     registration_form = wait_for_registration_form(driver, 40)
+        #     email_input = registration_form["email_input"]
+        #     password_inputs = registration_form["password_inputs"]
+        #     email_input.send_keys(user['email'])
+        # except TimeoutException:
+        #     raise Exception("Timeout: nie znaleziono pola email")
+        #
+        # password_inputs[0].send_keys(user['password'])
+        # password_inputs[1].send_keys(user['password'])
+        # register_btn = wait_for_button_safe(driver, REGISTER_BUTTON_TEXTS, timeout=10, require_enabled=True)
+        #
+        # if not register_btn:
+        #     raise Exception("Brak przycisku rejestracji")
+        #
+        # driver.execute_script("arguments[0].click();", register_btn)
+        # try:
+        #     wait_for_post_registration_state(driver, timeout=7)
+        # except TimeoutException:
+        #     print(f"  WARN Nie wykryto od razu potwierdzenia rejestracji, sprawdzam dalej...")
         
         # ============= HANDLE CREDITS MODAL =============
         print(f"  Sprawdzam modal kredytow...")
@@ -1218,12 +1352,13 @@ def test_single_model(test_num, model_info, run_config):
                 f"turbo={metadata['turbo_enabled'] if metadata['turbo_enabled'] is not None else 'unknown'}"
             )
 
-        option_confirmation_path = os.path.join(test_folder, "option_confirmation.png")
-        if capture_option_confirmation(driver, option_confirmation_path):
-            metadata["option_confirmation_screenshot"] = option_confirmation_path
-            print(f"  OK Screenshot opcji zapisany: option_confirmation.png")
-        else:
-            print(f"  WARN Nie udalo sie zapisac screenshotu opcji")
+        # Option confirmation screenshots are disabled to keep runs lighter and faster.
+        # option_confirmation_path = os.path.join(test_folder, "option_confirmation.png")
+        # if capture_option_confirmation(driver, option_confirmation_path):
+        #     metadata["option_confirmation_screenshot"] = option_confirmation_path
+        #     print(f"  OK Screenshot opcji zapisany: option_confirmation.png")
+        # else:
+        #     print(f"  WARN Nie udalo sie zapisac screenshotu opcji")
         
         generate_btn = wait_for_button_safe(driver, GENERATE_BUTTON_TEXTS, timeout=25, require_enabled=True)
         if not generate_btn:
@@ -1312,7 +1447,8 @@ def test_single_model(test_num, model_info, run_config):
 
 def test_single_model_wait_optimized(test_num, model_info, run_config):
     driver = None
-    user = generate_user()
+    # user = generate_user()
+    user = get_test_account()
 
     model_name_clean = Path(model_info['person_name']).stem
     garment_name_clean = None
@@ -1334,7 +1470,7 @@ def test_single_model_wait_optimized(test_num, model_info, run_config):
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "headless": HEADLESS,
         "pairing_mode": PAIRING_MODE,
-        "pairing_seed": PAIRING_SEED if PAIRING_MODE == 'deterministic' else None,
+        "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
         "garment_run_key": run_config["key"],
         "garment_run_label": run_config["label"],
         "garment_mode_requested": run_config["site_mode"],
@@ -1344,7 +1480,7 @@ def test_single_model_wait_optimized(test_num, model_info, run_config):
         "quality_mode_state_source": None,
         "turbo_enabled": None,
         "turbo_state_source": None,
-        "option_confirmation_screenshot": None,
+        # "option_confirmation_screenshot": None,
     }
 
     try:
@@ -1387,33 +1523,61 @@ def test_single_model_wait_optimized(test_num, model_info, run_config):
         driver = webdriver.Remote(GRID_URL, options=opts)
         driver.set_page_load_timeout(60)
 
-        print(f"  Rejestracja...")
-        driver.get("https://siz3r-dev.vercel.app/business/register")
+        print(f"  Logowanie...")
+        driver.get("https://siz3r-dev.vercel.app/business/login")
         wait_for_document_ready(driver, 30)
 
         try:
-            registration_form = wait_for_registration_form(driver, 40)
-            email_input = registration_form["email_input"]
-            password_inputs = registration_form["password_inputs"]
+            auth_form = wait_for_auth_form(driver, minimum_password_inputs=1, timeout=40)
+            email_input = auth_form["email_input"]
+            password_inputs = auth_form["password_inputs"]
             email_input.send_keys(user['email'])
         except TimeoutException:
-            raise Exception("Timeout: nie znaleziono pola email")
+            raise Exception("Timeout: nie znaleziono pola email logowania")
 
-        if len(password_inputs) < 2:
-            raise Exception(f"Za malo pol hasla: {len(password_inputs)}")
+        if len(password_inputs) < 1:
+            raise Exception(f"Za malo pol hasla logowania: {len(password_inputs)}")
 
         password_inputs[0].send_keys(user['password'])
-        password_inputs[1].send_keys(user['password'])
 
-        register_btn = wait_for_button_safe(driver, REGISTER_BUTTON_TEXTS, timeout=10, require_enabled=True)
-        if not register_btn:
-            raise Exception("Brak przycisku rejestracji")
+        login_btn = wait_for_button_safe(driver, LOGIN_BUTTON_TEXTS, timeout=10, require_enabled=True)
+        if not login_btn:
+            raise Exception("Brak przycisku logowania")
 
-        driver.execute_script("arguments[0].click();", register_btn)
+        driver.execute_script("arguments[0].click();", login_btn)
         try:
-            wait_for_post_registration_state(driver, timeout=7)
+            wait_for_post_auth_state(driver, '/business/login', minimum_password_inputs=1, timeout=7)
         except TimeoutException:
-            print(f"  WARN Nie wykryto od razu potwierdzenia rejestracji, sprawdzam dalej...")
+            print(f"  WARN Nie wykryto od razu potwierdzenia logowania, sprawdzam dalej...")
+
+        # Registration flow kept for quick rollback if shared-account login is no longer desired.
+        # print(f"  Rejestracja...")
+        # driver.get("https://siz3r-dev.vercel.app/business/register")
+        # wait_for_document_ready(driver, 30)
+        #
+        # try:
+        #     registration_form = wait_for_registration_form(driver, 40)
+        #     email_input = registration_form["email_input"]
+        #     password_inputs = registration_form["password_inputs"]
+        #     email_input.send_keys(user['email'])
+        # except TimeoutException:
+        #     raise Exception("Timeout: nie znaleziono pola email")
+        #
+        # if len(password_inputs) < 2:
+        #     raise Exception(f"Za malo pol hasla: {len(password_inputs)}")
+        #
+        # password_inputs[0].send_keys(user['password'])
+        # password_inputs[1].send_keys(user['password'])
+        #
+        # register_btn = wait_for_button_safe(driver, REGISTER_BUTTON_TEXTS, timeout=10, require_enabled=True)
+        # if not register_btn:
+        #     raise Exception("Brak przycisku rejestracji")
+        #
+        # driver.execute_script("arguments[0].click();", register_btn)
+        # try:
+        #     wait_for_post_registration_state(driver, timeout=7)
+        # except TimeoutException:
+        #     print(f"  WARN Nie wykryto od razu potwierdzenia rejestracji, sprawdzam dalej...")
 
         print(f"  Sprawdzam modal kredytow...")
         try:
@@ -1490,12 +1654,13 @@ def test_single_model_wait_optimized(test_num, model_info, run_config):
                 f"turbo={metadata['turbo_enabled'] if metadata['turbo_enabled'] is not None else 'unknown'}"
             )
 
-        option_confirmation_path = os.path.join(test_folder, "option_confirmation.png")
-        if capture_option_confirmation(driver, option_confirmation_path):
-            metadata["option_confirmation_screenshot"] = option_confirmation_path
-            print(f"  OK Screenshot opcji zapisany: option_confirmation.png")
-        else:
-            print(f"  WARN Nie udalo sie zapisac screenshotu opcji")
+        # Option confirmation screenshots are disabled to keep runs lighter and faster.
+        # option_confirmation_path = os.path.join(test_folder, "option_confirmation.png")
+        # if capture_option_confirmation(driver, option_confirmation_path):
+        #     metadata["option_confirmation_screenshot"] = option_confirmation_path
+        #     print(f"  OK Screenshot opcji zapisany: option_confirmation.png")
+        # else:
+        #     print(f"  WARN Nie udalo sie zapisac screenshotu opcji")
 
         generate_btn = wait_for_button_safe(driver, GENERATE_BUTTON_TEXTS, timeout=25, require_enabled=True)
         if not generate_btn:
@@ -1599,7 +1764,8 @@ def write_run_summary(run_config, total_tests, success, failed, elapsed_total, s
         "test_results_folder": results_folder,
         "headless_mode": HEADLESS,
         "pairing_mode": PAIRING_MODE,
-        "pairing_seed": PAIRING_SEED if PAIRING_MODE == 'deterministic' else None,
+        "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
+        "garments_per_person": GARMENTS_PER_PERSON,
         "skipped_genders_without_garments": skipped_genders,
     }
 
@@ -1668,8 +1834,10 @@ if __name__ == "__main__":
     print("SIZ3R BUSINESS TESTS - ALL MODELS")
     print(f"Headless mode: {HEADLESS}")
     print(f"Pairing mode: {PAIRING_MODE}")
-    if PAIRING_MODE == 'deterministic':
+    if PAIRING_SEED_ACTIVE:
         print(f"Pairing seed: {PAIRING_SEED}")
+    if GARMENTS_PER_PERSON is not None:
+        print(f"Garments per person: {GARMENTS_PER_PERSON}")
     print(f"Fail on test failures: {FAIL_ON_TEST_FAILURES}")
 
     required_paths = {
@@ -1699,7 +1867,7 @@ if __name__ == "__main__":
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "headless_mode": HEADLESS,
             "pairing_mode": PAIRING_MODE,
-            "pairing_seed": PAIRING_SEED if PAIRING_MODE == 'deterministic' else None,
+            "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
             "runs": run_summaries,
         }, f, indent=2)
 
