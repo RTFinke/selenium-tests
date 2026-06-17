@@ -3,6 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import time, random, string, os, sys, shutil, base64, json, traceback, hashlib, re, unicodedata
 from pathlib import Path
 
@@ -13,6 +14,7 @@ PAIRING_MODE = os.getenv('TEST_PAIRING_MODE', 'all').strip().lower()
 PAIRING_SEED = os.getenv('TEST_PAIRING_SEED', 'stable-v1').strip() or 'stable-v1'
 FAIL_ON_TEST_FAILURES = os.getenv('FAIL_ON_TEST_FAILURES', 'true').lower() == 'true'
 GARMENTS_PER_PERSON_RAW = os.getenv('TEST_GARMENTS_PER_PERSON', '').strip()
+TEST_CONCURRENCY_RAW = os.getenv('TEST_CONCURRENCY', '1').strip()
 SHARED_TEST_ACCOUNT_EMAIL = "massTest@gmail.com"
 SHARED_TEST_ACCOUNT_PASSWORD = "massTest@gmail.com"
 
@@ -79,6 +81,7 @@ def parse_optional_positive_int(value, variable_name):
     return parsed_value
 
 GARMENTS_PER_PERSON = parse_optional_positive_int(GARMENTS_PER_PERSON_RAW, 'TEST_GARMENTS_PER_PERSON')
+TEST_CONCURRENCY = parse_optional_positive_int(TEST_CONCURRENCY_RAW, 'TEST_CONCURRENCY') or 1
 PAIRING_SEED_ACTIVE = PAIRING_MODE == 'deterministic' or (
     GARMENTS_PER_PERSON is not None and PAIRING_MODE != 'random'
 )
@@ -1766,6 +1769,7 @@ def write_run_summary(run_config, total_tests, success, failed, elapsed_total, s
         "pairing_mode": PAIRING_MODE,
         "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
         "garments_per_person": GARMENTS_PER_PERSON,
+        "test_concurrency": TEST_CONCURRENCY,
         "skipped_genders_without_garments": skipped_genders,
     }
 
@@ -1802,20 +1806,50 @@ def run_test_suite(run_config):
     success = 0
     failed = 0
     start_time = time.time()
+    worker_count = min(TEST_CONCURRENCY, total_tests)
 
-    for i, model in enumerate(all_models, 1):
-        if test_single_model_wait_optimized(i, model, run_config):
-            success += 1
-        else:
-            failed += 1
+    print(f"  Concurrency: {worker_count}")
 
-        if i < total_tests:
-            time.sleep(2)
-
+    def print_progress(completed_count):
         elapsed = time.time() - start_time
-        avg_per_test = elapsed / i
-        remaining = (total_tests - i) * avg_per_test
-        print(f"  Progress: {i}/{total_tests} | ETA: {int(remaining/60)}min")
+        avg_per_test = elapsed / completed_count
+        remaining = (total_tests - completed_count) * avg_per_test
+        print(f"  Progress: {completed_count}/{total_tests} | ETA: {int(remaining/60)}min")
+
+    if worker_count == 1:
+        for i, model in enumerate(all_models, 1):
+            if test_single_model_wait_optimized(i, model, run_config):
+                success += 1
+            else:
+                failed += 1
+
+            # Optional pacing between tests is disabled to reduce total runtime.
+            # if i < total_tests:
+            #     time.sleep(2)
+
+            print_progress(i)
+    else:
+        futures = {}
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            for i, model in enumerate(all_models, 1):
+                future = executor.submit(test_single_model_wait_optimized, i, model, run_config)
+                futures[future] = i
+
+            completed_count = 0
+            for future in as_completed(futures):
+                test_num = futures[future]
+                completed_count += 1
+                try:
+                    if future.result():
+                        success += 1
+                    else:
+                        failed += 1
+                except Exception as exc:
+                    failed += 1
+                    print(f"  ERROR Test {test_num} crashed outside the normal handler: {exc}")
+                    traceback.print_exc()
+
+                print_progress(completed_count)
 
     elapsed_total = time.time() - start_time
     print(f"\n{'='*60}")
@@ -1838,6 +1872,7 @@ if __name__ == "__main__":
         print(f"Pairing seed: {PAIRING_SEED}")
     if GARMENTS_PER_PERSON is not None:
         print(f"Garments per person: {GARMENTS_PER_PERSON}")
+    print(f"Test concurrency: {TEST_CONCURRENCY}")
     print(f"Fail on test failures: {FAIL_ON_TEST_FAILURES}")
 
     required_paths = {
@@ -1868,6 +1903,7 @@ if __name__ == "__main__":
             "headless_mode": HEADLESS,
             "pairing_mode": PAIRING_MODE,
             "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
+            "test_concurrency": TEST_CONCURRENCY,
             "runs": run_summaries,
         }, f, indent=2)
 

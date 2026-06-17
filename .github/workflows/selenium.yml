@@ -17,6 +17,11 @@ on:
         required: false
         default: ""
         type: string
+      test_concurrency:
+        description: Number of try-ons to run in parallel. Increase carefully when using one shared account.
+        required: true
+        default: "3"
+        type: string
 
 jobs:
   test-all-models:
@@ -54,6 +59,7 @@ jobs:
           TEST_PAIRING_MODE: ${{ inputs.pairing_mode }}
           TEST_PAIRING_SEED: stable-v1
           TEST_GARMENTS_PER_PERSON: ${{ inputs.garments_per_person }}
+          TEST_CONCURRENCY: ${{ inputs.test_concurrency }}
           FAIL_ON_TEST_FAILURES: "false"
         run: |
           chmod +x run_selenium.sh
