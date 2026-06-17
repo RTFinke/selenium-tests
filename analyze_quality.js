@@ -1527,7 +1527,6 @@ function renderImageCard(label, relativePath, options = {}) {
 
   const safeSrc = encodeURI(relativePath);
   const safeLabel = escapeHtml(label);
-  const safeSrcAttr = escapeHtml(safeSrc);
   return `
     <div class="image-card image-card-${escapeHtml(variant)}">
       <div class="image-card-header">
@@ -1535,14 +1534,10 @@ function renderImageCard(label, relativePath, options = {}) {
           <div class="image-label">${safeLabel}</div>
           ${description ? `<div class="image-subtitle">${escapeHtml(description)}</div>` : ""}
         </div>
-        <div class="image-actions">
-          <button type="button" class="image-action zoom-button" data-full-src="${safeSrcAttr}" data-full-label="${safeLabel}">Zoom</button>
-          <a class="image-action" href="${safeSrcAttr}" target="_blank" rel="noreferrer">Open</a>
-        </div>
       </div>
-      <button type="button" class="image-frame zoom-button" data-full-src="${safeSrcAttr}" data-full-label="${safeLabel}">
-        <img src="${safeSrcAttr}" alt="${safeLabel}" decoding="async">
-      </button>
+      <div class="image-frame">
+        <img src="${escapeHtml(safeSrc)}" alt="${safeLabel}" decoding="async">
+      </div>
     </div>
   `;
 }
@@ -1565,23 +1560,16 @@ function renderMetaChips(entry) {
 
 function renderGalleryBoard(entry) {
   return `
-    <div class="gallery-board">
-      <section class="gallery-hero">
-        ${renderImageCard("Result", entry.files.result, {
-          variant: "hero",
-          description: "Generated try-on output",
-        })}
-      </section>
-      <section class="gallery-support">
-        ${renderImageCard("Model", entry.files.model, {
-          variant: "support",
-          description: "Source person image",
-        })}
-        ${renderImageCard("Garment", entry.files.garment, {
-          variant: "support",
-          description: "Source garment image",
-        })}
-      </section>
+    <div class="images images-gallery">
+      ${renderImageCard("Person", entry.files.model, {
+        variant: "gallery",
+      })}
+      ${renderImageCard("Garment", entry.files.garment, {
+        variant: "gallery",
+      })}
+      ${renderImageCard("Output", entry.files.result, {
+        variant: "gallery",
+      })}
     </div>
   `;
 }
@@ -1614,11 +1602,7 @@ function createReviewEntry(payload, bundle) {
 
 function buildReviewHtml(reviewEntries, summary, meta) {
   const isGalleryOnly = meta.reportMode === "gallery";
-  const reportLabel = isGalleryOnly ? "Siz3r Model Tests" : "Analyze with LLM";
   const reportTitle = isGalleryOnly ? "Try-On Gallery Report" : "Try-On Review Report";
-  const reportSubtitle = isGalleryOnly
-    ? "A print-friendly presentation of generated try-on results, ready for PDF export."
-    : "A review-ready presentation of generated try-on results and AI evaluation notes.";
   const cards = reviewEntries
     .map((entry) => {
       const score = entry.quality_percent ?? "ERR";
@@ -1730,70 +1714,11 @@ function buildReviewHtml(reviewEntries, summary, meta) {
         linear-gradient(180deg, #f7f1e7 0%, var(--bg) 100%);
     }
     main {
-      max-width: 1280px;
+      max-width: 1680px;
       margin: 0 auto;
       padding: 28px 18px 40px;
     }
     h1, h2, h3 { margin: 0; }
-    .hero {
-      background:
-        linear-gradient(135deg, rgba(255, 253, 248, 0.96), rgba(249, 239, 224, 0.96)),
-        linear-gradient(180deg, rgba(181, 106, 43, 0.10), transparent);
-      border: 1px solid rgba(181, 106, 43, 0.18);
-      border-radius: 28px;
-      padding: 28px 28px 24px;
-      box-shadow: var(--shadow);
-      margin-bottom: 20px;
-    }
-    .eyebrow {
-      margin-bottom: 10px;
-      font-family: "Aptos", "Segoe UI", sans-serif;
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--accent);
-    }
-    h1 {
-      font-size: clamp(2.2rem, 4.6vw, 4rem);
-      line-height: 1.02;
-      letter-spacing: 0.01em;
-      margin-bottom: 10px;
-    }
-    .intro {
-      color: var(--muted);
-      max-width: 920px;
-      margin: 0;
-      font-size: 1.02rem;
-      line-height: 1.65;
-    }
-    .hero-meta {
-      margin-top: 18px;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 10px;
-    }
-    .hero-meta-item {
-      background: rgba(255, 255, 255, 0.62);
-      border: 1px solid rgba(216, 203, 186, 0.85);
-      border-radius: 16px;
-      padding: 12px 14px;
-    }
-    .hero-meta-label {
-      display: block;
-      margin-bottom: 4px;
-      font-family: "Aptos", "Segoe UI", sans-serif;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .hero-meta-value {
-      font-size: 0.98rem;
-      line-height: 1.45;
-      word-break: break-word;
-    }
     .summary {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1904,14 +1829,9 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       margin-bottom: 18px;
       align-items: start;
     }
-    .gallery-board {
-      display: grid;
-      gap: 18px;
-    }
-    .gallery-support {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
+    .images-gallery {
+      margin-bottom: 0;
+      align-items: stretch;
     }
     .image-card {
       border: 1px solid var(--line);
@@ -1919,56 +1839,31 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       padding: 14px;
       background: #fff;
       min-height: 100%;
+      display: flex;
+      flex-direction: column;
     }
     .image-card-header {
       display: flex;
-      justify-content: space-between;
       gap: 12px;
       align-items: start;
       margin-bottom: 12px;
     }
-    .image-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .image-action {
-      appearance: none;
-      border: 1px solid var(--line);
-      background: #fff8ee;
-      color: #7a3e07;
-      border-radius: 999px;
-      padding: 6px 10px;
-      font-family: "Aptos", "Segoe UI", sans-serif;
-      font-size: 0.84rem;
-      cursor: pointer;
-      text-decoration: none;
-      line-height: 1;
-    }
     .image-frame {
-      appearance: none;
       display: block;
       width: 100%;
-      padding: 0;
-      border: 0;
-      background: transparent;
-      cursor: zoom-in;
-      text-align: inherit;
+      flex: 1;
     }
     .image-card img {
       width: 100%;
-      height: 400px;
+      height: 480px;
       object-fit: contain;
       border-radius: 14px;
       background:
         radial-gradient(circle at top, rgba(181, 106, 43, 0.10), transparent 28%),
         linear-gradient(180deg, #fffaf2, #f3eadf);
     }
-    .image-card-hero img {
-      height: min(68vh, 760px);
-    }
-    .image-card-support img {
-      height: min(31vh, 340px);
+    .card-gallery .image-card img {
+      height: min(70vh, 900px);
     }
     .image-card.missing {
       display: flex;
@@ -2030,68 +1925,9 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       text-decoration-thickness: 1px;
       text-underline-offset: 3px;
     }
-    .footer {
-      margin-top: 28px;
-      color: var(--muted);
-      font-size: 0.95rem;
-      line-height: 1.5;
-    }
-    .lightbox[hidden] {
-      display: none;
-    }
-    .lightbox {
-      position: fixed;
-      inset: 0;
-      z-index: 999;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      background: rgba(24, 18, 12, 0.82);
-      backdrop-filter: blur(8px);
-    }
-    .lightbox-inner {
-      position: relative;
-      width: min(96vw, 1800px);
-      height: min(94vh, 1200px);
-      border-radius: 24px;
-      background: rgba(31, 27, 22, 0.94);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-      padding: 58px 20px 20px;
-    }
-    .lightbox-caption {
-      position: absolute;
-      top: 18px;
-      left: 20px;
-      color: #fffaf2;
-      font-size: 0.95rem;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-    .lightbox-close {
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      border: 1px solid rgba(255, 250, 242, 0.24);
-      background: rgba(255, 250, 242, 0.08);
-      color: #fffaf2;
-      border-radius: 999px;
-      padding: 8px 12px;
-      font: inherit;
-      cursor: pointer;
-    }
-    .lightbox img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      border-radius: 18px;
-      background: radial-gradient(circle at top, rgba(201, 123, 49, 0.12), transparent 30%);
-    }
-    body.lightbox-open {
-      overflow: hidden;
-    }
     @page {
       size: A4 portrait;
-      margin: 12mm;
+      margin: 8mm;
     }
     @media print {
       body {
@@ -2101,120 +1937,71 @@ function buildReviewHtml(reviewEntries, summary, meta) {
         max-width: none;
         padding: 0;
       }
-      .hero,
       .summary-card,
       .card {
         box-shadow: none;
       }
-      .hero {
-        margin-bottom: 10mm;
-        padding: 0 0 8mm;
-        border-radius: 0;
-        border: 0;
-        border-bottom: 1px solid #cfc4b5;
-        background: transparent;
-      }
       .summary {
-        margin-bottom: 8mm;
-        gap: 4mm;
-      }
-      .summary-card {
-        padding: 4mm;
-        border-radius: 12px;
+        display: none;
       }
       .cards {
-        gap: 8mm;
+        gap: 0;
       }
       .card {
-        padding: 0;
+        padding: 4mm 0 0;
         border-radius: 0;
         border: 0;
         background: white;
       }
       .card-gallery {
-        min-height: 250mm;
+        min-height: 272mm;
+        page-break-after: always;
+        break-after: page;
+        break-inside: avoid;
+        display: grid;
+        grid-template-rows: auto 1fr;
       }
+      .card-gallery:last-child { page-break-after: auto; break-after: auto; }
       .card-top {
-        margin-bottom: 5mm;
+        margin-bottom: 4mm;
       }
       .badges {
         justify-content: start;
       }
-      .image-actions,
-      .lightbox {
-        display: none !important;
-      }
-      .gallery-board {
-        gap: 5mm;
+      .images-gallery {
+        gap: 4mm;
+        min-height: 0;
       }
       .image-card {
-        padding: 0;
-        border-radius: 0;
-        border: 0;
+        padding: 2mm;
+        border-radius: 8px;
+        border: 1px solid #d9d0c3;
         background: white;
       }
       .image-card-header {
-        margin-bottom: 3mm;
+        margin-bottom: 2mm;
       }
       .image-card img {
-        border-radius: 0;
+        border-radius: 4px;
         background: white;
       }
-      .image-card-hero img {
-        height: 165mm;
-      }
-      .image-card-support img {
-        height: 72mm;
-      }
-      .footer {
-        margin-top: 8mm;
+      .card-gallery .image-card img {
+        height: 234mm;
       }
     }
     @media (max-width: 720px) {
       main { padding: 16px 12px 26px; }
-      .hero { padding: 20px 18px; border-radius: 22px; }
-      .hero-meta { grid-template-columns: 1fr; }
       .card { padding: 16px; }
       .card-top { flex-direction: column; }
       .badges { justify-content: start; }
-      .gallery-support { grid-template-columns: 1fr; }
       .images { grid-template-columns: 1fr; }
       .image-card img { height: 320px; }
-      .image-card-hero img { height: 380px; }
-      .image-card-support img { height: 280px; }
-      .image-card-header { align-items: start; flex-direction: column; }
-      .lightbox { padding: 10px; }
-      .lightbox-inner { width: 100%; height: min(92vh, 960px); padding: 52px 12px 12px; }
+      .card-gallery .image-card img { height: 360px; }
     }
   </style>
 </head>
 <body>
   <main>
-    <section class="hero">
-      <div class="eyebrow">${escapeHtml(reportLabel)}</div>
-      <h1>${escapeHtml(reportTitle)}</h1>
-      <p class="intro">
-        ${escapeHtml(reportSubtitle)}
-        ${isGalleryOnly
-          ? ` This version contains the original model, garment, and generated result only, with no AI judgment.`
-          : ` This version includes the original model, garment, generated result, and AI review signals.`}
-      </p>
-      <div class="hero-meta">
-        <div class="hero-meta-item">
-          <span class="hero-meta-label">Source</span>
-          <span class="hero-meta-value">${escapeHtml(meta.sourceDir)}</span>
-        </div>
-        <div class="hero-meta-item">
-          <span class="hero-meta-label">Layout</span>
-          <span class="hero-meta-value">${escapeHtml(meta.sourceLayout)}</span>
-        </div>
-        <div class="hero-meta-item">
-          <span class="hero-meta-label">Generated</span>
-          <span class="hero-meta-value">${escapeHtml(meta.generatedAt)}</span>
-        </div>
-      </div>
-    </section>
-
     <section class="summary">
       ${isGalleryOnly
         ? `
@@ -2233,62 +2020,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
     <section class="cards">
       ${cards}
     </section>
-
-    <p class="footer">
-      ${isGalleryOnly
-        ? `This gallery reads the original files directly from <code>${escapeHtml(meta.sourceDir)}</code>. For PDF export, use your browser print dialog and keep background graphics enabled if you want the on-screen styling to carry over.`
-        : `This report reads the original files directly from <code>${escapeHtml(meta.sourceDir)}</code>. For PDF export, use your browser print dialog and keep background graphics enabled if you want the on-screen styling to carry over.`}
-    </p>
   </main>
-  <div class="lightbox" id="lightbox" hidden>
-    <div class="lightbox-inner">
-      <div class="lightbox-caption" id="lightboxCaption">Image</div>
-      <button type="button" class="lightbox-close" id="lightboxClose">Close</button>
-      <img id="lightboxImage" alt="">
-    </div>
-  </div>
-  <script>
-    (() => {
-      const lightbox = document.getElementById("lightbox");
-      const lightboxImage = document.getElementById("lightboxImage");
-      const lightboxCaption = document.getElementById("lightboxCaption");
-      const lightboxClose = document.getElementById("lightboxClose");
-
-      const openLightbox = (src, label) => {
-        if (!src) return;
-        lightboxImage.src = src;
-        lightboxImage.alt = label || "Image";
-        lightboxCaption.textContent = label || "Image";
-        lightbox.hidden = false;
-        document.body.classList.add("lightbox-open");
-      };
-
-      const closeLightbox = () => {
-        lightbox.hidden = true;
-        lightboxImage.removeAttribute("src");
-        document.body.classList.remove("lightbox-open");
-      };
-
-      for (const trigger of document.querySelectorAll(".zoom-button")) {
-        trigger.addEventListener("click", (event) => {
-          event.preventDefault();
-          openLightbox(trigger.dataset.fullSrc, trigger.dataset.fullLabel);
-        });
-      }
-
-      lightboxClose.addEventListener("click", closeLightbox);
-      lightbox.addEventListener("click", (event) => {
-        if (event.target === lightbox) {
-          closeLightbox();
-        }
-      });
-      document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && !lightbox.hidden) {
-          closeLightbox();
-        }
-      });
-    })();
-  </script>
 </body>
 </html>`;
 }
