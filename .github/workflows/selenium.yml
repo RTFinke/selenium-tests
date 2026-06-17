@@ -18,7 +18,7 @@ on:
         default: ""
         type: string
       run_keys:
-        description: Optional comma-separated garment runs to execute. Leave blank for all. Example: full
+        description: "Optional comma-separated garment runs to execute. Leave blank for all. Example: full"
         required: false
         default: ""
         type: string
