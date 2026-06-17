@@ -13,6 +13,8 @@ PAIRING_MODE = os.getenv('TEST_PAIRING_MODE', 'all').strip().lower()
 PAIRING_SEED = os.getenv('TEST_PAIRING_SEED', 'stable-v1').strip() or 'stable-v1'
 FAIL_ON_TEST_FAILURES = os.getenv('FAIL_ON_TEST_FAILURES', 'true').lower() == 'true'
 GARMENTS_PER_PERSON_RAW = os.getenv('TEST_GARMENTS_PER_PERSON', '').strip()
+TEST_RUN_KEYS_RAW = os.getenv('TEST_RUN_KEYS', '').strip()
+REUSE_BROWSER_SESSION = os.getenv('TEST_REUSE_BROWSER_SESSION', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
 SHARED_TEST_ACCOUNT_EMAIL = "massTest@gmail.com"
 SHARED_TEST_ACCOUNT_PASSWORD = "massTest@gmail.com"
 
@@ -78,7 +80,35 @@ def parse_optional_positive_int(value, variable_name):
 
     return parsed_value
 
+def parse_optional_choice_list(value, variable_name, allowed_values):
+    if not value:
+        return None
+
+    allowed_lookup = {item.lower(): item.lower() for item in allowed_values}
+    selected_values = []
+    seen = set()
+
+    for raw_value in value.split(','):
+        normalized_value = raw_value.strip().lower()
+        if not normalized_value:
+            continue
+
+        if normalized_value not in allowed_lookup:
+            allowed_text = ', '.join(sorted(allowed_lookup))
+            raise ValueError(f"{variable_name} must contain only: {allowed_text}. Got: {value}")
+
+        if normalized_value not in seen:
+            selected_values.append(normalized_value)
+            seen.add(normalized_value)
+
+    return selected_values or None
+
 GARMENTS_PER_PERSON = parse_optional_positive_int(GARMENTS_PER_PERSON_RAW, 'TEST_GARMENTS_PER_PERSON')
+SELECTED_RUN_KEYS = parse_optional_choice_list(
+    TEST_RUN_KEYS_RAW,
+    'TEST_RUN_KEYS',
+    [run_config["key"] for run_config in GARMENT_RUNS],
+)
 PAIRING_SEED_ACTIVE = PAIRING_MODE == 'deterministic' or (
     GARMENTS_PER_PERSON is not None and PAIRING_MODE != 'random'
 )
@@ -1144,6 +1174,114 @@ def capture_option_confirmation(driver, filepath):
     except Exception:
         return False
 
+def get_selected_run_configs():
+    if not SELECTED_RUN_KEYS:
+        return GARMENT_RUNS
+
+    selected_run_lookup = set(SELECTED_RUN_KEYS)
+    return [
+        run_config for run_config in GARMENT_RUNS
+        if run_config["key"] in selected_run_lookup
+    ]
+
+def create_remote_driver():
+    opts = webdriver.ChromeOptions()
+    if HEADLESS:
+        opts.add_argument('--headless=new')
+        opts.add_argument('--disable-gpu')
+        opts.add_argument('--window-size=1920,1080')
+    opts.add_argument('--no-sandbox')
+    opts.add_argument('--disable-dev-shm-usage')
+
+    driver = webdriver.Remote(GRID_URL, options=opts)
+    driver.set_page_load_timeout(60)
+    return driver
+
+def login_to_business_account(driver, user, relogin=False):
+    login_label = "Ponowne logowanie..." if relogin else "Logowanie..."
+    print(f"  {login_label}")
+    driver.get("https://siz3r-dev.vercel.app/business/login")
+    wait_for_document_ready(driver, 30)
+
+    try:
+        auth_form = wait_for_auth_form(driver, minimum_password_inputs=1, timeout=40)
+        email_input = auth_form["email_input"]
+        password_inputs = auth_form["password_inputs"]
+        email_input.send_keys(user['email'])
+    except TimeoutException:
+        raise Exception("Timeout: nie znaleziono pola email logowania")
+
+    if len(password_inputs) < 1:
+        raise Exception(f"Za malo pol hasla logowania: {len(password_inputs)}")
+
+    password_inputs[0].send_keys(user['password'])
+
+    login_btn = wait_for_button_safe(driver, LOGIN_BUTTON_TEXTS, timeout=10, require_enabled=True)
+    if not login_btn:
+        raise Exception("Brak przycisku logowania")
+
+    driver.execute_script("arguments[0].click();", login_btn)
+    try:
+        wait_for_post_auth_state(driver, '/business/login', minimum_password_inputs=1, timeout=7)
+    except TimeoutException:
+        print(f"  WARN Nie wykryto od razu potwierdzenia logowania, sprawdzam dalej...")
+
+def dismiss_credit_modal_if_present(driver):
+    print(f"  Sprawdzam modal kredytow...")
+    try:
+        skip_button = wait_for_button_safe(driver, CREDIT_MODAL_SKIP_TEXTS, timeout=5, require_enabled=True)
+        if skip_button:
+            button_label = ' / '.join(get_button_text_variants(skip_button)[:2]) or 'skip'
+            print(f"  OK Znalazlem przycisk pomijania ({button_label}), klikam...")
+            driver.execute_script("arguments[0].click();", skip_button)
+            try:
+                wait_for_element_to_disappear(driver, skip_button, timeout=3)
+            except TimeoutException:
+                pass
+            print(f"  OK Modal pominiety")
+        else:
+            print(f"  WARN Modal nie pojawil sie (lub juz zamkniety)")
+    except Exception as exc:
+        print(f"  WARN Blad przy modal: {exc}")
+
+def create_authenticated_driver(user):
+    driver = create_remote_driver()
+    login_to_business_account(driver, user)
+    dismiss_credit_modal_if_present(driver)
+    return driver
+
+def open_authenticated_playground(driver, user):
+    print(f"  Playground...")
+    driver.get("https://siz3r-dev.vercel.app/business/playground")
+    wait_for_document_ready(driver, 30)
+
+    if '/business/login' in (driver.current_url or ''):
+        print(f"  WARN Sesja wygasla podczas wejscia do playground, loguje ponownie...")
+        login_to_business_account(driver, user, relogin=True)
+        dismiss_credit_modal_if_present(driver)
+        print(f"  Playground...")
+        driver.get("https://siz3r-dev.vercel.app/business/playground")
+        wait_for_document_ready(driver, 30)
+
+def is_driver_alive(driver):
+    if not driver:
+        return False
+
+    try:
+        driver.current_url
+        return True
+    except Exception:
+        return False
+
+def close_driver_safely(driver):
+    if not driver:
+        return
+
+    try:
+        driver.quit()
+    except Exception:
+        pass
+
 def test_single_model(test_num, model_info, run_config):
     driver = None
     # user = generate_user()
@@ -1447,10 +1585,10 @@ def test_single_model(test_num, model_info, run_config):
         
         return False
 
-def test_single_model_wait_optimized(test_num, model_info, run_config):
-    driver = None
+def test_single_model_wait_optimized(test_num, model_info, run_config, driver=None, user=None):
+    owns_driver = driver is None
     # user = generate_user()
-    user = get_test_account()
+    user = user or get_test_account()
 
     model_name_clean = Path(model_info['person_name']).stem
     garment_name_clean = None
@@ -1514,93 +1652,12 @@ def test_single_model_wait_optimized(test_num, model_info, run_config):
         shutil.copy2(garment_path, os.path.join(garment_folder, f"garment{garment_ext}"))
         shutil.copy2(model_info['person_path'], os.path.join(model_folder, f"model{model_ext}"))
 
-        opts = webdriver.ChromeOptions()
-        if HEADLESS:
-            opts.add_argument('--headless=new')
-            opts.add_argument('--disable-gpu')
-            opts.add_argument('--window-size=1920,1080')
-        opts.add_argument('--no-sandbox')
-        opts.add_argument('--disable-dev-shm-usage')
+        if owns_driver:
+            driver = create_authenticated_driver(user)
+        elif not is_driver_alive(driver):
+            raise Exception("Sesja przegladarki jest niedostepna")
 
-        driver = webdriver.Remote(GRID_URL, options=opts)
-        driver.set_page_load_timeout(60)
-
-        print(f"  Logowanie...")
-        driver.get("https://siz3r-dev.vercel.app/business/login")
-        wait_for_document_ready(driver, 30)
-
-        try:
-            auth_form = wait_for_auth_form(driver, minimum_password_inputs=1, timeout=40)
-            email_input = auth_form["email_input"]
-            password_inputs = auth_form["password_inputs"]
-            email_input.send_keys(user['email'])
-        except TimeoutException:
-            raise Exception("Timeout: nie znaleziono pola email logowania")
-
-        if len(password_inputs) < 1:
-            raise Exception(f"Za malo pol hasla logowania: {len(password_inputs)}")
-
-        password_inputs[0].send_keys(user['password'])
-
-        login_btn = wait_for_button_safe(driver, LOGIN_BUTTON_TEXTS, timeout=10, require_enabled=True)
-        if not login_btn:
-            raise Exception("Brak przycisku logowania")
-
-        driver.execute_script("arguments[0].click();", login_btn)
-        try:
-            wait_for_post_auth_state(driver, '/business/login', minimum_password_inputs=1, timeout=7)
-        except TimeoutException:
-            print(f"  WARN Nie wykryto od razu potwierdzenia logowania, sprawdzam dalej...")
-
-        # Registration flow kept for quick rollback if shared-account login is no longer desired.
-        # print(f"  Rejestracja...")
-        # driver.get("https://siz3r-dev.vercel.app/business/register")
-        # wait_for_document_ready(driver, 30)
-        #
-        # try:
-        #     registration_form = wait_for_registration_form(driver, 40)
-        #     email_input = registration_form["email_input"]
-        #     password_inputs = registration_form["password_inputs"]
-        #     email_input.send_keys(user['email'])
-        # except TimeoutException:
-        #     raise Exception("Timeout: nie znaleziono pola email")
-        #
-        # if len(password_inputs) < 2:
-        #     raise Exception(f"Za malo pol hasla: {len(password_inputs)}")
-        #
-        # password_inputs[0].send_keys(user['password'])
-        # password_inputs[1].send_keys(user['password'])
-        #
-        # register_btn = wait_for_button_safe(driver, REGISTER_BUTTON_TEXTS, timeout=10, require_enabled=True)
-        # if not register_btn:
-        #     raise Exception("Brak przycisku rejestracji")
-        #
-        # driver.execute_script("arguments[0].click();", register_btn)
-        # try:
-        #     wait_for_post_registration_state(driver, timeout=7)
-        # except TimeoutException:
-        #     print(f"  WARN Nie wykryto od razu potwierdzenia rejestracji, sprawdzam dalej...")
-
-        print(f"  Sprawdzam modal kredytow...")
-        try:
-            skip_button = wait_for_button_safe(driver, CREDIT_MODAL_SKIP_TEXTS, timeout=5, require_enabled=True)
-            if skip_button:
-                button_label = ' / '.join(get_button_text_variants(skip_button)[:2]) or 'skip'
-                print(f"  OK Znalazlem przycisk pomijania ({button_label}), klikam...")
-                driver.execute_script("arguments[0].click();", skip_button)
-                try:
-                    wait_for_element_to_disappear(driver, skip_button, timeout=3)
-                except TimeoutException:
-                    pass
-                print(f"  OK Modal pominiety")
-            else:
-                print(f"  WARN Modal nie pojawil sie (lub juz zamkniety)")
-        except Exception as e:
-            print(f"  WARN Blad przy modal: {e}")
-
-        print(f"  Playground...")
-        driver.get("https://siz3r-dev.vercel.app/business/playground")
-        wait_for_document_ready(driver, 30)
+        open_authenticated_playground(driver, user)
 
         file_inputs = None
         for attempt in range(3):
@@ -1716,7 +1773,8 @@ def test_single_model_wait_optimized(test_num, model_info, run_config):
                 json.dump(metadata, f, indent=2)
 
             print(f"  OK - {test_id}")
-            driver.quit()
+            if owns_driver:
+                close_driver_safely(driver)
             return True
 
         raise Exception("Nie udalo sie pobrac wyniku")
@@ -1744,10 +1802,8 @@ def test_single_model_wait_optimized(test_num, model_info, run_config):
             except Exception:
                 pass
 
-            try:
-                driver.quit()
-            except Exception:
-                pass
+            if owns_driver:
+                close_driver_safely(driver)
 
         return False
 
@@ -1768,6 +1824,8 @@ def write_run_summary(run_config, total_tests, success, failed, elapsed_total, s
         "pairing_mode": PAIRING_MODE,
         "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
         "garments_per_person": GARMENTS_PER_PERSON,
+        "reuse_browser_session": REUSE_BROWSER_SESSION,
+        "selected_run_keys": SELECTED_RUN_KEYS or [config["key"] for config in GARMENT_RUNS],
         "skipped_genders_without_garments": skipped_genders,
     }
 
@@ -1804,9 +1862,40 @@ def run_test_suite(run_config):
     success = 0
     failed = 0
     start_time = time.time()
+    shared_user = get_test_account() if REUSE_BROWSER_SESSION else None
+    shared_driver = None
+
+    print(f"  Browser session reuse: {'enabled' if REUSE_BROWSER_SESSION else 'disabled'}")
 
     for i, model in enumerate(all_models, 1):
-        if test_single_model_wait_optimized(i, model, run_config):
+        test_passed = False
+
+        if REUSE_BROWSER_SESSION:
+            if not is_driver_alive(shared_driver):
+                close_driver_safely(shared_driver)
+                shared_driver = None
+                try:
+                    shared_driver = create_authenticated_driver(shared_user)
+                except Exception as exc:
+                    print(f"  WARN Nie udalo sie przygotowac wspolnej sesji, uruchamiam osobna przegladarke: {exc}")
+
+            if shared_driver:
+                test_passed = test_single_model_wait_optimized(
+                    i,
+                    model,
+                    run_config,
+                    driver=shared_driver,
+                    user=shared_user,
+                )
+                if not is_driver_alive(shared_driver):
+                    close_driver_safely(shared_driver)
+                    shared_driver = None
+            else:
+                test_passed = test_single_model_wait_optimized(i, model, run_config)
+        else:
+            test_passed = test_single_model_wait_optimized(i, model, run_config)
+
+        if test_passed:
             success += 1
         else:
             failed += 1
@@ -1819,6 +1908,8 @@ def run_test_suite(run_config):
         avg_per_test = elapsed / i
         remaining = (total_tests - i) * avg_per_test
         print(f"  Progress: {i}/{total_tests} | ETA: {int(remaining/60)}min")
+
+    close_driver_safely(shared_driver)
 
     elapsed_total = time.time() - start_time
     print(f"\n{'='*60}")
@@ -1834,6 +1925,8 @@ def run_test_suite(run_config):
     return summary
 
 if __name__ == "__main__":
+    selected_run_configs = get_selected_run_configs()
+
     print("SIZ3R BUSINESS TESTS - ALL MODELS")
     print(f"Headless mode: {HEADLESS}")
     print(f"Pairing mode: {PAIRING_MODE}")
@@ -1841,13 +1934,15 @@ if __name__ == "__main__":
         print(f"Pairing seed: {PAIRING_SEED}")
     if GARMENTS_PER_PERSON is not None:
         print(f"Garments per person: {GARMENTS_PER_PERSON}")
+    print(f"Selected runs: {', '.join(run_config['key'] for run_config in selected_run_configs)}")
+    print(f"Reuse browser session: {REUSE_BROWSER_SESSION}")
     print(f"Fail on test failures: {FAIL_ON_TEST_FAILURES}")
 
     required_paths = {
         "women_people": PEOPLE_FOLDERS["women"],
         "men_people": PEOPLE_FOLDERS["men"],
     }
-    for run_config in GARMENT_RUNS:
+    for run_config in selected_run_configs:
         required_paths[f"{run_config['key']}_women_clothes"] = run_config["clothes_folders"]["women"]
         required_paths[f"{run_config['key']}_men_clothes"] = run_config["clothes_folders"]["men"]
 
@@ -1862,7 +1957,7 @@ if __name__ == "__main__":
         print(f"  {label}: {count} zdjec")
 
     run_summaries = {}
-    for run_config in GARMENT_RUNS:
+    for run_config in selected_run_configs:
         run_summaries[run_config["key"]] = run_test_suite(run_config)
 
     with open(RUN_SUMMARY_PATH, 'w') as f:
@@ -1871,6 +1966,8 @@ if __name__ == "__main__":
             "headless_mode": HEADLESS,
             "pairing_mode": PAIRING_MODE,
             "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
+            "selected_run_keys": [run_config["key"] for run_config in selected_run_configs],
+            "reuse_browser_session": REUSE_BROWSER_SESSION,
             "runs": run_summaries,
         }, f, indent=2)
 

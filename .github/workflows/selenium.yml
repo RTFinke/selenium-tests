@@ -17,6 +17,19 @@ on:
         required: false
         default: ""
         type: string
+      run_keys:
+        description: Optional comma-separated garment runs to execute. Leave blank for all. Example: full
+        required: false
+        default: ""
+        type: string
+      reuse_browser_session:
+        description: Reuse one logged-in browser session across many try-ons. Recommended for shared-account serial runs.
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
 
 jobs:
   test-all-models:
@@ -54,6 +67,8 @@ jobs:
           TEST_PAIRING_MODE: ${{ inputs.pairing_mode }}
           TEST_PAIRING_SEED: stable-v1
           TEST_GARMENTS_PER_PERSON: ${{ inputs.garments_per_person }}
+          TEST_RUN_KEYS: ${{ inputs.run_keys }}
+          TEST_REUSE_BROWSER_SESSION: ${{ inputs.reuse_browser_session }}
           FAIL_ON_TEST_FAILURES: "false"
         run: |
           chmod +x run_selenium.sh
