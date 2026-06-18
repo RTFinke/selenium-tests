@@ -420,6 +420,18 @@ def dispatch_file_input_events(driver, input_element):
     input.dispatchEvent(new Event('change', { bubbles: true }));
     """, input_element)
 
+def clear_file_input(driver, input_element):
+    driver.execute_script("""
+    const input = arguments[0];
+    try {
+        input.value = '';
+    } catch (error) {
+        // Ignore direct assignment failures and still emit change notifications.
+    }
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    """, input_element)
+
 def describe_button_candidates(driver, limit=12):
     descriptions = []
     for btn in driver.find_elements(By.CSS_SELECTOR, BUTTON_CANDIDATE_SELECTOR):
@@ -1319,6 +1331,20 @@ def ensure_person_uploaded(driver, model_info, session_state=None):
         session_state["active_person_path"] = model_info['person_path']
         session_state["active_person_name"] = model_info['person_name']
 
+def upload_garment_file(driver, garment_path):
+    file_inputs = wait_for_file_inputs(driver, minimum_count=2, timeout=12)
+    if len(file_inputs) < 2:
+        raise Exception(f"Za malo file inputs po modelu: {len(file_inputs)}")
+
+    clear_file_input(driver, file_inputs[1])
+    file_inputs[1].send_keys(garment_path)
+    dispatch_file_input_events(driver, file_inputs[1])
+
+    try:
+        wait_for_generation_surface(driver, timeout=4)
+    except TimeoutException:
+        pass
+
 def test_single_model(test_num, model_info, run_config):
     driver = None
     # user = generate_user()
@@ -1707,16 +1733,7 @@ def test_single_model_wait_optimized(test_num, model_info, run_config, driver=No
 
         ensure_person_uploaded(driver, model_info, session_state=session_state)
 
-        file_inputs = wait_for_file_inputs(driver, minimum_count=2, timeout=12)
-        if len(file_inputs) < 2:
-            raise Exception(f"Za malo file inputs po modelu: {len(file_inputs)}")
-
-        file_inputs[1].send_keys(garment_path)
-        dispatch_file_input_events(driver, file_inputs[1])
-        try:
-            wait_for_generation_surface(driver, timeout=4)
-        except TimeoutException:
-            pass
+        upload_garment_file(driver, garment_path)
 
         garment_mode_state = ensure_garment_site_mode(driver, run_config["site_mode"])
         if garment_mode_state:
