@@ -15,6 +15,8 @@ FAIL_ON_TEST_FAILURES = os.getenv('FAIL_ON_TEST_FAILURES', 'true').lower() == 't
 GARMENTS_PER_PERSON_RAW = os.getenv('TEST_GARMENTS_PER_PERSON', '').strip()
 TEST_RUN_KEYS_RAW = os.getenv('TEST_RUN_KEYS', '').strip()
 REUSE_BROWSER_SESSION = os.getenv('TEST_REUSE_BROWSER_SESSION', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
+GENERATION_RESULT_TIMEOUT = int(os.getenv('TEST_GENERATION_RESULT_TIMEOUT', '60').strip() or '60')
+GENERATION_ACTIVE_GRACE_TIMEOUT = int(os.getenv('TEST_GENERATION_ACTIVE_GRACE_TIMEOUT', '45').strip() or '45')
 SHARED_TEST_ACCOUNT_EMAIL = "massTest@gmail.com"
 SHARED_TEST_ACCOUNT_PASSWORD = "massTest@gmail.com"
 
@@ -431,6 +433,73 @@ def clear_file_input(driver, input_element):
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     """, input_element)
+
+def is_generation_still_running(driver):
+    try:
+        generation_state = driver.execute_script("""
+        const isVisible = (el) => {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            const rect = el.getBoundingClientRect();
+            return style.display !== 'none' &&
+                style.visibility !== 'hidden' &&
+                parseFloat(style.opacity || '1') > 0 &&
+                rect.width > 0 &&
+                rect.height > 0;
+        };
+
+        const buttonCandidates = Array.from(document.querySelectorAll(
+            "button, [role='button'], input[type='button'], input[type='submit']"
+        ));
+        const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+        const generateTexts = ['generuj', 'generate', 'try on', 'try-on', 'tryon'];
+        const generateButton = buttonCandidates.find((el) => {
+            const text = normalize(el.innerText || el.textContent || el.value);
+            if (!isVisible(el)) return false;
+            return generateTexts.some((candidate) => text.includes(candidate));
+        });
+
+        const generateDisabled = Boolean(generateButton) && (
+            generateButton.disabled ||
+            generateButton.getAttribute('aria-disabled') === 'true'
+        );
+
+        const spinnerSelectors = [
+            "[role='progressbar']",
+            ".spinner",
+            ".loading",
+            ".loader",
+            "[class*='spinner']",
+            "[class*='loading']",
+            "[class*='loader']",
+            "svg.animate-spin",
+        ];
+        const spinnerVisible = spinnerSelectors.some((selector) =>
+            Array.from(document.querySelectorAll(selector)).some(isVisible)
+        );
+
+        return {
+            generateDisabled,
+            spinnerVisible,
+        };
+        """)
+    except Exception:
+        return False
+
+    if not isinstance(generation_state, dict):
+        return False
+
+    return bool(generation_state.get("generateDisabled") or generation_state.get("spinnerVisible"))
+
+def wait_for_generated_result(driver, result_image_present):
+    try:
+        return WebDriverWait(driver, GENERATION_RESULT_TIMEOUT).until(result_image_present)
+    except TimeoutException:
+        if not is_generation_still_running(driver):
+            raise
+
+        print(f"  WARN Generacja trwa dluzej niz {GENERATION_RESULT_TIMEOUT}s, czekam dodatkowe {GENERATION_ACTIVE_GRACE_TIMEOUT}s...")
+        return WebDriverWait(driver, GENERATION_ACTIVE_GRACE_TIMEOUT).until(result_image_present)
 
 def describe_button_candidates(driver, limit=12):
     descriptions = []
@@ -1615,9 +1684,9 @@ def test_single_model(test_num, model_info, run_config):
             return False
         
         try:
-            result_img = WebDriverWait(driver, 60).until(result_image_present)
+            result_img = wait_for_generated_result(driver, result_image_present)
         except TimeoutException:
-            raise Exception("Timeout: nie znaleziono wyniku generacji po 60s")
+            raise Exception(f"Timeout: nie znaleziono wyniku generacji po {GENERATION_RESULT_TIMEOUT + GENERATION_ACTIVE_GRACE_TIMEOUT}s")
         
         # The result image is already gated by explicit waits above, so this extra
         # pause is disabled to keep serial runs moving faster.
@@ -1816,9 +1885,9 @@ def test_single_model_wait_optimized(test_num, model_info, run_config, driver=No
             return False
 
         try:
-            result_img = WebDriverWait(driver, 60).until(result_image_present)
+            result_img = wait_for_generated_result(driver, result_image_present)
         except TimeoutException:
-            raise Exception("Timeout: nie znaleziono wyniku generacji po 60s")
+            raise Exception(f"Timeout: nie znaleziono wyniku generacji po {GENERATION_RESULT_TIMEOUT + GENERATION_ACTIVE_GRACE_TIMEOUT}s")
 
         try:
             wait_for_image_render_complete(driver, result_img, timeout=2)
