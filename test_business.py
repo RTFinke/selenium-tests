@@ -17,6 +17,7 @@ TEST_RUN_KEYS_RAW = os.getenv('TEST_RUN_KEYS', '').strip()
 REUSE_BROWSER_SESSION = os.getenv('TEST_REUSE_BROWSER_SESSION', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
 GENERATION_RESULT_TIMEOUT = int(os.getenv('TEST_GENERATION_RESULT_TIMEOUT', '60').strip() or '60')
 GENERATION_ACTIVE_GRACE_TIMEOUT = int(os.getenv('TEST_GENERATION_ACTIVE_GRACE_TIMEOUT', '45').strip() or '45')
+GENERATION_RETRY_COUNT = max(0, int(os.getenv('TEST_GENERATION_RETRY_COUNT', '1').strip() or '1'))
 SHARED_TEST_ACCOUNT_EMAIL = "massTest@gmail.com"
 SHARED_TEST_ACCOUNT_PASSWORD = "massTest@gmail.com"
 
@@ -1809,85 +1810,96 @@ def test_single_model_wait_optimized(test_num, model_info, run_config, driver=No
         elif not is_driver_alive(driver):
             raise Exception("Sesja przegladarki jest niedostepna")
 
-        should_open_playground = True
-        if session_state is not None:
-            should_open_playground = not session_state.get("playground_ready", False)
+        total_generation_attempts = GENERATION_RETRY_COUNT + 1
+        result_img = None
 
-        if should_open_playground:
-            open_authenticated_playground(driver, user)
+        for generation_attempt in range(1, total_generation_attempts + 1):
+            should_open_playground = True
             if session_state is not None:
-                session_state["playground_ready"] = True
-                session_state["active_person_path"] = None
-                session_state["active_person_name"] = None
+                should_open_playground = not session_state.get("playground_ready", False)
 
-        ensure_person_uploaded(driver, model_info, session_state=session_state)
+            if should_open_playground:
+                open_authenticated_playground(driver, user)
+                if session_state is not None:
+                    session_state["playground_ready"] = True
+                    session_state["active_person_path"] = None
+                    session_state["active_person_name"] = None
 
-        upload_garment_file(driver, garment_path)
+            ensure_person_uploaded(driver, model_info, session_state=session_state)
+            upload_garment_file(driver, garment_path)
 
-        garment_mode_state = ensure_garment_site_mode(driver, run_config["site_mode"])
-        if garment_mode_state:
-            metadata["garment_mode_selected"] = garment_mode_state.get("selected_label")
-            metadata["garment_mode_state_source"] = garment_mode_state.get("state_source")
-            print(f"  OK Tryb odziezy: {metadata['garment_mode_selected']}")
+            garment_mode_state = ensure_garment_site_mode(driver, run_config["site_mode"])
+            if garment_mode_state:
+                metadata["garment_mode_selected"] = garment_mode_state.get("selected_label")
+                metadata["garment_mode_state_source"] = garment_mode_state.get("state_source")
+                print(f"  OK Tryb odziezy: {metadata['garment_mode_selected']}")
 
-        option_state = read_generation_option_state(driver)
-        if option_state:
-            metadata["garment_mode_selected"] = option_state.get("garment_mode_selected") or metadata["garment_mode_selected"]
-            metadata["garment_mode_state_source"] = option_state.get("garment_mode_state_source") or metadata["garment_mode_state_source"]
-            metadata["quality_mode_selected"] = option_state.get("quality_mode_selected")
-            metadata["quality_mode_state_source"] = option_state.get("quality_mode_state_source")
-            metadata["turbo_enabled"] = option_state.get("turbo_enabled")
-            metadata["turbo_state_source"] = option_state.get("turbo_state_source")
-            print(
-                f"  Opcje: garment={metadata['garment_mode_selected'] or 'unknown'} | "
-                f"quality={metadata['quality_mode_selected'] or 'unknown'} | "
-                f"turbo={metadata['turbo_enabled'] if metadata['turbo_enabled'] is not None else 'unknown'}"
-            )
+            option_state = read_generation_option_state(driver)
+            if option_state:
+                metadata["garment_mode_selected"] = option_state.get("garment_mode_selected") or metadata["garment_mode_selected"]
+                metadata["garment_mode_state_source"] = option_state.get("garment_mode_state_source") or metadata["garment_mode_state_source"]
+                metadata["quality_mode_selected"] = option_state.get("quality_mode_selected")
+                metadata["quality_mode_state_source"] = option_state.get("quality_mode_state_source")
+                metadata["turbo_enabled"] = option_state.get("turbo_enabled")
+                metadata["turbo_state_source"] = option_state.get("turbo_state_source")
+                print(
+                    f"  Opcje: garment={metadata['garment_mode_selected'] or 'unknown'} | "
+                    f"quality={metadata['quality_mode_selected'] or 'unknown'} | "
+                    f"turbo={metadata['turbo_enabled'] if metadata['turbo_enabled'] is not None else 'unknown'}"
+                )
 
-        # Option confirmation screenshots are disabled to keep runs lighter and faster.
-        # option_confirmation_path = os.path.join(test_folder, "option_confirmation.png")
-        # if capture_option_confirmation(driver, option_confirmation_path):
-        #     metadata["option_confirmation_screenshot"] = option_confirmation_path
-        #     print(f"  OK Screenshot opcji zapisany: option_confirmation.png")
-        # else:
-        #     print(f"  WARN Nie udalo sie zapisac screenshotu opcji")
+            # Option confirmation screenshots are disabled to keep runs lighter and faster.
+            # option_confirmation_path = os.path.join(test_folder, "option_confirmation.png")
+            # if capture_option_confirmation(driver, option_confirmation_path):
+            #     metadata["option_confirmation_screenshot"] = option_confirmation_path
+            #     print(f"  OK Screenshot opcji zapisany: option_confirmation.png")
+            # else:
+            #     print(f"  WARN Nie udalo sie zapisac screenshotu opcji")
 
-        generate_btn = wait_for_button_safe(driver, GENERATE_BUTTON_TEXTS, timeout=25, require_enabled=True)
-        if not generate_btn:
-            disabled_generate_btn = wait_for_button_safe(driver, GENERATE_BUTTON_TEXTS, timeout=1, require_enabled=False)
-            button_candidates = describe_button_candidates(driver)
-            metadata["visible_button_candidates"] = button_candidates
-            if disabled_generate_btn:
-                metadata["generate_button_detected_but_disabled"] = get_button_text_variants(disabled_generate_btn)
-            details = " | ".join(button_candidates[:6]) if button_candidates else "brak widocznych kandydatow"
-            if disabled_generate_btn:
-                disabled_label = ' / '.join(get_button_text_variants(disabled_generate_btn)) or 'unknown'
-                raise Exception(f"Przycisk generacji istnieje, ale pozostal wylaczony: {disabled_label}. Kandydaci: {details}")
-            raise Exception(f"Brak przycisku Generuj/Tryon. Kandydaci: {details}")
+            generate_btn = wait_for_button_safe(driver, GENERATE_BUTTON_TEXTS, timeout=25, require_enabled=True)
+            if not generate_btn:
+                disabled_generate_btn = wait_for_button_safe(driver, GENERATE_BUTTON_TEXTS, timeout=1, require_enabled=False)
+                button_candidates = describe_button_candidates(driver)
+                metadata["visible_button_candidates"] = button_candidates
+                if disabled_generate_btn:
+                    metadata["generate_button_detected_but_disabled"] = get_button_text_variants(disabled_generate_btn)
+                details = " | ".join(button_candidates[:6]) if button_candidates else "brak widocznych kandydatow"
+                if disabled_generate_btn:
+                    disabled_label = ' / '.join(get_button_text_variants(disabled_generate_btn)) or 'unknown'
+                    raise Exception(f"Przycisk generacji istnieje, ale pozostal wylaczony: {disabled_label}. Kandydaci: {details}")
+                raise Exception(f"Brak przycisku Generuj/Tryon. Kandydaci: {details}")
 
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", generate_btn)
-        driver.execute_script("arguments[0].click();", generate_btn)
-        print(f"  Generacja...")
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", generate_btn)
+            driver.execute_script("arguments[0].click();", generate_btn)
+            print(f"  Generacja...")
 
-        def result_image_present(current):
+            def result_image_present(current):
+                try:
+                    imgs = current.find_elements(By.TAG_NAME, "img")
+                    for img in imgs:
+                        src = img.get_attribute('src') or ''
+                        if ('gradio_api' in src or 'demo.siz3r.com' in src or 'data:image' in src):
+                            rect = img.rect
+                            width = rect['width']
+                            height = rect['height']
+                            if width > 300 and height > 400:
+                                return img
+                except Exception:
+                    pass
+                return False
+
             try:
-                imgs = current.find_elements(By.TAG_NAME, "img")
-                for img in imgs:
-                    src = img.get_attribute('src') or ''
-                    if ('gradio_api' in src or 'demo.siz3r.com' in src or 'data:image' in src):
-                        rect = img.rect
-                        width = rect['width']
-                        height = rect['height']
-                        if width > 300 and height > 400:
-                            return img
-            except Exception:
-                pass
-            return False
+                result_img = wait_for_generated_result(driver, result_image_present)
+                break
+            except TimeoutException:
+                if generation_attempt >= total_generation_attempts:
+                    raise Exception(f"Timeout: nie znaleziono wyniku generacji po {GENERATION_RESULT_TIMEOUT + GENERATION_ACTIVE_GRACE_TIMEOUT}s")
 
-        try:
-            result_img = wait_for_generated_result(driver, result_image_present)
-        except TimeoutException:
-            raise Exception(f"Timeout: nie znaleziono wyniku generacji po {GENERATION_RESULT_TIMEOUT + GENERATION_ACTIVE_GRACE_TIMEOUT}s")
+                print(f"  WARN Generacja utkwiła, odswiezam playground i ponawiam ({generation_attempt}/{total_generation_attempts - 1})...")
+                if session_state is not None:
+                    session_state["playground_ready"] = False
+                    session_state["active_person_path"] = None
+                    session_state["active_person_name"] = None
 
         try:
             wait_for_image_render_complete(driver, result_img, timeout=2)
