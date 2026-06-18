@@ -1332,18 +1332,38 @@ def ensure_person_uploaded(driver, model_info, session_state=None):
         session_state["active_person_name"] = model_info['person_name']
 
 def upload_garment_file(driver, garment_path):
-    file_inputs = wait_for_file_inputs(driver, minimum_count=2, timeout=12)
-    if len(file_inputs) < 2:
-        raise Exception(f"Za malo file inputs po modelu: {len(file_inputs)}")
+    last_error = None
 
-    clear_file_input(driver, file_inputs[1])
-    file_inputs[1].send_keys(garment_path)
-    dispatch_file_input_events(driver, file_inputs[1])
+    for attempt in range(3):
+        try:
+            file_inputs = wait_for_file_inputs(driver, minimum_count=2, timeout=12)
+            if len(file_inputs) < 2:
+                raise Exception(f"Za malo file inputs po modelu: {len(file_inputs)}")
 
-    try:
-        wait_for_generation_surface(driver, timeout=4)
-    except TimeoutException:
-        pass
+            garment_input = file_inputs[1]
+            clear_file_input(driver, garment_input)
+
+            file_inputs = wait_for_file_inputs(driver, minimum_count=2, timeout=12)
+            if len(file_inputs) < 2:
+                raise Exception(f"Za malo file inputs po czyszczeniu ubrania: {len(file_inputs)}")
+
+            garment_input = file_inputs[1]
+            garment_input.send_keys(garment_path)
+            dispatch_file_input_events(driver, garment_input)
+
+            try:
+                wait_for_generation_surface(driver, timeout=4)
+            except TimeoutException:
+                pass
+
+            return
+        except StaleElementReferenceException as exc:
+            last_error = exc
+            print(f"  WARN Input ubrania odswiezyl sie podczas podmiany, ponawiam ({attempt+1}/3)...")
+            wait_for_document_ready(driver, 10)
+
+    if last_error:
+        raise last_error
 
 def test_single_model(test_num, model_info, run_config):
     driver = None
