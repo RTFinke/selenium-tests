@@ -1389,17 +1389,39 @@ def ensure_person_uploaded(driver, model_info, session_state=None):
         return
 
     print(f"  Wgrywam model osoby...")
-    file_inputs = get_generation_file_inputs(driver)
-    file_inputs[0].send_keys(model_info['person_path'])
-    dispatch_file_input_events(driver, file_inputs[0])
-    try:
-        wait_for_file_inputs(driver, minimum_count=2, timeout=4)
-    except TimeoutException:
-        pass
+    last_error = None
 
-    if session_state is not None:
-        session_state["active_person_path"] = model_info['person_path']
-        session_state["active_person_name"] = model_info['person_name']
+    for attempt in range(3):
+        try:
+            file_inputs = get_generation_file_inputs(driver)
+            person_input = file_inputs[0]
+            person_input.send_keys(model_info['person_path'])
+        except StaleElementReferenceException as exc:
+            last_error = exc
+            print(f"  WARN Input modelu odswiezyl sie przed wyslaniem pliku, ponawiam ({attempt+1}/3)...")
+            wait_for_document_ready(driver, 10)
+            continue
+
+        try:
+            dispatch_file_input_events(driver, person_input)
+        except StaleElementReferenceException:
+            # Uploading the file can make React replace the input immediately.
+            # send_keys() has already submitted the file, so reacquire the live inputs
+            # instead of failing the whole first try-on for the new person.
+            print("  WARN Input modelu odswiezyl sie po wyslaniu pliku, kontynuuje...")
+
+        try:
+            wait_for_file_inputs(driver, minimum_count=2, timeout=4)
+        except TimeoutException:
+            pass
+
+        if session_state is not None:
+            session_state["active_person_path"] = model_info['person_path']
+            session_state["active_person_name"] = model_info['person_name']
+        return
+
+    if last_error:
+        raise last_error
 
 def upload_garment_file(driver, garment_path):
     last_error = None

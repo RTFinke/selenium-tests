@@ -590,6 +590,8 @@ function summarizeMetadata(metadata) {
     "gender",
     "model_filename",
     "garment_filename",
+    "garment_run_key",
+    "garment_mode_requested",
     "status",
     "timestamp",
   ]) {
@@ -1558,6 +1560,30 @@ function renderMetaChips(entry) {
   return `<div class="meta-chips">${chips.map((item) => `<span class="meta-chip">${escapeHtml(item)}</span>`).join("")}</div>`;
 }
 
+function inferGarmentRunType(entry) {
+  for (const value of [entry.garment_run_key, entry.garment_mode_requested]) {
+    const normalized = normalizeString(value)?.toLowerCase();
+    if (["lower", "upper", "full"].includes(normalized)) {
+      return normalized;
+    }
+  }
+
+  const fallbackText = [entry.test_id, entry.folder, entry.source_folder]
+    .map((value) => normalizeString(value))
+    .filter(Boolean)
+    .join("/");
+  const fallbackMatch = fallbackText.match(/(?:^|[_/\\-])(lower|upper|full)(?=$|[_/\\-])/i);
+  return fallbackMatch ? fallbackMatch[1].toLowerCase() : "unknown";
+}
+
+function renderGenerationTitle(entry) {
+  const garmentFilename = normalizeString(entry.garment_filename);
+  const garmentName = garmentFilename
+    ? path.parse(garmentFilename).name
+    : normalizeString(entry.test_id) || normalizeString(entry.folder) || "Unknown garment";
+  return `${garmentName} || Garment type: ${inferGarmentRunType(entry)}`;
+}
+
 function renderGalleryBoard(entry) {
   return `
     <div class="images images-gallery">
@@ -1581,6 +1607,9 @@ function createReviewEntry(payload, bundle) {
     test_number: payload.metadata?.test_number ?? null,
     test_id: payload.metadata?.test_id ?? payload.folder,
     gender: payload.metadata?.gender ?? null,
+    garment_filename: payload.metadata?.garment_filename ?? null,
+    garment_run_key: payload.metadata?.garment_run_key ?? null,
+    garment_mode_requested: payload.metadata?.garment_mode_requested ?? null,
     selenium_status: payload.metadata?.status ?? null,
     evaluation_ok: payload.ok,
     evaluation_mode: payload.evaluation_mode ?? "llm",
@@ -1660,7 +1689,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
           <div class="card-top">
             <div class="card-heading">
               <div class="card-kicker">${isGalleryOnly ? "Result Sheet" : "Review Entry"}</div>
-              <h2>${escapeHtml(entry.test_id)}</h2>
+              <h2>${escapeHtml(renderGenerationTitle(entry))}</h2>
               ${renderMetaChips(entry)}
             </div>
             ${isGalleryOnly ? galleryBadges : reviewBadges}
@@ -1687,18 +1716,19 @@ function buildReviewHtml(reviewEntries, summary, meta) {
   <title>${escapeHtml(reportTitle)}</title>
   <style>
     :root {
-      --bg: #efe7da;
-      --panel: #faf6ef;
-      --card: #fffdf8;
-      --ink: #1d1a16;
-      --muted: #6a6257;
-      --line: #d8cbba;
-      --pass: #2d6a4f;
-      --fail: #9d0208;
-      --error: #6a4c93;
-      --accent: #b56a2b;
-      --accent-soft: #eadbc6;
-      --shadow: 0 20px 48px rgba(56, 39, 19, 0.10);
+      color-scheme: dark;
+      --bg: #070a0f;
+      --panel: #0e141c;
+      --card: #141b24;
+      --ink: #edf3f8;
+      --muted: #9aa8b7;
+      --line: #2b3745;
+      --pass: #198754;
+      --fail: #c43d4b;
+      --error: #7656a8;
+      --accent: #55d6be;
+      --accent-soft: #173833;
+      --shadow: 0 20px 48px rgba(0, 0, 0, 0.38);
     }
     * { box-sizing: border-box; }
     html {
@@ -1710,8 +1740,8 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at top left, rgba(181, 106, 43, 0.20), transparent 28%),
-        linear-gradient(180deg, #f7f1e7 0%, var(--bg) 100%);
+        radial-gradient(circle at top left, rgba(85, 214, 190, 0.14), transparent 28%),
+        linear-gradient(180deg, #0c1219 0%, var(--bg) 100%);
     }
     main {
       max-width: 1680px;
@@ -1726,11 +1756,11 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       margin-bottom: 24px;
     }
     .summary-card {
-      background: rgba(255, 253, 248, 0.92);
+      background: rgba(20, 27, 36, 0.92);
       border: 1px solid var(--line);
       border-radius: 20px;
       padding: 18px 18px 16px;
-      box-shadow: 0 10px 24px rgba(56, 39, 19, 0.06);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
     }
     .summary-card strong {
       display: block;
@@ -1748,7 +1778,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       gap: 20px;
     }
     .card {
-      background: rgba(255, 253, 248, 0.97);
+      background: rgba(20, 27, 36, 0.97);
       border: 1px solid var(--line);
       border-radius: 28px;
       padding: 24px;
@@ -1797,11 +1827,11 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       min-height: 30px;
       padding: 5px 12px;
       border-radius: 999px;
-      border: 1px solid rgba(216, 203, 186, 0.95);
-      background: rgba(234, 219, 198, 0.42);
+      border: 1px solid var(--line);
+      background: var(--accent-soft);
       font-family: "Aptos", "Segoe UI", sans-serif;
       font-size: 0.84rem;
-      color: #44382b;
+      color: var(--ink);
     }
     .badges {
       display: flex;
@@ -1818,7 +1848,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       font-weight: 600;
       white-space: nowrap;
     }
-    .badge-neutral { background: #6b6257; }
+    .badge-neutral { background: #4b5968; }
     .score-pass { background: var(--pass); }
     .score-fail { background: var(--fail); }
     .score-error { background: var(--error); }
@@ -1837,7 +1867,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       border: 1px solid var(--line);
       border-radius: 20px;
       padding: 14px;
-      background: #fff;
+      background: var(--panel);
       min-height: 100%;
       display: flex;
       flex-direction: column;
@@ -1859,8 +1889,8 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       object-fit: contain;
       border-radius: 14px;
       background:
-        radial-gradient(circle at top, rgba(181, 106, 43, 0.10), transparent 28%),
-        linear-gradient(180deg, #fffaf2, #f3eadf);
+        radial-gradient(circle at top, rgba(85, 214, 190, 0.08), transparent 28%),
+        linear-gradient(180deg, #101823, #090d13);
     }
     .card-gallery .image-card img {
       height: min(70vh, 900px);
@@ -1906,7 +1936,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       margin-bottom: 12px;
     }
     .lists section {
-      background: #fff;
+      background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 16px;
       padding: 14px;
@@ -1921,7 +1951,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       line-height: 1.45;
     }
     a {
-      color: #7a3e07;
+      color: var(--accent);
       text-decoration-thickness: 1px;
       text-underline-offset: 3px;
     }
@@ -1932,6 +1962,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
     @media print {
       body {
         background: white;
+        color: #1d1a16;
       }
       main {
         max-width: none;
@@ -1952,6 +1983,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
         border-radius: 0;
         border: 0;
         background: white;
+        color: #1d1a16;
       }
       .card-gallery {
         min-height: 272mm;
@@ -1977,6 +2009,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
         border-radius: 8px;
         border: 1px solid #d9d0c3;
         background: white;
+        color: #1d1a16;
       }
       .image-card-header {
         margin-bottom: 2mm;
@@ -1985,6 +2018,22 @@ function buildReviewHtml(reviewEntries, summary, meta) {
         border-radius: 4px;
         background: white;
       }
+      .meta-chip {
+        border-color: #d8cbba;
+        background: #f3eadf;
+        color: #44382b;
+      }
+      .image-label,
+      .image-subtitle,
+      .missing-text,
+      .muted {
+        color: #6a6257;
+      }
+      .lists section {
+        border-color: #d8cbba;
+        background: white;
+      }
+      a { color: #7a3e07; }
       .card-gallery .image-card img {
         height: 234mm;
       }
