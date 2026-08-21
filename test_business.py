@@ -726,21 +726,43 @@ def ensure_advanced_generation_settings(driver, target_steps=30):
             return null;
         };
 
-        const controlsForAnchor = (anchor) => {
+        const controlsForAnchor = (anchor, label) => {
             const closestLabel = anchor.closest && anchor.closest('label');
-            const parent = anchor.parentElement;
+            const labelledByFor = anchor.matches && anchor.matches('label') && anchor.htmlFor
+                ? document.getElementById(anchor.htmlFor)
+                : null;
+            const labelledById = anchor.id
+                ? document.querySelector(`[aria-labelledby~="${CSS.escape(anchor.id)}"]`)
+                : null;
+            const exactContainers = [];
+            let container = anchor.parentElement;
+            for (let depth = 0; container && depth < 4; depth += 1) {
+                if (canonical(container.innerText || container.textContent) === label) {
+                    exactContainers.push(container);
+                    container = container.parentElement;
+                    continue;
+                }
+                break;
+            }
+            const exactContainerControls = exactContainers.flatMap((item) => Array.from(
+                item.querySelectorAll(
+                    "input[type='radio'], input[type='checkbox'], [role='tab'], [role='radio'], " +
+                    "[role='checkbox'], [role='switch'], button"
+                )
+            ));
             return unique([
                 anchor.control,
                 closestLabel && closestLabel.control,
+                labelledByFor,
+                labelledById,
                 anchor.matches && anchor.matches("input[type='radio'], input[type='checkbox']") ? anchor : null,
                 anchor.querySelector && anchor.querySelector("input[type='radio'], input[type='checkbox']"),
                 closestLabel && closestLabel.querySelector("input[type='radio'], input[type='checkbox']"),
-                parent && parent.querySelector("input[type='radio'], input[type='checkbox']"),
                 anchor.closest && anchor.closest("[role='tab'], [role='radio'], [role='checkbox'], [role='switch']"),
                 anchor.closest && anchor.closest('button'),
                 closestLabel,
+                ...exactContainerControls,
                 anchor,
-                parent,
             ]);
         };
 
@@ -748,7 +770,7 @@ def ensure_advanced_generation_settings(driver, target_steps=30):
             const anchors = findAnchors(label);
             let fallbackControl = null;
             for (const anchor of anchors) {
-                for (const control of controlsForAnchor(anchor)) {
+                for (const control of controlsForAnchor(anchor, label)) {
                     fallbackControl = fallbackControl || control;
                     const current = readState(control);
                     if (current) {
@@ -787,7 +809,10 @@ def ensure_advanced_generation_settings(driver, target_steps=30):
         if (!advanced.found || !advanced.control) {
             return { ready: false, error: 'Advanced control was not found' };
         }
-        if (advanced.selected === false || (advanced.selected === null && !advancedPanelVisible)) {
+        if (advanced.selected === null) {
+            return { ready: false, error: 'Advanced checkbox state could not be read' };
+        }
+        if (advanced.selected === false) {
             if (!clickControl(advanced)) {
                 return { ready: false, error: 'Advanced control could not be clicked' };
             }
@@ -852,39 +877,41 @@ def ensure_advanced_generation_settings(driver, target_steps=30):
         );
 
         if (currentSteps !== targetSteps) {
-            if (bestSlider.matches("input[type='range']")) {
-                const minimum = Number(bestSlider.min || 0);
-                const maximum = Number(bestSlider.max || 100);
-                if (targetSteps < minimum || targetSteps > maximum) {
-                    return {
-                        ready: false,
-                        error: `steps value ${targetSteps} is outside slider range ${minimum}-${maximum}`,
-                    };
-                }
-
-                const setter = Object.getOwnPropertyDescriptor(
-                    window.HTMLInputElement.prototype,
-                    'value'
-                ).set;
-                setter.call(bestSlider, String(targetSteps));
-                bestSlider.dispatchEvent(new Event('input', { bubbles: true }));
-                bestSlider.dispatchEvent(new Event('change', { bubbles: true }));
-                return { ready: false, changed: 'steps' };
+            const minimum = Number(
+                bestSlider.matches("input[type='range']")
+                    ? (bestSlider.min || 0)
+                    : (bestSlider.getAttribute('aria-valuemin') || 0)
+            );
+            const maximum = Number(
+                bestSlider.matches("input[type='range']")
+                    ? (bestSlider.max || 100)
+                    : (bestSlider.getAttribute('aria-valuemax') || 100)
+            );
+            const step = Number(
+                bestSlider.matches("input[type='range']")
+                    ? (bestSlider.step || 1)
+                    : (bestSlider.getAttribute('aria-valuestep') || 1)
+            );
+            if (targetSteps < minimum || targetSteps > maximum) {
+                return {
+                    ready: false,
+                    error: `steps value ${targetSteps} is outside slider range ${minimum}-${maximum}`,
+                };
             }
 
             return {
                 ready: false,
                 changed: 'steps-keyboard',
                 steps_element: bestSlider,
-                steps_min: Number(bestSlider.getAttribute('aria-valuemin') || 0),
-                steps_step: Number(bestSlider.getAttribute('aria-valuestep') || 1),
+                steps_min: minimum,
+                steps_step: step,
             };
         }
 
         return {
             ready: true,
             advanced_enabled: true,
-            advanced_state_source: advanced.selected === true ? advanced.source : 'advanced-panel-visible',
+            advanced_state_source: advanced.source,
             segmentation_free_enabled: true,
             segmentation_free_state_source: segmentation.source,
             steps_selected: currentSteps,
@@ -908,6 +935,10 @@ def ensure_advanced_generation_settings(driver, target_steps=30):
             increments = int(round((target_steps - minimum) / step))
             if increments < 0:
                 raise Exception(f"steps value {target_steps} is below slider minimum {minimum}")
+            driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'}); arguments[0].focus();",
+                slider,
+            )
             slider.send_keys(Keys.HOME)
             if increments:
                 slider.send_keys(*([Keys.ARROW_RIGHT] * increments))
