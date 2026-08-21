@@ -22,6 +22,14 @@ on:
         required: false
         default: ""
         type: string
+      generation_profile:
+        description: Generation settings to apply before every try-on
+        required: true
+        default: default
+        type: choice
+        options:
+          - default
+          - advanced_segmentation_free_30
       reuse_browser_session:
         description: Reuse one logged-in browser session across many try-ons. Recommended for shared-account serial runs.
         required: true
@@ -68,6 +76,7 @@ jobs:
           TEST_PAIRING_SEED: stable-v1
           TEST_GARMENTS_PER_PERSON: ${{ inputs.garments_per_person }}
           TEST_RUN_KEYS: ${{ inputs.run_keys }}
+          TEST_GENERATION_PROFILE: ${{ inputs.generation_profile }}
           TEST_REUSE_BROWSER_SESSION: ${{ inputs.reuse_browser_session }}
           FAIL_ON_TEST_FAILURES: "false"
         run: |

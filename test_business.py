@@ -1,5 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
@@ -14,6 +15,7 @@ PAIRING_SEED = os.getenv('TEST_PAIRING_SEED', 'stable-v1').strip() or 'stable-v1
 FAIL_ON_TEST_FAILURES = os.getenv('FAIL_ON_TEST_FAILURES', 'true').lower() == 'true'
 GARMENTS_PER_PERSON_RAW = os.getenv('TEST_GARMENTS_PER_PERSON', '').strip()
 TEST_RUN_KEYS_RAW = os.getenv('TEST_RUN_KEYS', '').strip()
+GENERATION_PROFILE = os.getenv('TEST_GENERATION_PROFILE', 'default').strip().lower() or 'default'
 REUSE_BROWSER_SESSION = os.getenv('TEST_REUSE_BROWSER_SESSION', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
 GENERATION_RESULT_TIMEOUT = int(os.getenv('TEST_GENERATION_RESULT_TIMEOUT', '60').strip() or '60')
 GENERATION_ACTIVE_GRACE_TIMEOUT = int(os.getenv('TEST_GENERATION_ACTIVE_GRACE_TIMEOUT', '45').strip() or '45')
@@ -68,6 +70,14 @@ GARMENT_RUNS = [
 ]
 
 RUN_SUMMARY_PATH = os.path.join(SCRIPT_DIR, "test_results_summary.json")
+ADVANCED_GENERATION_PROFILE = 'advanced_segmentation_free_30'
+ALLOWED_GENERATION_PROFILES = {'default', ADVANCED_GENERATION_PROFILE}
+
+if GENERATION_PROFILE not in ALLOWED_GENERATION_PROFILES:
+    allowed_profiles = ', '.join(sorted(ALLOWED_GENERATION_PROFILES))
+    raise ValueError(
+        f"TEST_GENERATION_PROFILE must be one of: {allowed_profiles}. Got: {GENERATION_PROFILE}"
+    )
 
 def parse_optional_positive_int(value, variable_name):
     if not value:
@@ -630,6 +640,282 @@ def download_image_from_element(driver, img_element, filepath):
         except Exception as e2:
             return False
 
+def ensure_advanced_generation_settings(driver, target_steps=30):
+    """Enable Advanced, segmentation_free, and the requested steps value."""
+    last_state = None
+
+    for _ in range(10):
+        state = driver.execute_script("""
+        const targetSteps = Number(arguments[0]);
+        const canonical = (value) => String(value || '')
+            .replace(/[_-]+/g, ' ')
+            .replace(/\\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+
+        const isVisible = (el) => {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            const rect = el.getBoundingClientRect();
+            return style.display !== 'none' && style.visibility !== 'hidden' &&
+                rect.width > 0 && rect.height > 0;
+        };
+
+        const unique = (elements) => {
+            const seen = new Set();
+            const result = [];
+            for (const el of elements) {
+                if (!el || seen.has(el)) continue;
+                seen.add(el);
+                result.push(el);
+            }
+            return result;
+        };
+
+        const findAnchors = (label) => Array.from(document.querySelectorAll(
+            "button, label, input, [role='button'], [role='tab'], [role='radio'], " +
+            "[role='checkbox'], [role='switch'], div, span, p"
+        )).filter((el) => {
+            if (!isVisible(el)) return false;
+            return canonical(el.innerText || el.textContent) === label ||
+                canonical(el.getAttribute && el.getAttribute('aria-label')) === label ||
+                canonical(el.getAttribute && el.getAttribute('title')) === label ||
+                canonical(el.getAttribute && el.getAttribute('name')) === label;
+        });
+
+        const readState = (root) => {
+            if (!root) return null;
+            const nodes = unique([
+                root,
+                ...(root.querySelectorAll ? root.querySelectorAll(
+                    "input[type='radio'], input[type='checkbox'], [role='tab'], [role='radio'], " +
+                    "[role='checkbox'], [role='switch'], [aria-selected], [aria-checked], " +
+                    "[aria-pressed], [data-state]"
+                ) : []),
+            ]);
+
+            for (const node of nodes) {
+                if (node.matches && node.matches("input[type='radio'], input[type='checkbox']")) {
+                    return { selected: Boolean(node.checked), source: 'input.checked' };
+                }
+
+                for (const attribute of ['aria-selected', 'aria-checked', 'aria-pressed']) {
+                    const value = canonical(node.getAttribute && node.getAttribute(attribute));
+                    if (value === 'true' || value === 'false') {
+                        return { selected: value === 'true', source: attribute };
+                    }
+                }
+
+                const dataState = canonical(node.getAttribute && node.getAttribute('data-state'));
+                if (['checked', 'on', 'active', 'selected'].includes(dataState)) {
+                    return { selected: true, source: 'data-state' };
+                }
+                if (['unchecked', 'off', 'inactive'].includes(dataState)) {
+                    return { selected: false, source: 'data-state' };
+                }
+
+                const rawClassName = typeof node.className === 'string' ? node.className : '';
+                const classTokens = rawClassName.toLowerCase().split(/\\s+/).filter(Boolean);
+                if (classTokens.some((token) =>
+                    ['selected', 'active', 'checked', 'current'].includes(token) ||
+                    token.endsWith('-selected') || token.endsWith('-checked')
+                )) {
+                    return { selected: true, source: 'class' };
+                }
+            }
+            return null;
+        };
+
+        const controlsForAnchor = (anchor) => {
+            const closestLabel = anchor.closest && anchor.closest('label');
+            const parent = anchor.parentElement;
+            return unique([
+                anchor.control,
+                closestLabel && closestLabel.control,
+                anchor.matches && anchor.matches("input[type='radio'], input[type='checkbox']") ? anchor : null,
+                anchor.querySelector && anchor.querySelector("input[type='radio'], input[type='checkbox']"),
+                closestLabel && closestLabel.querySelector("input[type='radio'], input[type='checkbox']"),
+                parent && parent.querySelector("input[type='radio'], input[type='checkbox']"),
+                anchor.closest && anchor.closest("[role='tab'], [role='radio'], [role='checkbox'], [role='switch']"),
+                anchor.closest && anchor.closest('button'),
+                closestLabel,
+                anchor,
+                parent,
+            ]);
+        };
+
+        const scanToggle = (label) => {
+            const anchors = findAnchors(label);
+            let fallbackControl = null;
+            for (const anchor of anchors) {
+                for (const control of controlsForAnchor(anchor)) {
+                    fallbackControl = fallbackControl || control;
+                    const current = readState(control);
+                    if (current) {
+                        return {
+                            found: true,
+                            selected: current.selected,
+                            source: current.source,
+                            control,
+                        };
+                    }
+                }
+            }
+            return {
+                found: anchors.length > 0,
+                selected: null,
+                source: null,
+                control: fallbackControl,
+            };
+        };
+
+        const clickControl = (entry) => {
+            if (!entry || !entry.control) return false;
+            try {
+                entry.control.scrollIntoView({ block: 'center', inline: 'center' });
+                entry.control.click();
+                return true;
+            } catch (error) {
+                return false;
+            }
+        };
+
+        const advancedPanelVisible = Array.from(document.querySelectorAll('h1, h2, h3, h4, div, span, p'))
+            .some((el) => isVisible(el) && canonical(el.innerText || el.textContent) === 'advanced mode');
+        const advanced = scanToggle('advanced');
+
+        if (!advanced.found || !advanced.control) {
+            return { ready: false, error: 'Advanced control was not found' };
+        }
+        if (advanced.selected === false || (advanced.selected === null && !advancedPanelVisible)) {
+            if (!clickControl(advanced)) {
+                return { ready: false, error: 'Advanced control could not be clicked' };
+            }
+            return { ready: false, changed: 'advanced' };
+        }
+        if (!advancedPanelVisible) {
+            return { ready: false, changed: 'waiting-for-advanced-panel' };
+        }
+
+        const segmentation = scanToggle('segmentation free');
+        if (!segmentation.found || !segmentation.control) {
+            return { ready: false, error: 'segmentation_free control was not found' };
+        }
+        if (segmentation.selected !== true) {
+            if (!clickControl(segmentation)) {
+                return { ready: false, error: 'segmentation_free control could not be clicked' };
+            }
+            return { ready: false, changed: 'segmentation_free' };
+        }
+
+        const stepAnchors = findAnchors('steps');
+        const sliders = unique(Array.from(document.querySelectorAll("input[type='range'], [role='slider']")));
+        let bestSlider = null;
+        let bestScore = Number.POSITIVE_INFINITY;
+
+        for (const anchor of stepAnchors) {
+            for (const slider of sliders) {
+                let container = anchor;
+                let depth = 0;
+                let sharedDepth = null;
+                while (container && depth <= 8) {
+                    if (container.contains(slider)) {
+                        sharedDepth = depth;
+                        break;
+                    }
+                    container = container.parentElement;
+                    depth += 1;
+                }
+
+                const anchorRect = anchor.getBoundingClientRect();
+                const sliderRect = slider.getBoundingClientRect();
+                const verticalDistance = Math.abs(
+                    (anchorRect.top + anchorRect.height / 2) - (sliderRect.top + sliderRect.height / 2)
+                );
+                const score = (sharedDepth === null ? 10000 : sharedDepth * 100) + verticalDistance;
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestSlider = slider;
+                }
+            }
+        }
+
+        if (!bestSlider) {
+            return { ready: false, error: 'steps slider was not found' };
+        }
+
+        const valueAttribute = bestSlider.matches("input[type='range']") ? 'value' : 'aria-valuenow';
+        const currentSteps = Number(
+            bestSlider.matches("input[type='range']")
+                ? bestSlider.value
+                : bestSlider.getAttribute(valueAttribute)
+        );
+
+        if (currentSteps !== targetSteps) {
+            if (bestSlider.matches("input[type='range']")) {
+                const minimum = Number(bestSlider.min || 0);
+                const maximum = Number(bestSlider.max || 100);
+                if (targetSteps < minimum || targetSteps > maximum) {
+                    return {
+                        ready: false,
+                        error: `steps value ${targetSteps} is outside slider range ${minimum}-${maximum}`,
+                    };
+                }
+
+                const setter = Object.getOwnPropertyDescriptor(
+                    window.HTMLInputElement.prototype,
+                    'value'
+                ).set;
+                setter.call(bestSlider, String(targetSteps));
+                bestSlider.dispatchEvent(new Event('input', { bubbles: true }));
+                bestSlider.dispatchEvent(new Event('change', { bubbles: true }));
+                return { ready: false, changed: 'steps' };
+            }
+
+            return {
+                ready: false,
+                changed: 'steps-keyboard',
+                steps_element: bestSlider,
+                steps_min: Number(bestSlider.getAttribute('aria-valuemin') || 0),
+                steps_step: Number(bestSlider.getAttribute('aria-valuestep') || 1),
+            };
+        }
+
+        return {
+            ready: true,
+            advanced_enabled: true,
+            advanced_state_source: advanced.selected === true ? advanced.source : 'advanced-panel-visible',
+            segmentation_free_enabled: true,
+            segmentation_free_state_source: segmentation.source,
+            steps_selected: currentSteps,
+        };
+        """, target_steps)
+
+        last_state = state
+        if not isinstance(state, dict):
+            raise Exception("Nie udalo sie odczytac ustawien Advanced")
+        if state.get("error"):
+            raise Exception(state["error"])
+        if state.get("ready"):
+            return state
+
+        if state.get("changed") == "steps-keyboard":
+            slider = state.get("steps_element")
+            if slider is None:
+                raise Exception("Nie udalo sie ustawic suwaka steps")
+            minimum = float(state.get("steps_min", 0))
+            step = float(state.get("steps_step", 1)) or 1
+            increments = int(round((target_steps - minimum) / step))
+            if increments < 0:
+                raise Exception(f"steps value {target_steps} is below slider minimum {minimum}")
+            slider.send_keys(Keys.HOME)
+            if increments:
+                slider.send_keys(*([Keys.ARROW_RIGHT] * increments))
+
+        time.sleep(0.5)
+
+    raise Exception(f"Nie udalo sie potwierdzic ustawien Advanced: {last_state}")
+
 def read_generation_option_state(driver):
     option_state = driver.execute_script("""
     const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
@@ -791,6 +1077,47 @@ def read_generation_option_state(driver):
     """)
 
     return option_state if isinstance(option_state, dict) else None
+
+def configure_generation_options(driver, metadata):
+    advanced_state = None
+    if GENERATION_PROFILE == ADVANCED_GENERATION_PROFILE:
+        print("  Ustawiam Advanced: segmentation_free=true, steps=30...")
+        advanced_state = ensure_advanced_generation_settings(driver, target_steps=30)
+
+    option_state = read_generation_option_state(driver)
+    if option_state:
+        metadata["garment_mode_selected"] = (
+            option_state.get("garment_mode_selected") or metadata["garment_mode_selected"]
+        )
+        metadata["garment_mode_state_source"] = (
+            option_state.get("garment_mode_state_source") or metadata["garment_mode_state_source"]
+        )
+        metadata["quality_mode_selected"] = option_state.get("quality_mode_selected")
+        metadata["quality_mode_state_source"] = option_state.get("quality_mode_state_source")
+        metadata["turbo_enabled"] = option_state.get("turbo_enabled")
+        metadata["turbo_state_source"] = option_state.get("turbo_state_source")
+
+    if advanced_state:
+        metadata["advanced_enabled"] = advanced_state.get("advanced_enabled")
+        metadata["advanced_state_source"] = advanced_state.get("advanced_state_source")
+        metadata["segmentation_free_enabled"] = advanced_state.get("segmentation_free_enabled")
+        metadata["segmentation_free_state_source"] = advanced_state.get("segmentation_free_state_source")
+        metadata["steps_selected"] = advanced_state.get("steps_selected")
+
+    print(
+        f"  Opcje: garment={metadata['garment_mode_selected'] or 'unknown'} | "
+        f"quality={metadata['quality_mode_selected'] or 'unknown'} | "
+        f"turbo={metadata['turbo_enabled'] if metadata['turbo_enabled'] is not None else 'unknown'} | "
+        f"profile={metadata['generation_profile_requested']}"
+    )
+    if advanced_state:
+        print(
+            f"  OK Advanced={metadata['advanced_enabled']} | "
+            f"segmentation_free={metadata['segmentation_free_enabled']} | "
+            f"steps={metadata['steps_selected']}"
+        )
+
+    return option_state
 
 def ensure_garment_site_mode(driver, desired_mode):
     mode_state = driver.execute_script("""
@@ -1483,6 +1810,7 @@ def test_single_model(test_num, model_info, run_config):
         "headless": HEADLESS,
         "pairing_mode": PAIRING_MODE,
         "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
+        "generation_profile_requested": GENERATION_PROFILE,
         "garment_run_key": run_config["key"],
         "garment_run_label": run_config["label"],
         "garment_mode_requested": run_config["site_mode"],
@@ -1492,6 +1820,11 @@ def test_single_model(test_num, model_info, run_config):
         "quality_mode_state_source": None,
         "turbo_enabled": None,
         "turbo_state_source": None,
+        "advanced_enabled": None,
+        "advanced_state_source": None,
+        "segmentation_free_enabled": None,
+        "segmentation_free_state_source": None,
+        "steps_selected": None,
         # "option_confirmation_screenshot": None,
     }
     
@@ -1651,19 +1984,7 @@ def test_single_model(test_num, model_info, run_config):
             metadata["garment_mode_state_source"] = garment_mode_state.get("state_source")
             print(f"  OK Tryb odziezy: {metadata['garment_mode_selected']}")
 
-        option_state = read_generation_option_state(driver)
-        if option_state:
-            metadata["garment_mode_selected"] = option_state.get("garment_mode_selected") or metadata["garment_mode_selected"]
-            metadata["garment_mode_state_source"] = option_state.get("garment_mode_state_source") or metadata["garment_mode_state_source"]
-            metadata["quality_mode_selected"] = option_state.get("quality_mode_selected")
-            metadata["quality_mode_state_source"] = option_state.get("quality_mode_state_source")
-            metadata["turbo_enabled"] = option_state.get("turbo_enabled")
-            metadata["turbo_state_source"] = option_state.get("turbo_state_source")
-            print(
-                f"  Opcje: garment={metadata['garment_mode_selected'] or 'unknown'} | "
-                f"quality={metadata['quality_mode_selected'] or 'unknown'} | "
-                f"turbo={metadata['turbo_enabled'] if metadata['turbo_enabled'] is not None else 'unknown'}"
-            )
+        configure_generation_options(driver, metadata)
 
         # Option confirmation screenshots are disabled to keep runs lighter and faster.
         # option_confirmation_path = os.path.join(test_folder, "option_confirmation.png")
@@ -1786,6 +2107,7 @@ def test_single_model_wait_optimized(test_num, model_info, run_config, driver=No
         "headless": HEADLESS,
         "pairing_mode": PAIRING_MODE,
         "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
+        "generation_profile_requested": GENERATION_PROFILE,
         "garment_run_key": run_config["key"],
         "garment_run_label": run_config["label"],
         "garment_mode_requested": run_config["site_mode"],
@@ -1795,6 +2117,11 @@ def test_single_model_wait_optimized(test_num, model_info, run_config, driver=No
         "quality_mode_state_source": None,
         "turbo_enabled": None,
         "turbo_state_source": None,
+        "advanced_enabled": None,
+        "advanced_state_source": None,
+        "segmentation_free_enabled": None,
+        "segmentation_free_state_source": None,
+        "steps_selected": None,
         # "option_confirmation_screenshot": None,
     }
 
@@ -1856,19 +2183,7 @@ def test_single_model_wait_optimized(test_num, model_info, run_config, driver=No
                 metadata["garment_mode_state_source"] = garment_mode_state.get("state_source")
                 print(f"  OK Tryb odziezy: {metadata['garment_mode_selected']}")
 
-            option_state = read_generation_option_state(driver)
-            if option_state:
-                metadata["garment_mode_selected"] = option_state.get("garment_mode_selected") or metadata["garment_mode_selected"]
-                metadata["garment_mode_state_source"] = option_state.get("garment_mode_state_source") or metadata["garment_mode_state_source"]
-                metadata["quality_mode_selected"] = option_state.get("quality_mode_selected")
-                metadata["quality_mode_state_source"] = option_state.get("quality_mode_state_source")
-                metadata["turbo_enabled"] = option_state.get("turbo_enabled")
-                metadata["turbo_state_source"] = option_state.get("turbo_state_source")
-                print(
-                    f"  Opcje: garment={metadata['garment_mode_selected'] or 'unknown'} | "
-                    f"quality={metadata['quality_mode_selected'] or 'unknown'} | "
-                    f"turbo={metadata['turbo_enabled'] if metadata['turbo_enabled'] is not None else 'unknown'}"
-                )
+            configure_generation_options(driver, metadata)
 
             # Option confirmation screenshots are disabled to keep runs lighter and faster.
             # option_confirmation_path = os.path.join(test_folder, "option_confirmation.png")
@@ -1993,6 +2308,7 @@ def write_run_summary(run_config, total_tests, success, failed, elapsed_total, s
         "headless_mode": HEADLESS,
         "pairing_mode": PAIRING_MODE,
         "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
+        "generation_profile": GENERATION_PROFILE,
         "garments_per_person": GARMENTS_PER_PERSON,
         "reuse_browser_session": REUSE_BROWSER_SESSION,
         "selected_run_keys": SELECTED_RUN_KEYS or [config["key"] for config in GARMENT_RUNS],
@@ -2109,6 +2425,7 @@ if __name__ == "__main__":
     print("SIZ3R BUSINESS TESTS - ALL MODELS")
     print(f"Headless mode: {HEADLESS}")
     print(f"Pairing mode: {PAIRING_MODE}")
+    print(f"Generation profile: {GENERATION_PROFILE}")
     if PAIRING_SEED_ACTIVE:
         print(f"Pairing seed: {PAIRING_SEED}")
     if GARMENTS_PER_PERSON is not None:
@@ -2145,6 +2462,7 @@ if __name__ == "__main__":
             "headless_mode": HEADLESS,
             "pairing_mode": PAIRING_MODE,
             "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
+            "generation_profile": GENERATION_PROFILE,
             "selected_run_keys": [run_config["key"] for run_config in selected_run_configs],
             "reuse_browser_session": REUSE_BROWSER_SESSION,
             "runs": run_summaries,

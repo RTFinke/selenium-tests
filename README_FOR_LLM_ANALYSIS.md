@@ -22,6 +22,7 @@ Useful environment variables:
 
 GitHub Actions usage:
 - `Siz3r Model Tests` should run with `ANALYZE_SOURCE_DIR=test_results_upper,test_results_lower,test_results_full` and `ANALYSIS_REPORT_MODE=gallery` so `outputs/index.html` is just the generation gallery
+- In the `Siz3r Model Tests` manual-run form, select `generation_profile=advanced_segmentation_free_30` to enable Advanced mode, select `segmentation_free`, and set `steps` to `30` before every try-on. Leave it as `default` to preserve the existing site defaults.
 - `Analyze with LLM` should run with `ANALYZE_SOURCE_DIR=test_results/test_results_upper,test_results/test_results_lower,test_results/test_results_full`, `ANALYSIS_REPORT_MODE=review`, and `OPENAI_API_KEY` for AI judgments
 
 ## Results structure
