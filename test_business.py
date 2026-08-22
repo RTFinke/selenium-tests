@@ -644,7 +644,9 @@ def ensure_advanced_generation_settings(driver, target_steps=30):
     """Enable Advanced, segmentation_free, and the requested steps value."""
     last_state = None
 
-    for _ in range(10):
+    # React replaces the Joy Slider input after each value change, so every
+    # iteration must reacquire the live element before sending another key.
+    for _ in range(60):
         state = driver.execute_script("""
         const targetSteps = Number(arguments[0]);
         const canonical = (value) => String(value || '')
@@ -887,11 +889,6 @@ def ensure_advanced_generation_settings(driver, target_steps=30):
                     ? (bestSlider.max || 100)
                     : (bestSlider.getAttribute('aria-valuemax') || 100)
             );
-            const step = Number(
-                bestSlider.matches("input[type='range']")
-                    ? (bestSlider.step || 1)
-                    : (bestSlider.getAttribute('aria-valuestep') || 1)
-            );
             if (targetSteps < minimum || targetSteps > maximum) {
                 return {
                     ready: false,
@@ -903,8 +900,8 @@ def ensure_advanced_generation_settings(driver, target_steps=30):
                 ready: false,
                 changed: 'steps-keyboard',
                 steps_element: bestSlider,
-                steps_min: minimum,
-                steps_step: step,
+                steps_current: currentSteps,
+                steps_direction: currentSteps < targetSteps ? 'right' : 'left',
             };
         }
 
@@ -930,18 +927,18 @@ def ensure_advanced_generation_settings(driver, target_steps=30):
             slider = state.get("steps_element")
             if slider is None:
                 raise Exception("Nie udalo sie ustawic suwaka steps")
-            minimum = float(state.get("steps_min", 0))
-            step = float(state.get("steps_step", 1)) or 1
-            increments = int(round((target_steps - minimum) / step))
-            if increments < 0:
-                raise Exception(f"steps value {target_steps} is below slider minimum {minimum}")
-            driver.execute_script(
-                "arguments[0].scrollIntoView({block: 'center'}); arguments[0].focus();",
-                slider,
-            )
-            slider.send_keys(Keys.HOME)
-            if increments:
-                slider.send_keys(*([Keys.ARROW_RIGHT] * increments))
+            direction = state.get("steps_direction")
+            slider_key = Keys.ARROW_RIGHT if direction == "right" else Keys.ARROW_LEFT
+            try:
+                # Send exactly one key. The resulting React render can safely
+                # invalidate this element because the next loop reacquires it.
+                slider.send_keys(slider_key)
+            except StaleElementReferenceException:
+                # A concurrent render won the race; reacquire without counting
+                # this as a configuration failure.
+                continue
+            time.sleep(0.1)
+            continue
 
         time.sleep(0.5)
 
