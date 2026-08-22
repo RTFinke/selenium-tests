@@ -1,4 +1,5 @@
 name: Siz3r Model Tests
+run-name: "runs=${{ inputs.run_keys || 'all' }} | pairing=${{ inputs.pairing_mode }} | cap=${{ inputs.garments_per_person || 'default' }} | profile=${{ inputs.generation_profile }} | reuse=${{ inputs.reuse_browser_session }}"
 
 on:
   workflow_dispatch:
