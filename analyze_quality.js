@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || "").trim();
+const HAS_OPENAI_API_KEY = OPENAI_API_KEY.length > 0;
 const MODEL = String(process.env.OPENAI_MODEL || "gpt-4.1").trim();
 const ENDPOINT = "https://api.openai.com/v1/chat/completions";
 const TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 180000);
@@ -13,13 +14,10 @@ const MIN_RETRY_DELAY_MS = Math.max(250, Number(process.env.OPENAI_MIN_RETRY_DEL
 const RATE_LIMIT_JITTER_MS = Math.max(0, Number(process.env.OPENAI_RATE_LIMIT_JITTER_MS || 250));
 const INCLUDE_MODEL_IN_MAIN = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_INCLUDE_MODEL_IN_MAIN || "1").trim());
 const ENABLE_ARTIFACT_AUDIT = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_ENABLE_ARTIFACT_AUDIT || "").trim());
+const REPORT_MODE = String(process.env.ANALYSIS_REPORT_MODE || "review").trim().toLowerCase();
+const GALLERY_ONLY_MODE = REPORT_MODE === "gallery";
 const OUTPUTS_DIR = path.resolve(process.env.ANALYSIS_OUTPUT_DIR || "outputs");
-const REVIEW_DIR_NAME = String(process.env.ANALYSIS_REVIEW_DIR || "review").trim() || "review";
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif"]);
-
-if (!OPENAI_API_KEY) {
-  throw new Error("Missing OPENAI_API_KEY.");
-}
 
 const PROMPT = `You are a common-sense QA evaluator for virtual try-on transfer quality.
 Your job is to judge whether the clothing from garment.png was transferred well onto the person from model.png, creating result.png.
@@ -419,6 +417,13 @@ function toWebPath(filePath) {
   return String(filePath || "").replace(/\\/g, "/");
 }
 
+function toReviewAssetPath(reviewRoot, sourcePath) {
+  if (!sourcePath || !fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isFile()) {
+    return null;
+  }
+  return toWebPath(path.relative(reviewRoot, sourcePath));
+}
+
 function listSubfoldersSorted(dir) {
   if (!fs.existsSync(dir)) return [];
   return fs
@@ -456,9 +461,22 @@ function scoreSourceDirCandidate(candidate) {
   return { score: usableFolders, folderCount: folders.length };
 }
 
-function resolveSourceDir() {
-  const envPath = normalizeString(process.env.ANALYZE_SOURCE_DIR);
-  if (envPath) return path.resolve(envPath);
+function parseSourceDirList(value) {
+  const normalized = normalizeString(value);
+  if (!normalized) return [];
+
+  return [...new Set(
+    normalized
+      .split(/[\r\n,;]+/)
+      .map((part) => normalizeString(part))
+      .filter(Boolean)
+      .map((part) => path.resolve(part)),
+  )];
+}
+
+function resolveSourceDirs() {
+  const envPaths = parseSourceDirList(process.env.ANALYZE_SOURCE_DIR);
+  if (envPaths.length > 0) return envPaths;
 
   const candidates = [path.resolve("test_results"), path.resolve("images")];
   let firstExisting = null;
@@ -478,13 +496,13 @@ function resolveSourceDir() {
   }
 
   if (bestCandidate && bestScore > 0) {
-    return bestCandidate;
+    return [bestCandidate];
   }
   if (firstExisting) {
-    return firstExisting;
+    return [firstExisting];
   }
 
-  return candidates[0];
+  return [candidates[0]];
 }
 
 function detectSourceLayout(sourceDir, folders) {
@@ -572,6 +590,8 @@ function summarizeMetadata(metadata) {
     "gender",
     "model_filename",
     "garment_filename",
+    "garment_run_key",
+    "garment_mode_requested",
     "status",
     "timestamp",
   ]) {
@@ -1406,6 +1426,7 @@ function createPerFolderPayload(folderName, folderContext, record) {
   return {
     folder: folderName,
     timestamp: new Date().toISOString(),
+    evaluation_mode: record.evaluation_mode ?? "llm",
     source_layout: folderContext.sourceLayout,
     source_folder: projectRelative(folderContext.folderPath),
     metadata: summarizeMetadata(folderContext.metadata),
@@ -1433,97 +1454,46 @@ function createPerFolderPayload(folderName, folderContext, record) {
   };
 }
 
-function copyAsset(sourcePath, targetDir, targetBaseName) {
-  if (!sourcePath || !fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isFile()) {
-    return null;
-  }
-
-  const ext = path.extname(sourcePath);
-  const targetPath = path.join(targetDir, `${targetBaseName}${ext}`);
-  fs.copyFileSync(sourcePath, targetPath);
-  return targetPath;
+function describeSourceLayouts(layouts) {
+  const uniqueLayouts = [...new Set(layouts.filter(Boolean))];
+  if (uniqueLayouts.length === 0) return "unknown";
+  if (uniqueLayouts.length === 1) return uniqueLayouts[0];
+  return `mixed (${uniqueLayouts.join(", ")})`;
 }
 
-function formatBulletSection(title, items) {
-  if (!items || items.length === 0) {
-    return `${title}: none`;
-  }
-  return `${title}:\n${items.map((item) => `- ${item}`).join("\n")}`;
-}
+function collectSourceEntries(sourceDirs) {
+  const sources = [];
 
-function buildTextSummary(payload) {
-  const lines = [];
-  const rating = payload.rating;
+  for (const sourceDir of sourceDirs) {
+    const folders = listSubfoldersSorted(sourceDir);
+    if (folders.length === 0) continue;
 
-  lines.push(`Folder: ${payload.folder}`);
-  lines.push(`Source folder: ${payload.source_folder || "(unknown)"}`);
+    const sourceLayout = detectSourceLayout(sourceDir, folders);
+    const entries = folders.map((folderName) => ({
+      folderName,
+      folderPath: path.join(sourceDir, folderName),
+      sourceDir,
+      sourceLayout,
+    }));
 
-  if (payload.metadata?.test_id) lines.push(`Test ID: ${payload.metadata.test_id}`);
-  if (payload.metadata?.test_number !== undefined) lines.push(`Test number: ${payload.metadata.test_number}`);
-  if (payload.metadata?.gender) lines.push(`Gender: ${payload.metadata.gender}`);
-  if (payload.metadata?.status) lines.push(`Selenium status: ${payload.metadata.status}`);
-
-  if (rating) {
-    lines.push(`AI pass: ${rating.successful}`);
-    lines.push(`Quality score: ${rating.quality_percent}%`);
-    lines.push(`Garment category: ${rating.garment_category || "n/a"}`);
-    lines.push(`Garment type: ${rating.garment_type || "(blank)"}`);
-    lines.push(`Intended fit: ${rating.intended_fit || "n/a"}`);
-    lines.push(`Silhouette preserved: ${rating.silhouette_preserved || "n/a"}`);
-    lines.push(`Notes: ${rating.notes || "none"}`);
-    lines.push("");
-    lines.push(formatBulletSection("Critical issues", rating.critical_issues));
-    lines.push("");
-    lines.push(formatBulletSection("Minor issues", rating.minor_issues));
-    lines.push("");
-    lines.push(formatBulletSection("Positives", rating.positives));
-    lines.push("");
-    lines.push("Severity labels:");
-    for (const key of LABEL_KEYS) {
-      lines.push(`- ${key}: ${rating.labels?.[key] || "NONE"}`);
-    }
-  } else {
-    lines.push(`AI pass: not available`);
-    lines.push(`Error: ${payload.error || payload.message || payload.parse_error || "Unknown error"}`);
+    sources.push({ sourceDir, sourceLayout, folders, entries });
   }
 
-  return `${lines.join("\n").trim()}\n`;
+  const entries = sources
+    .flatMap((source) => source.entries)
+    .sort((a, b) => a.folderName.localeCompare(b.folderName, undefined, { numeric: true, sensitivity: "base" }));
+
+  return { sources, entries };
 }
 
 function writeReviewBundle(reviewRoot, payload, folderContext) {
-  const bundleDir = ensureDir(path.join(reviewRoot, payload.folder));
-  const copied = {
-    model: copyAsset(folderContext.modelPath, bundleDir, "model"),
-    garment: copyAsset(folderContext.garmentPath, bundleDir, "garment"),
-    result: copyAsset(folderContext.resultPath, bundleDir, "result"),
-    metadata: null,
-    quality: null,
-    summary: null,
-  };
-
-  if (folderContext.metadataPath && fs.existsSync(folderContext.metadataPath)) {
-    const metadataTarget = path.join(bundleDir, "metadata.json");
-    fs.copyFileSync(folderContext.metadataPath, metadataTarget);
-    copied.metadata = metadataTarget;
-  }
-
-  const qualityPath = path.join(bundleDir, "quality.json");
-  fs.writeFileSync(qualityPath, JSON.stringify(payload, null, 2), "utf8");
-  copied.quality = qualityPath;
-
-  const summaryPath = path.join(bundleDir, "summary.txt");
-  fs.writeFileSync(summaryPath, buildTextSummary(payload), "utf8");
-  copied.summary = summaryPath;
-
   return {
-    bundleDir,
+    bundleDir: null,
     files: {
-      model: copied.model ? toWebPath(path.relative(reviewRoot, copied.model)) : null,
-      garment: copied.garment ? toWebPath(path.relative(reviewRoot, copied.garment)) : null,
-      result: copied.result ? toWebPath(path.relative(reviewRoot, copied.result)) : null,
-      metadata: copied.metadata ? toWebPath(path.relative(reviewRoot, copied.metadata)) : null,
-      quality: toWebPath(path.relative(reviewRoot, copied.quality)),
-      summary: toWebPath(path.relative(reviewRoot, copied.summary)),
+      model: toReviewAssetPath(reviewRoot, folderContext.modelPath),
+      garment: toReviewAssetPath(reviewRoot, folderContext.garmentPath),
+      result: toReviewAssetPath(reviewRoot, folderContext.resultPath),
+      metadata: toReviewAssetPath(reviewRoot, folderContext.metadataPath),
     },
   };
 }
@@ -1544,26 +1514,88 @@ function renderHtmlList(items, emptyText) {
   return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 }
 
-function renderImageCard(label, relativePath) {
+function renderImageCard(label, relativePath, options = {}) {
+  const variant = normalizeString(options.variant) || "standard";
+  const description = normalizeString(options.description);
   if (!relativePath) {
-    return `<div class="image-card missing"><div class="image-label">${escapeHtml(label)}</div><div class="missing-text">Missing</div></div>`;
+    return `
+      <div class="image-card image-card-${escapeHtml(variant)} missing">
+        <div class="image-label">${escapeHtml(label)}</div>
+        ${description ? `<div class="image-subtitle">${escapeHtml(description)}</div>` : ""}
+        <div class="missing-text">Missing</div>
+      </div>
+    `;
   }
 
   const safeSrc = encodeURI(relativePath);
   const safeLabel = escapeHtml(label);
-  const safeSrcAttr = escapeHtml(safeSrc);
   return `
-    <div class="image-card">
+    <div class="image-card image-card-${escapeHtml(variant)}">
       <div class="image-card-header">
-        <div class="image-label">${safeLabel}</div>
-        <div class="image-actions">
-          <button type="button" class="image-action zoom-button" data-full-src="${safeSrcAttr}" data-full-label="${safeLabel}">Zoom</button>
-          <a class="image-action" href="${safeSrcAttr}" target="_blank" rel="noreferrer">Open</a>
+        <div>
+          <div class="image-label">${safeLabel}</div>
+          ${description ? `<div class="image-subtitle">${escapeHtml(description)}</div>` : ""}
         </div>
       </div>
-      <button type="button" class="image-frame zoom-button" data-full-src="${safeSrcAttr}" data-full-label="${safeLabel}">
-        <img src="${safeSrcAttr}" alt="${safeLabel}" loading="lazy" decoding="async">
-      </button>
+      <div class="image-frame">
+        <img src="${escapeHtml(safeSrc)}" alt="${safeLabel}" decoding="async">
+      </div>
+    </div>
+  `;
+}
+
+function renderMetaChips(entry) {
+  const chips = [];
+  if (entry.test_number !== null && entry.test_number !== undefined) {
+    chips.push(`Test #${entry.test_number}`);
+  }
+  if (entry.gender) {
+    chips.push(entry.gender);
+  }
+  if (entry.folder) {
+    chips.push(`Folder: ${entry.folder}`);
+  }
+
+  if (chips.length === 0) return "";
+  return `<div class="meta-chips">${chips.map((item) => `<span class="meta-chip">${escapeHtml(item)}</span>`).join("")}</div>`;
+}
+
+function inferGarmentRunType(entry) {
+  for (const value of [entry.garment_run_key, entry.garment_mode_requested]) {
+    const normalized = normalizeString(value)?.toLowerCase();
+    if (["lower", "upper", "full"].includes(normalized)) {
+      return normalized;
+    }
+  }
+
+  const fallbackText = [entry.test_id, entry.folder, entry.source_folder]
+    .map((value) => normalizeString(value))
+    .filter(Boolean)
+    .join("/");
+  const fallbackMatch = fallbackText.match(/(?:^|[_/\\-])(lower|upper|full)(?=$|[_/\\-])/i);
+  return fallbackMatch ? fallbackMatch[1].toLowerCase() : "unknown";
+}
+
+function renderGenerationTitle(entry) {
+  const garmentFilename = normalizeString(entry.garment_filename);
+  const garmentName = garmentFilename
+    ? path.parse(garmentFilename).name
+    : normalizeString(entry.test_id) || normalizeString(entry.folder) || "Unknown garment";
+  return `${garmentName} || Garment type: ${inferGarmentRunType(entry)}`;
+}
+
+function renderGalleryBoard(entry) {
+  return `
+    <div class="images images-gallery">
+      ${renderImageCard("Person", entry.files.model, {
+        variant: "gallery",
+      })}
+      ${renderImageCard("Garment", entry.files.garment, {
+        variant: "gallery",
+      })}
+      ${renderImageCard("Output", entry.files.result, {
+        variant: "gallery",
+      })}
     </div>
   `;
 }
@@ -1575,8 +1607,12 @@ function createReviewEntry(payload, bundle) {
     test_number: payload.metadata?.test_number ?? null,
     test_id: payload.metadata?.test_id ?? payload.folder,
     gender: payload.metadata?.gender ?? null,
+    garment_filename: payload.metadata?.garment_filename ?? null,
+    garment_run_key: payload.metadata?.garment_run_key ?? null,
+    garment_mode_requested: payload.metadata?.garment_mode_requested ?? null,
     selenium_status: payload.metadata?.status ?? null,
     evaluation_ok: payload.ok,
+    evaluation_mode: payload.evaluation_mode ?? "llm",
     ai_successful: rating?.successful ?? null,
     quality_percent: rating?.quality_percent ?? null,
     garment_category: rating?.garment_category ?? null,
@@ -1589,54 +1625,37 @@ function createReviewEntry(payload, bundle) {
     minor_issues: rating?.minor_issues ?? [],
     positives: rating?.positives ?? [],
     source_folder: payload.source_folder,
-    bundle_folder: toWebPath(payload.folder),
     files: bundle.files,
   };
 }
 
-function csvEscape(value) {
-  const text = String(value ?? "");
-  if (/[",\n]/.test(text)) {
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-  return text;
-}
-
 function buildReviewHtml(reviewEntries, summary, meta) {
+  const isGalleryOnly = meta.reportMode === "gallery";
+  const reportTitle = isGalleryOnly ? "Try-On Gallery Report" : "Try-On Review Report";
   const cards = reviewEntries
     .map((entry) => {
       const score = entry.quality_percent ?? "ERR";
-      const aiStatus = entry.ai_successful || "ERROR";
+      const aiStatus = entry.evaluation_mode === "comparison_only" ? "SKIPPED" : entry.ai_successful || "ERROR";
       const scoreClass =
         entry.quality_percent === null || entry.quality_percent === undefined
           ? "score-error"
           : aiStatus === "YES"
             ? "score-pass"
             : "score-fail";
-
-      return `
-        <article class="card">
-          <div class="card-top">
-            <div>
-              <h2>${escapeHtml(entry.test_id)}</h2>
-              <p class="meta">
-                Folder: ${escapeHtml(entry.folder)}
-                ${entry.test_number !== null ? ` | Test #${escapeHtml(entry.test_number)}` : ""}
-                ${entry.gender ? ` | ${escapeHtml(entry.gender)}` : ""}
-              </p>
-            </div>
+      const seleniumStatus = normalizeString(entry.selenium_status)?.toUpperCase() || null;
+      const galleryBadgeClass =
+        seleniumStatus === "SUCCESS" ? "score-pass" : seleniumStatus === "FAILED" ? "score-fail" : "badge-neutral";
+      const galleryBadges = seleniumStatus
+        ? `<div class="badges"><span class="badge ${galleryBadgeClass}">Generation: ${escapeHtml(seleniumStatus)}</span></div>`
+        : "";
+      const reviewBadges = `
             <div class="badges">
               <span class="badge ${scoreClass}">Score: ${escapeHtml(score)}</span>
               <span class="badge ${aiStatus === "YES" ? "score-pass" : aiStatus === "NO" ? "score-fail" : "score-error"}">AI: ${escapeHtml(aiStatus)}</span>
-            </div>
-          </div>
-
-          <div class="images">
-            ${renderImageCard("Model", entry.files.model)}
-            ${renderImageCard("Garment", entry.files.garment)}
-            ${renderImageCard("Result", entry.files.result)}
-          </div>
-
+            </div>`;
+      const detailSections = isGalleryOnly
+        ? ""
+        : `
           <div class="details">
             <p><strong>Type:</strong> ${escapeHtml(entry.garment_type || "n/a")}</p>
             <p><strong>Category:</strong> ${escapeHtml(entry.garment_category || "n/a")}</p>
@@ -1663,13 +1682,27 @@ function buildReviewHtml(reviewEntries, summary, meta) {
               <h3>Positives</h3>
               ${renderHtmlList(entry.positives, "None")}
             </section>
+          </div>`;
+
+      return `
+        <article class="card ${isGalleryOnly ? "card-gallery" : "card-review"}">
+          <div class="card-top">
+            <div class="card-heading">
+              <div class="card-kicker">${isGalleryOnly ? "Result Sheet" : "Review Entry"}</div>
+              <h2>${escapeHtml(renderGenerationTitle(entry))}</h2>
+              ${renderMetaChips(entry)}
+            </div>
+            ${isGalleryOnly ? galleryBadges : reviewBadges}
           </div>
 
-          <p class="links">
-            <a href="${encodeURI(entry.files.summary)}">summary.txt</a>
-            <a href="${encodeURI(entry.files.quality)}">quality.json</a>
-            ${entry.files.metadata ? `<a href="${encodeURI(entry.files.metadata)}">metadata.json</a>` : ""}
-          </p>
+          ${isGalleryOnly
+            ? renderGalleryBoard(entry)
+            : `<div class="images">
+            ${renderImageCard("Model", entry.files.model)}
+            ${renderImageCard("Garment", entry.files.garment)}
+            ${renderImageCard("Result", entry.files.result)}
+          </div>`}
+          ${detailSections}
         </article>
       `;
     })
@@ -1680,88 +1713,125 @@ function buildReviewHtml(reviewEntries, summary, meta) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Try-On Review</title>
+  <title>${escapeHtml(reportTitle)}</title>
   <style>
     :root {
-      --bg: #f4f0e8;
-      --card: #fffdf8;
-      --ink: #1f1b16;
-      --muted: #6b6257;
-      --line: #ded3c2;
-      --pass: #2d6a4f;
-      --fail: #9d0208;
-      --error: #6a4c93;
-      --accent: #c97b31;
+      color-scheme: dark;
+      --bg: #070a0f;
+      --panel: #0e141c;
+      --card: #141b24;
+      --ink: #edf3f8;
+      --muted: #9aa8b7;
+      --line: #2b3745;
+      --pass: #198754;
+      --fail: #c43d4b;
+      --error: #7656a8;
+      --accent: #55d6be;
+      --accent-soft: #173833;
+      --shadow: 0 20px 48px rgba(0, 0, 0, 0.38);
     }
     * { box-sizing: border-box; }
+    html {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
     body {
       margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at top left, rgba(201, 123, 49, 0.18), transparent 28%),
-        linear-gradient(180deg, #f9f4eb 0%, var(--bg) 100%);
+        radial-gradient(circle at top left, rgba(85, 214, 190, 0.14), transparent 28%),
+        linear-gradient(180deg, #0c1219 0%, var(--bg) 100%);
     }
     main {
-      max-width: 1440px;
+      max-width: 1680px;
       margin: 0 auto;
-      padding: 32px 20px 48px;
+      padding: 28px 18px 40px;
     }
     h1, h2, h3 { margin: 0; }
-    h1 {
-      font-size: clamp(2rem, 4vw, 3.5rem);
-      letter-spacing: 0.02em;
-      margin-bottom: 8px;
-    }
-    .intro {
-      color: var(--muted);
-      max-width: 960px;
-      margin-bottom: 24px;
-      line-height: 1.5;
-    }
     .summary {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-      margin-bottom: 28px;
+      gap: 14px;
+      margin-bottom: 24px;
     }
     .summary-card {
-      background: rgba(255, 253, 248, 0.9);
+      background: rgba(20, 27, 36, 0.92);
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 16px;
+      border-radius: 20px;
+      padding: 18px 18px 16px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
     }
     .summary-card strong {
       display: block;
-      font-size: 1.7rem;
-      margin-bottom: 4px;
+      font-size: 2rem;
+      line-height: 1;
+      margin-bottom: 6px;
     }
     .summary-card span {
       color: var(--muted);
-      font-size: 0.95rem;
+      font-size: 0.92rem;
+      line-height: 1.4;
     }
     .cards {
       display: grid;
-      gap: 18px;
+      gap: 20px;
     }
     .card {
-      background: rgba(255, 253, 248, 0.97);
+      background: rgba(20, 27, 36, 0.97);
       border: 1px solid var(--line);
-      border-radius: 24px;
-      padding: 20px;
-      box-shadow: 0 12px 30px rgba(56, 39, 19, 0.08);
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .card-top {
       display: flex;
       justify-content: space-between;
-      gap: 16px;
+      gap: 18px;
       align-items: start;
       margin-bottom: 18px;
+    }
+    .card-heading {
+      max-width: 820px;
+    }
+    .card-kicker {
+      margin-bottom: 8px;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .card h2 {
+      font-size: clamp(1.5rem, 3vw, 2.15rem);
+      line-height: 1.08;
+      word-break: break-word;
     }
     .meta {
       margin-top: 6px;
       color: var(--muted);
       font-size: 0.95rem;
+    }
+    .meta-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .meta-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--accent-soft);
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.84rem;
+      color: var(--ink);
     }
     .badges {
       display: flex;
@@ -1771,83 +1841,80 @@ function buildReviewHtml(reviewEntries, summary, meta) {
     }
     .badge {
       border-radius: 999px;
-      padding: 8px 12px;
-      font-size: 0.9rem;
+      padding: 8px 13px;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.88rem;
       color: white;
       font-weight: 600;
       white-space: nowrap;
     }
+    .badge-neutral { background: #4b5968; }
     .score-pass { background: var(--pass); }
     .score-fail { background: var(--fail); }
     .score-error { background: var(--error); }
     .images {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
+      gap: 16px;
       margin-bottom: 18px;
       align-items: start;
     }
+    .images-gallery {
+      margin-bottom: 0;
+      align-items: stretch;
+    }
     .image-card {
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 12px;
-      background: #fff;
+      border-radius: 20px;
+      padding: 14px;
+      background: var(--panel);
       min-height: 100%;
+      display: flex;
+      flex-direction: column;
     }
     .image-card-header {
       display: flex;
-      justify-content: space-between;
       gap: 12px;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    .image-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .image-action {
-      appearance: none;
-      border: 1px solid var(--line);
-      background: #fffaf2;
-      color: #7a3e07;
-      border-radius: 999px;
-      padding: 6px 10px;
-      font: inherit;
-      font-size: 0.85rem;
-      cursor: pointer;
-      text-decoration: none;
-      line-height: 1;
+      align-items: start;
+      margin-bottom: 12px;
     }
     .image-frame {
       display: block;
       width: 100%;
-      padding: 0;
-      border: 0;
-      background: transparent;
-      cursor: zoom-in;
-      text-align: inherit;
+      flex: 1;
     }
     .image-card img {
       width: 100%;
-      height: 400px;
+      height: 480px;
       object-fit: contain;
-      border-radius: 12px;
-      background: linear-gradient(180deg, #fffaf2, #f3eadf);
+      border-radius: 14px;
+      background:
+        radial-gradient(circle at top, rgba(85, 214, 190, 0.08), transparent 28%),
+        linear-gradient(180deg, #101823, #090d13);
+    }
+    .card-gallery .image-card img {
+      height: min(70vh, 900px);
     }
     .image-card.missing {
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      min-height: 160px;
+      min-height: 220px;
     }
     .image-label {
-      font-size: 0.85rem;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.12em;
       color: var(--muted);
-      margin-bottom: 10px;
+    }
+    .image-subtitle {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.35;
     }
     .missing-text, .muted {
       color: var(--muted);
@@ -1869,7 +1936,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       margin-bottom: 12px;
     }
     .lists section {
-      background: #fff;
+      background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 16px;
       padding: 14px;
@@ -1883,264 +1950,173 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       padding-left: 18px;
       line-height: 1.45;
     }
-    .links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin: 0;
-    }
     a {
-      color: #7a3e07;
+      color: var(--accent);
       text-decoration-thickness: 1px;
       text-underline-offset: 3px;
     }
-    .footer {
-      margin-top: 28px;
-      color: var(--muted);
-      font-size: 0.95rem;
+    @page {
+      size: A4 portrait;
+      margin: 8mm;
     }
-    .lightbox[hidden] {
-      display: none;
-    }
-    .lightbox {
-      position: fixed;
-      inset: 0;
-      z-index: 999;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      background: rgba(24, 18, 12, 0.82);
-      backdrop-filter: blur(8px);
-    }
-    .lightbox-inner {
-      position: relative;
-      width: min(96vw, 1800px);
-      height: min(94vh, 1200px);
-      border-radius: 24px;
-      background: rgba(31, 27, 22, 0.94);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-      padding: 58px 20px 20px;
-    }
-    .lightbox-caption {
-      position: absolute;
-      top: 18px;
-      left: 20px;
-      color: #fffaf2;
-      font-size: 0.95rem;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-    .lightbox-close {
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      border: 1px solid rgba(255, 250, 242, 0.24);
-      background: rgba(255, 250, 242, 0.08);
-      color: #fffaf2;
-      border-radius: 999px;
-      padding: 8px 12px;
-      font: inherit;
-      cursor: pointer;
-    }
-    .lightbox img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      border-radius: 18px;
-      background: radial-gradient(circle at top, rgba(201, 123, 49, 0.12), transparent 30%);
-    }
-    body.lightbox-open {
-      overflow: hidden;
+    @media print {
+      body {
+        background: white;
+        color: #1d1a16;
+      }
+      main {
+        max-width: none;
+        padding: 0;
+      }
+      .summary-card,
+      .card {
+        box-shadow: none;
+      }
+      .summary {
+        display: none;
+      }
+      .cards {
+        gap: 0;
+      }
+      .card {
+        padding: 4mm 0 0;
+        border-radius: 0;
+        border: 0;
+        background: white;
+        color: #1d1a16;
+      }
+      .card-gallery {
+        min-height: 272mm;
+        page-break-after: always;
+        break-after: page;
+        break-inside: avoid;
+        display: grid;
+        grid-template-rows: auto 1fr;
+      }
+      .card-gallery:last-child { page-break-after: auto; break-after: auto; }
+      .card-top {
+        margin-bottom: 4mm;
+      }
+      .badges {
+        justify-content: start;
+      }
+      .images-gallery {
+        gap: 4mm;
+        min-height: 0;
+      }
+      .image-card {
+        padding: 2mm;
+        border-radius: 8px;
+        border: 1px solid #d9d0c3;
+        background: white;
+        color: #1d1a16;
+      }
+      .image-card-header {
+        margin-bottom: 2mm;
+      }
+      .image-card img {
+        border-radius: 4px;
+        background: white;
+      }
+      .meta-chip {
+        border-color: #d8cbba;
+        background: #f3eadf;
+        color: #44382b;
+      }
+      .image-label,
+      .image-subtitle,
+      .missing-text,
+      .muted {
+        color: #6a6257;
+      }
+      .lists section {
+        border-color: #d8cbba;
+        background: white;
+      }
+      a { color: #7a3e07; }
+      .card-gallery .image-card img {
+        height: 234mm;
+      }
     }
     @media (max-width: 720px) {
-      main { padding: 20px 14px 32px; }
+      main { padding: 16px 12px 26px; }
       .card { padding: 16px; }
       .card-top { flex-direction: column; }
       .badges { justify-content: start; }
       .images { grid-template-columns: 1fr; }
       .image-card img { height: 320px; }
-      .image-card-header { align-items: start; flex-direction: column; }
-      .lightbox { padding: 10px; }
-      .lightbox-inner { width: 100%; height: min(92vh, 960px); padding: 52px 12px 12px; }
+      .card-gallery .image-card img { height: 360px; }
     }
   </style>
 </head>
 <body>
   <main>
-    <h1>Try-On Review</h1>
-    <p class="intro">
-      Source: <strong>${escapeHtml(meta.sourceDir)}</strong> (${escapeHtml(meta.sourceLayout)} layout).
-      Generated ${escapeHtml(meta.generatedAt)}.
-      Click any preview to open a full-resolution zoom view, or use the Open button for the raw file.
-    </p>
-
     <section class="summary">
+      ${isGalleryOnly
+        ? `
+      <div class="summary-card"><strong>${escapeHtml(summary.total)}</strong><span>Total results</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.generation_successful || 0)}</strong><span>Successful generations</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.generation_failed || 0)}</strong><span>Failed generations</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.generation_unknown || 0)}</strong><span>Unknown status</span></div>`
+        : `
       <div class="summary-card"><strong>${escapeHtml(summary.total)}</strong><span>Total evaluated</span></div>
       <div class="summary-card"><strong>${escapeHtml(summary.successful)}</strong><span>AI pass</span></div>
       <div class="summary-card"><strong>${escapeHtml(summary.failed)}</strong><span>AI fail</span></div>
-      <div class="summary-card"><strong>${escapeHtml(summary.errors)}</strong><span>Errors</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.comparison_only || 0)}</strong><span>Comparison Only</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.errors)}</strong><span>Errors</span></div>`}
     </section>
 
     <section class="cards">
       ${cards}
     </section>
-
-    <p class="footer">
-      Files in this folder: <code>index.html</code>, <code>index.csv</code>, <code>index.json</code>, plus one subfolder per try-on result.
-    </p>
   </main>
-  <div class="lightbox" id="lightbox" hidden>
-    <div class="lightbox-inner">
-      <div class="lightbox-caption" id="lightboxCaption">Image</div>
-      <button type="button" class="lightbox-close" id="lightboxClose">Close</button>
-      <img id="lightboxImage" alt="">
-    </div>
-  </div>
-  <script>
-    (() => {
-      const lightbox = document.getElementById("lightbox");
-      const lightboxImage = document.getElementById("lightboxImage");
-      const lightboxCaption = document.getElementById("lightboxCaption");
-      const lightboxClose = document.getElementById("lightboxClose");
-
-      const openLightbox = (src, label) => {
-        if (!src) return;
-        lightboxImage.src = src;
-        lightboxImage.alt = label || "Image";
-        lightboxCaption.textContent = label || "Image";
-        lightbox.hidden = false;
-        document.body.classList.add("lightbox-open");
-      };
-
-      const closeLightbox = () => {
-        lightbox.hidden = true;
-        lightboxImage.removeAttribute("src");
-        document.body.classList.remove("lightbox-open");
-      };
-
-      for (const trigger of document.querySelectorAll(".zoom-button")) {
-        trigger.addEventListener("click", (event) => {
-          event.preventDefault();
-          openLightbox(trigger.dataset.fullSrc, trigger.dataset.fullLabel);
-        });
-      }
-
-      lightboxClose.addEventListener("click", closeLightbox);
-      lightbox.addEventListener("click", (event) => {
-        if (event.target === lightbox) {
-          closeLightbox();
-        }
-      });
-      document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && !lightbox.hidden) {
-          closeLightbox();
-        }
-      });
-    })();
-  </script>
 </body>
 </html>`;
 }
 
-function writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDir, sourceLayout) {
+function writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDirs, sourceLayout) {
   const generatedAt = new Date().toISOString();
-
-  const indexJsonPath = path.join(reviewRoot, "index.json");
-  fs.writeFileSync(
-    indexJsonPath,
-    JSON.stringify(
-      {
-        generated_at: generatedAt,
-        source_dir: projectRelative(sourceDir),
-        source_layout: sourceLayout,
-        review_dir: projectRelative(reviewRoot),
-        summary,
-        entries: reviewEntries,
-      },
-      null,
-      2,
-    ),
-    "utf8",
-  );
-
-  const csvColumns = [
-    "folder",
-    "test_number",
-    "test_id",
-    "gender",
-    "selenium_status",
-    "evaluation_ok",
-    "ai_successful",
-    "quality_percent",
-    "garment_category",
-    "garment_type",
-    "intended_fit",
-    "silhouette_preserved",
-    "notes",
-    "model_file",
-    "garment_file",
-    "result_file",
-    "summary_file",
-    "quality_file",
-  ];
-  const csvRows = [
-    csvColumns.join(","),
-    ...reviewEntries.map((entry) =>
-      [
-        entry.folder,
-        entry.test_number,
-        entry.test_id,
-        entry.gender,
-        entry.selenium_status,
-        entry.evaluation_ok,
-        entry.ai_successful,
-        entry.quality_percent,
-        entry.garment_category,
-        entry.garment_type,
-        entry.intended_fit,
-        entry.silhouette_preserved,
-        entry.notes,
-        entry.files.model,
-        entry.files.garment,
-        entry.files.result,
-        entry.files.summary,
-        entry.files.quality,
-      ]
-        .map(csvEscape)
-        .join(","),
-    ),
-  ];
-  fs.writeFileSync(path.join(reviewRoot, "index.csv"), `${csvRows.join("\n")}\n`, "utf8");
+  const sourceDirLabel = sourceDirs
+    .map((dir) => projectRelative(dir) || dir)
+    .join(", ");
 
   const html = buildReviewHtml(reviewEntries, summary, {
     generatedAt,
-    sourceDir: projectRelative(sourceDir) || sourceDir,
+    sourceDir: sourceDirLabel,
     sourceLayout,
+    reportMode: GALLERY_ONLY_MODE ? "gallery" : "review",
   });
   fs.writeFileSync(path.join(reviewRoot, "index.html"), html, "utf8");
 }
 
 async function main() {
-  const sourceDir = resolveSourceDir();
-  const folders = listSubfoldersSorted(sourceDir);
+  const sourceDirs = resolveSourceDirs();
+  const { sources, entries } = collectSourceEntries(sourceDirs);
 
-  if (folders.length === 0) {
-    console.error(`No subfolders found in ${projectRelative(sourceDir) || sourceDir}.`);
-    console.error(`Expected either test_results/<test_id>/... or images/<folder>/...`);
+  if (entries.length === 0) {
+    const attemptedDirs = sourceDirs.map((dir) => projectRelative(dir) || dir).join(", ");
+    console.error(`No subfolders found in: ${attemptedDirs}.`);
+    console.error(`Expected either <source>/<test_id>/... or <source>/<folder>/...`);
     process.exit(1);
   }
 
-  const sourceLayout = detectSourceLayout(sourceDir, folders);
+  const sourceLayouts = sources.map((source) => source.sourceLayout);
+  const sourceLayout = describeSourceLayouts(sourceLayouts);
   const outDir = ensureDir(OUTPUTS_DIR);
-  const reviewRoot = ensureDir(path.join(outDir, REVIEW_DIR_NAME));
-  const outPath = path.join(outDir, "evals.jsonl");
-  fs.writeFileSync(outPath, "", "utf8");
+  const reviewRoot = outDir;
+  const sourceDirLabel = sourceDirs.map((dir) => projectRelative(dir) || dir).join(", ");
 
+  console.log(`Report mode: ${GALLERY_ONLY_MODE ? "GALLERY" : "REVIEW"}`);
   console.log(`OpenAI endpoint: ${ENDPOINT}`);
   console.log(`Model: ${MODEL}`);
-  console.log(`Source dir: ${projectRelative(sourceDir) || sourceDir}`);
+  console.log(
+    `AI analysis enabled: ${
+      GALLERY_ONLY_MODE ? "NO (gallery-only mode)" : HAS_OPENAI_API_KEY ? "YES" : "NO (comparison-only review mode)"
+    }`,
+  );
+  console.log(`Source dirs: ${sourceDirLabel}`);
   console.log(`Source layout: ${sourceLayout}`);
-  console.log(`Folders: ${folders.length}`);
+  console.log(`Folders: ${entries.length}`);
   console.log(`Concurrency: ${CONCURRENCY}`);
   console.log(`Main evaluation uses model image: ${INCLUDE_MODEL_IN_MAIN ? "YES" : "NO"}`);
   console.log(`Artifact audit mode: ${ENABLE_ARTIFACT_AUDIT ? "ALWAYS" : "AUTO ON CLEAN PASS CANDIDATES"}`);
@@ -2150,7 +2126,11 @@ async function main() {
     total: 0,
     successful: 0,
     failed: 0,
+    comparison_only: 0,
     errors: 0,
+    generation_successful: 0,
+    generation_failed: 0,
+    generation_unknown: 0,
     by_category: {},
     silhouette_stats: { YES: 0, PARTIAL: 0, NO: 0 },
     by_fit: {
@@ -2159,34 +2139,59 @@ async function main() {
       loose: { total: 0, pass: 0 },
       oversized: { total: 0, pass: 0 },
     },
-    source_dir: projectRelative(sourceDir),
+    source_dir: sourceDirLabel,
+    source_dirs: sourceDirs.map((dir) => projectRelative(dir) || dir),
     source_layout: sourceLayout,
+    source_layouts: sourceLayouts,
     review_dir: projectRelative(reviewRoot),
   };
 
-  const evaluations = await mapWithConcurrency(folders, CONCURRENCY, async (folderName) => {
-    const folderPath = path.join(sourceDir, folderName);
-    const folderContext = collectFolderAssets(folderName, folderPath, sourceLayout);
-    console.log(`\n=== Evaluating: ${folderName} ===`);
+  const evaluations = await mapWithConcurrency(entries, CONCURRENCY, async (entry) => {
+    const folderContext = collectFolderAssets(entry.folderName, entry.folderPath, entry.sourceLayout);
+    const sourceLabel = projectRelative(entry.sourceDir) || entry.sourceDir;
+    console.log(`\n=== Evaluating: ${entry.folderName} (${sourceLabel}) ===`);
 
     let record;
-    try {
-      record = await evaluateFolder(folderName, folderContext);
-    } catch (err) {
+    if (GALLERY_ONLY_MODE) {
+      record = folderContext.ok
+        ? {
+            folder: entry.folderName,
+            ok: true,
+            rating: null,
+            evaluation_mode: "gallery_only",
+            message: "Gallery-only mode: AI evaluation skipped.",
+          }
+        : {
+            folder: entry.folderName,
+            ok: false,
+            evaluation_mode: "gallery_only",
+            error: folderContext.error,
+          };
+    } else if (!HAS_OPENAI_API_KEY) {
       record = {
-        folder: folderName,
-        ok: false,
-        error: "LLM request failed",
-        status: err?.status ?? null,
-        message: err?.message ?? String(err),
-        body: err?.body ?? null,
+        folder: entry.folderName,
+        ok: true,
+        rating: null,
+        evaluation_mode: "comparison_only",
+        message: "AI evaluation skipped because OPENAI_API_KEY is not configured.",
       };
+    } else {
+      try {
+        record = await evaluateFolder(entry.folderName, folderContext);
+      } catch (err) {
+        record = {
+          folder: entry.folderName,
+          ok: false,
+          evaluation_mode: "llm",
+          error: "LLM request failed",
+          status: err?.status ?? null,
+          message: err?.message ?? String(err),
+          body: err?.body ?? null,
+        };
+      }
     }
 
-    const perFolderPayload = createPerFolderPayload(folderName, folderContext, record);
-    const sourceQualityPath = path.join(folderPath, "quality.json");
-    fs.writeFileSync(sourceQualityPath, JSON.stringify(perFolderPayload, null, 2), "utf8");
-
+    const perFolderPayload = createPerFolderPayload(entry.folderName, folderContext, record);
     const bundle = writeReviewBundle(reviewRoot, perFolderPayload, folderContext);
 
     return { folderContext, record, perFolderPayload, bundle };
@@ -2198,8 +2203,16 @@ async function main() {
     const { record, perFolderPayload, bundle } = evaluation;
 
     summary.total++;
+    const seleniumStatus = normalizeString(perFolderPayload.metadata?.status);
+    if (seleniumStatus === "success") summary.generation_successful++;
+    else if (seleniumStatus === "failed") summary.generation_failed++;
+    else summary.generation_unknown++;
 
-    if (record.ok && record.rating) {
+    if (record.evaluation_mode === "gallery_only") {
+      // Gallery mode intentionally skips AI evaluation and only builds the visual result index.
+    } else if (record.evaluation_mode === "comparison_only") {
+      summary.comparison_only++;
+    } else if (record.ok && record.rating) {
       console.log(JSON.stringify(record.rating, null, 2));
 
       const rating = record.rating;
@@ -2227,13 +2240,10 @@ async function main() {
       summary.errors++;
     }
 
-    fs.appendFileSync(outPath, JSON.stringify(perFolderPayload) + "\n", "utf8");
     reviewEntries.push(createReviewEntry(perFolderPayload, bundle));
   }
 
-  const summaryPath = path.join(outDir, "analysis_summary.json");
-  fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2), "utf8");
-  writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDir, sourceLayout);
+  writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDirs, sourceLayout);
 
   console.log(`\n${"=".repeat(60)}`);
   console.log("ANALYSIS SUMMARY");
@@ -2241,6 +2251,7 @@ async function main() {
   console.log(`Total evaluated: ${summary.total}`);
   console.log(`Successful (YES): ${summary.successful}`);
   console.log(`Failed (NO): ${summary.failed}`);
+  console.log(`Comparison only: ${summary.comparison_only}`);
   console.log(`Errors: ${summary.errors}`);
   console.log(`\nBy garment category:`);
   for (const [cat, stats] of Object.entries(summary.by_category)) {
@@ -2256,8 +2267,6 @@ async function main() {
       console.log(`  ${fit}: ${stats.pass}/${stats.total} passed`);
     }
   }
-  console.log(`\nResults saved to: ${projectRelative(outPath) || outPath}`);
-  console.log(`Summary saved to: ${projectRelative(summaryPath) || summaryPath}`);
   console.log(`Review index saved to: ${projectRelative(path.join(reviewRoot, "index.html")) || path.join(reviewRoot, "index.html")}`);
 }
 

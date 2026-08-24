@@ -38,49 +38,10 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Convert structure
-      run: |
-        mkdir -p images
-        copy_first_image() {
-          local source_dir="$1"
-          local target_dir="$2"
-          local base_name="$3"
-          local src
-          local ext
-
-          if [ ! -d "$source_dir" ]; then
-            return 0
-          fi
-
-          src=$(find "$source_dir" -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.avif' \) | head -n 1)
-          if [ -z "$src" ]; then
-            return 0
-          fi
-
-          ext="${src##*.}"
-          cp "$src" "$target_dir/${base_name}.${ext}"
-        }
-
-        for run_root in test_results/test_results_upper test_results/test_results_lower test_results/test_results_full test_results_upper test_results_lower test_results_full; do
-          if [ -d "$run_root" ]; then
-            run_name=$(basename "$run_root")
-            run_prefix=${run_name#test_results_}
-            for test_dir in "$run_root"/test_*; do
-              if [ -d "$test_dir" ]; then
-                test_name=$(basename "$test_dir")
-                target_dir="images/${run_prefix}_${test_name}"
-                mkdir -p "$target_dir"
-                copy_first_image "$test_dir/model" "$target_dir" "model"
-                copy_first_image "$test_dir/garment" "$target_dir" "garment"
-                copy_first_image "$test_dir/result" "$target_dir" "result"
-              fi
-            done
-          fi
-        done
-
     - name: Run analysis
       env:
-        ANALYZE_SOURCE_DIR: images
+        ANALYZE_SOURCE_DIR: test_results/test_results_upper,test_results/test_results_lower,test_results/test_results_full
+        ANALYSIS_REPORT_MODE: review
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         OPENAI_CONCURRENCY: 1
         OPENAI_DELAY_MS: 750

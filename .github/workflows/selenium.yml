@@ -1,52 +1,100 @@
 name: Siz3r Model Tests
+run-name: "runs=${{ inputs.run_keys || 'all' }} | pairing=${{ inputs.pairing_mode }} | cap=${{ inputs.garments_per_person || 'default' }} | mode=turbo | reuse=${{ inputs.reuse_browser_session }}"
+
 on:
   workflow_dispatch:
+    inputs:
+      pairing_mode:
+        description: How to pair garments with each model
+        required: true
+        default: all
+        type: choice
+        options:
+          - deterministic
+          - random
+          - all
+      garments_per_person:
+        description: Optional garment cap per person per run. Leave blank for the selected mode default.
+        required: false
+        default: ""
+        type: string
+      run_keys:
+        description: "Garment runs: upper, lower, full. Leave blank for all, or combine with commas (example: upper,lower)."
+        required: false
+        default: ""
+        type: string
+      reuse_browser_session:
+        description: Reuse one logged-in browser session across many try-ons. Recommended for shared-account serial runs.
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
 jobs:
   test-all-models:
     runs-on: ubuntu-latest
     timeout-minutes: 180
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-    
-    - name: Install dependencies
-      run: pip install selenium
-    
-    - name: Start Selenium Grid
-      run: |
-        docker compose -f docker-compose.cloud.yml up -d
-        sleep 20
-    
-    - name: Wait for Grid
-      run: |
-        timeout 60 bash -c 'until curl -f http://localhost:4444/status; do sleep 2; done'
-    
-    - name: Run tests
-      env:
-        SELENIUM_GRID_URL: http://localhost:4444
-        HEADLESS: true
-        TEST_PAIRING_MODE: deterministic
-        TEST_PAIRING_SEED: stable-v1
-      run: python test_business.py
-    
-    - name: Upload results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: siz3r-test-results
-        path: |
-          test_results_upper/
-          test_results_lower/
-          test_results_full/
-          test_results_summary.json
-        retention-days: 30
-    
-    - name: Stop Grid
-      if: always()
-      run: docker compose -f docker-compose.cloud.yml down
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install selenium
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run tests
+        env:
+          HEADLESS: "true"
+          PYTHON_BIN: python
+          SELENIUM_COMPOSE_FILE: docker-compose.cloud.yml
+          SELENIUM_GRID_URL: http://localhost:4444
+          TEST_PAIRING_MODE: ${{ inputs.pairing_mode }}
+          TEST_PAIRING_SEED: stable-v1
+          TEST_GARMENTS_PER_PERSON: ${{ inputs.garments_per_person }}
+          TEST_RUN_KEYS: ${{ inputs.run_keys }}
+          TEST_GENERATION_PROFILE: turbo
+          TEST_REUSE_BROWSER_SESSION: ${{ inputs.reuse_browser_session }}
+          FAIL_ON_TEST_FAILURES: "false"
+        run: |
+          chmod +x run_selenium.sh
+          ./run_selenium.sh
+
+      - name: Generate review gallery
+        if: always()
+        env:
+          ANALYZE_SOURCE_DIR: test_results_upper,test_results_lower,test_results_full
+          ANALYSIS_OUTPUT_DIR: outputs
+          ANALYSIS_REPORT_MODE: gallery
+        run: node analyze_quality.js
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: siz3r-test-results
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            test_results_upper/
+            test_results_lower/
+            test_results_full/
+            test_results_summary.json
+            selenium-grid-logs.txt
+            outputs/index.html
