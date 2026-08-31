@@ -520,6 +520,39 @@ def wait_for_generated_result(driver, result_image_present):
         print(f"  WARN Generacja trwa dluzej niz {GENERATION_RESULT_TIMEOUT}s, czekam dodatkowe {GENERATION_ACTIVE_GRACE_TIMEOUT}s...")
         return WebDriverWait(driver, GENERATION_ACTIVE_GRACE_TIMEOUT).until(result_image_present)
 
+def get_visible_image_sources(driver):
+    sources = set()
+    for img in driver.find_elements(By.TAG_NAME, "img"):
+        try:
+            if not img.is_displayed():
+                continue
+
+            src = img.get_attribute('currentSrc') or img.get_attribute('src') or ''
+            if src:
+                sources.add(src)
+        except (StaleElementReferenceException, NoSuchElementException):
+            continue
+    return sources
+
+def find_new_generated_image(driver, baseline_sources):
+    for img in driver.find_elements(By.TAG_NAME, "img"):
+        try:
+            if not img.is_displayed():
+                continue
+
+            src = img.get_attribute('currentSrc') or img.get_attribute('src') or ''
+            if not src or src in baseline_sources:
+                continue
+
+            rect = img.rect
+            width = rect.get('width', 0)
+            height = rect.get('height', 0)
+            if width >= 150 and height >= 150:
+                return img
+        except (StaleElementReferenceException, NoSuchElementException):
+            continue
+    return False
+
 def describe_button_candidates(driver, limit=12):
     descriptions = []
     for btn in driver.find_elements(By.CSS_SELECTOR, BUTTON_CANDIDATE_SELECTOR):
@@ -2068,23 +2101,12 @@ def test_single_model(test_num, model_info, run_config):
         
         driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", generate_btn)
         time.sleep(1)
+        result_image_baseline = get_visible_image_sources(driver)
         driver.execute_script("arguments[0].click();", generate_btn)
         print(f"  Generacja...")
         
         def result_image_present(driver):
-            try:
-                imgs = driver.find_elements(By.TAG_NAME, "img")
-                for img in imgs:
-                    src = img.get_attribute('src') or ''
-                    if ('gradio_api' in src or 'demo.siz3r.com' in src or 'data:image' in src):
-                        rect = img.rect
-                        width = rect['width']
-                        height = rect['height']
-                        if width > 300 and height > 400:
-                            return img
-            except:
-                pass
-            return False
+            return find_new_generated_image(driver, result_image_baseline)
         
         try:
             result_img = wait_for_generated_result(driver, result_image_present)
@@ -2266,23 +2288,12 @@ def test_single_model_wait_optimized(test_num, model_info, run_config, driver=No
                 raise Exception(f"Brak przycisku Generuj/Tryon. Kandydaci: {details}")
 
             driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", generate_btn)
+            result_image_baseline = get_visible_image_sources(driver)
             driver.execute_script("arguments[0].click();", generate_btn)
             print(f"  Generacja...")
 
             def result_image_present(current):
-                try:
-                    imgs = current.find_elements(By.TAG_NAME, "img")
-                    for img in imgs:
-                        src = img.get_attribute('src') or ''
-                        if ('gradio_api' in src or 'demo.siz3r.com' in src or 'data:image' in src):
-                            rect = img.rect
-                            width = rect['width']
-                            height = rect['height']
-                            if width > 300 and height > 400:
-                                return img
-                except Exception:
-                    pass
-                return False
+                return find_new_generated_image(current, result_image_baseline)
 
             try:
                 result_img = wait_for_generated_result(driver, result_image_present)
