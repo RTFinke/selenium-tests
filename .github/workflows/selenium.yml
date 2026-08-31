@@ -10,11 +10,12 @@ on:
         default: all
         type: choice
         options:
+          - one_model_per_garment
           - deterministic
           - random
           - all
       garments_per_person:
-        description: Optional garment cap per person per run. Leave blank for the selected mode default.
+        description: Optional garment cap per person per run. Ignored by one_model_per_garment so every garment is tested.
         required: false
         default: ""
         type: string

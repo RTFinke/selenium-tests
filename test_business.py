@@ -72,6 +72,14 @@ GARMENT_RUNS = [
 RUN_SUMMARY_PATH = os.path.join(SCRIPT_DIR, "test_results_summary.json")
 ADVANCED_GENERATION_PROFILE = 'advanced_segmentation_free_30'
 ALLOWED_GENERATION_PROFILES = {'default', ADVANCED_GENERATION_PROFILE}
+ONE_MODEL_PER_GARMENT_MODE = 'one_model_per_garment'
+ALLOWED_PAIRING_MODES = {'all', 'deterministic', 'random', ONE_MODEL_PER_GARMENT_MODE}
+
+if PAIRING_MODE not in ALLOWED_PAIRING_MODES:
+    allowed_modes = ', '.join(sorted(ALLOWED_PAIRING_MODES))
+    raise ValueError(
+        f"TEST_PAIRING_MODE must be one of: {allowed_modes}. Got: {PAIRING_MODE}"
+    )
 
 if GENERATION_PROFILE not in ALLOWED_GENERATION_PROFILES:
     allowed_profiles = ', '.join(sorted(ALLOWED_GENERATION_PROFILES))
@@ -122,7 +130,7 @@ SELECTED_RUN_KEYS = parse_optional_choice_list(
     'TEST_RUN_KEYS',
     [run_config["key"] for run_config in GARMENT_RUNS],
 )
-PAIRING_SEED_ACTIVE = PAIRING_MODE == 'deterministic' or (
+PAIRING_SEED_ACTIVE = PAIRING_MODE in ('deterministic', ONE_MODEL_PER_GARMENT_MODE) or (
     GARMENTS_PER_PERSON is not None and PAIRING_MODE != 'random'
 )
 
@@ -545,6 +553,29 @@ def get_all_models(run_config):
 
         if not people_images or not garment_images:
             skipped_genders.append(gender)
+            continue
+
+        if PAIRING_MODE == ONE_MODEL_PER_GARMENT_MODE:
+            assignment_basis = f"{PAIRING_SEED}|{gender}|one-model-per-garment"
+            assignment_digest = hashlib.sha256(assignment_basis.encode('utf-8')).hexdigest()
+            person_offset = int(assignment_digest[:8], 16) % len(people_images)
+
+            for garment_index, garment_name in enumerate(garment_images):
+                person_name = people_images[(garment_index + person_offset) % len(people_images)]
+                models.append({
+                    "gender": gender,
+                    "person_path": os.path.join(people_folder, person_name),
+                    "person_name": person_name,
+                    "clothes_folder": clothes_folder,
+                    "garment_run_key": run_config["key"],
+                    "garment_site_mode": run_config["site_mode"],
+                    "preselected_garment_path": os.path.join(clothes_folder, garment_name),
+                    "preselected_garment_name": garment_name,
+                    "preselected_garment_index": garment_index,
+                    "preselected_garment_pool_size": len(garment_images),
+                    "preselected_garment_mode": ONE_MODEL_PER_GARMENT_MODE,
+                    "preselected_garment_seed": PAIRING_SEED,
+                })
             continue
 
         for person_name in people_images:
@@ -2457,7 +2488,13 @@ if __name__ == "__main__":
     if PAIRING_SEED_ACTIVE:
         print(f"Pairing seed: {PAIRING_SEED}")
     if GARMENTS_PER_PERSON is not None:
-        print(f"Garments per person: {GARMENTS_PER_PERSON}")
+        if PAIRING_MODE == ONE_MODEL_PER_GARMENT_MODE:
+            print(
+                f"Garments per person: {GARMENTS_PER_PERSON} "
+                "(ignored by one_model_per_garment)"
+            )
+        else:
+            print(f"Garments per person: {GARMENTS_PER_PERSON}")
     print(f"Selected runs: {', '.join(run_config['key'] for run_config in selected_run_configs)}")
     print(f"Reuse browser session: {REUSE_BROWSER_SESSION}")
     print(f"Fail on test failures: {FAIL_ON_TEST_FAILURES}")
