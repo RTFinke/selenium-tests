@@ -520,9 +520,64 @@ def wait_for_generated_result(driver, result_image_present):
         print(f"  WARN Generacja trwa dluzej niz {GENERATION_RESULT_TIMEOUT}s, czekam dodatkowe {GENERATION_ACTIVE_GRACE_TIMEOUT}s...")
         return WebDriverWait(driver, GENERATION_ACTIVE_GRACE_TIMEOUT).until(result_image_present)
 
-def get_visible_image_sources(driver):
+def get_result_column_images(driver):
+    generate_btn = find_button_safe(driver, GENERATE_BUTTON_TEXTS)
+    if not generate_btn:
+        return []
+
+    try:
+        return driver.execute_script("""
+        const button = arguments[0];
+        const canonical = (value) => String(value || '')
+            .replace(/[_-]+/g, ' ')
+            .replace(/\\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+        const isVisible = (element) => {
+            if (!element) return false;
+            const style = window.getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return style.display !== 'none' && style.visibility !== 'hidden' &&
+                rect.width > 0 && rect.height > 0;
+        };
+        const visibleImages = (root) => Array.from(root.querySelectorAll('img'))
+            .filter(isVisible);
+        const buttonRect = button.getBoundingClientRect();
+        const imagesInButtonColumn = (root) => visibleImages(root).filter((image) => {
+            const rect = image.getBoundingClientRect();
+            const overlap = Math.max(0, Math.min(rect.right, buttonRect.right) -
+                Math.max(rect.left, buttonRect.left));
+            const verticalGap = buttonRect.top - rect.bottom;
+            return overlap >= Math.min(rect.width, buttonRect.width) * 0.5 &&
+                verticalGap >= -20 && verticalGap <= 120;
+        });
+
+        const resultLabels = Array.from(document.querySelectorAll(
+            "h1, h2, h3, h4, h5, h6, [role='heading'], div, span, p"
+        )).filter((element) =>
+            isVisible(element) && ['result', 'wynik'].includes(
+                canonical(element.innerText || element.textContent)
+            )
+        );
+
+        let container = button.parentElement;
+        while (container && container !== document.body) {
+            if (resultLabels.some((label) => container.contains(label))) {
+                return imagesInButtonColumn(container);
+            }
+            container = container.parentElement;
+        }
+
+        // Fallback for markup without a Result heading: the output is directly
+        // above the Tryon button and horizontally overlaps its column.
+        return imagesInButtonColumn(document);
+        """, generate_btn) or []
+    except Exception:
+        return []
+
+def get_result_image_sources(driver):
     sources = set()
-    for img in driver.find_elements(By.TAG_NAME, "img"):
+    for img in get_result_column_images(driver):
         try:
             if not img.is_displayed():
                 continue
@@ -535,7 +590,7 @@ def get_visible_image_sources(driver):
     return sources
 
 def find_new_generated_image(driver, baseline_sources):
-    for img in driver.find_elements(By.TAG_NAME, "img"):
+    for img in get_result_column_images(driver):
         try:
             if not img.is_displayed():
                 continue
@@ -2101,7 +2156,7 @@ def test_single_model(test_num, model_info, run_config):
         
         driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", generate_btn)
         time.sleep(1)
-        result_image_baseline = get_visible_image_sources(driver)
+        result_image_baseline = get_result_image_sources(driver)
         driver.execute_script("arguments[0].click();", generate_btn)
         print(f"  Generacja...")
         
@@ -2288,7 +2343,7 @@ def test_single_model_wait_optimized(test_num, model_info, run_config, driver=No
                 raise Exception(f"Brak przycisku Generuj/Tryon. Kandydaci: {details}")
 
             driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", generate_btn)
-            result_image_baseline = get_visible_image_sources(driver)
+            result_image_baseline = get_result_image_sources(driver)
             driver.execute_script("arguments[0].click();", generate_btn)
             print(f"  Generacja...")
 
