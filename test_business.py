@@ -734,29 +734,58 @@ def get_garment_for_model(clothes_folder, model_info):
     }
 
 def download_image_from_element(driver, img_element, filepath):
+    # An element screenshot is limited to the image's rendered CSS size. The
+    # Advanced panel uses a small preview, so saving that screenshot turns a
+    # full-resolution result into a low-resolution PNG. Draw the decoded image
+    # at its intrinsic dimensions first and keep the screenshot only as a
+    # fallback for sources that cannot be read through a canvas (for example,
+    # a cross-origin image without CORS headers).
     try:
-        img_element.screenshot(filepath)
+        image_data = driver.execute_script("""
+        const img = arguments[0];
+        if (!img.complete || img.naturalWidth <= 0 || img.naturalHeight <= 0) {
+            throw new Error('Result image has not finished loading');
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const context = canvas.getContext('2d');
+        if (!context) {
+            throw new Error('Could not create a canvas context');
+        }
+
+        context.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight);
+        return {
+            data_url: canvas.toDataURL('image/png'),
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+        };
+        """, img_element)
+
+        data_url = image_data.get('data_url', '') if isinstance(image_data, dict) else ''
+        if not data_url.startswith('data:image/png;base64,'):
+            raise ValueError("Browser did not return a PNG data URL")
+
+        encoded_data = data_url.split(',', 1)[1]
+        decoded_data = base64.b64decode(encoded_data, validate=True)
+        if not decoded_data:
+            raise ValueError("Browser returned an empty result image")
+
+        with open(filepath, 'wb') as f:
+            f.write(decoded_data)
+
+        print(
+            f"  Rozdzielczosc wyniku: "
+            f"{image_data.get('width')}x{image_data.get('height')}"
+        )
         return True
-    except Exception as e:
+    except Exception:
         try:
-            script = """
-            var img = arguments[0];
-            var canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            var ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            return canvas.toDataURL('image/png');
-            """
-            base64_data = driver.execute_script(script, img_element)
-            
-            if ',' in base64_data:
-                base64_data = base64_data.split(',')[1]
-            
-            with open(filepath, 'wb') as f:
-                f.write(base64.b64decode(base64_data))
+            img_element.screenshot(filepath)
+            print("  WARN Zapisano zrzut podgladu zamiast obrazu w pelnej rozdzielczosci")
             return True
-        except Exception as e2:
+        except Exception:
             return False
 
 def ensure_advanced_generation_settings(driver, target_steps=30):
