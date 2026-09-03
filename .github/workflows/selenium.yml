@@ -97,7 +97,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: siz3r-test-results
+          name: siz3r-${{ inputs.run_keys || 'all' }}-${{ inputs.generation_profile }}-results
           if-no-files-found: warn
           retention-days: 30
           path: |
