@@ -148,7 +148,7 @@ def get_test_account():
 def list_supported_images(folder, sort_files=False):
     images = [
         f for f in os.listdir(folder)
-        if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and not f.startswith('.')
+        if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.avif')) and not f.startswith('.')
     ]
     return sorted(images) if sort_files else images
 

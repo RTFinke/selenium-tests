@@ -37,7 +37,7 @@ def find_button_safe(driver, texts):
     return None
 
 def get_random_image(folder):
-    images = [f for f in os.listdir(folder) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and not f.startswith('.')]
+    images = [f for f in os.listdir(folder) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.avif')) and not f.startswith('.')]
     return os.path.join(folder, random.choice(images))
 
 def get_test_images():

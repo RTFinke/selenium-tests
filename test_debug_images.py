@@ -26,7 +26,7 @@ def find_button_safe(driver, texts):
 def get_random_image(folder):
     base = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_images')
     full_path = os.path.join(base, folder)
-    images = [f for f in os.listdir(full_path) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and not f.startswith('.')]
+    images = [f for f in os.listdir(full_path) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.avif')) and not f.startswith('.')]
     return os.path.join(full_path, images[0])
 
 user = generate_user()
