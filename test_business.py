@@ -16,6 +16,7 @@ FAIL_ON_TEST_FAILURES = os.getenv('FAIL_ON_TEST_FAILURES', 'true').lower() == 't
 GARMENTS_PER_PERSON_RAW = os.getenv('TEST_GARMENTS_PER_PERSON', '').strip()
 TEST_RUN_KEYS_RAW = os.getenv('TEST_RUN_KEYS', '').strip()
 GENERATION_PROFILE = os.getenv('TEST_GENERATION_PROFILE', 'default').strip().lower() or 'default'
+FLAT_ENABLED = os.getenv('TEST_FLAT', 'false').strip().lower() in ('1', 'true', 'yes', 'on')
 REUSE_BROWSER_SESSION = os.getenv('TEST_REUSE_BROWSER_SESSION', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
 GENERATION_RESULT_TIMEOUT = int(os.getenv('TEST_GENERATION_RESULT_TIMEOUT', '60').strip() or '60')
 GENERATION_ACTIVE_GRACE_TIMEOUT = int(os.getenv('TEST_GENERATION_ACTIVE_GRACE_TIMEOUT', '45').strip() or '45')
@@ -1254,11 +1255,74 @@ def read_generation_option_state(driver):
 
     return option_state if isinstance(option_state, dict) else None
 
+def ensure_flat_generation_setting(driver, enabled):
+    """Set Flat explicitly and confirm its state after any React rerender."""
+    def set_and_read(current):
+        return current.execute_script("""
+        const target = Boolean(arguments[0]);
+        const normalize = (value) => String(value || '').trim().toLowerCase();
+        const selector = "input[type='checkbox'], [role='checkbox'], [role='switch']";
+        const visible = (el) => {
+            const rect = el.getBoundingClientRect();
+            const style = window.getComputedStyle(el);
+            return rect.width > 0 && rect.height > 0 &&
+                style.display !== 'none' && style.visibility !== 'hidden';
+        };
+        const candidates = new Set();
+        for (const anchor of document.querySelectorAll('label, span, div, input, [role="checkbox"], [role="switch"]')) {
+            if (!visible(anchor)) continue;
+            if (![anchor.innerText || anchor.textContent, anchor.getAttribute('aria-label'),
+                  anchor.getAttribute('name')].some((value) => normalize(value) === 'flat')) continue;
+            if (anchor.matches(selector)) candidates.add(anchor);
+            if (anchor.control && anchor.control.matches(selector)) candidates.add(anchor.control);
+            // Stop at the first small container containing a single checkbox.
+            // Never guess among neighbouring Advanced and Flat controls.
+            for (let root = anchor, depth = 0; root && depth < 3; root = root.parentElement, depth++) {
+                const controls = Array.from(root.querySelectorAll(selector));
+                if (controls.length > 1) break;
+                if (controls.length === 1) {
+                    candidates.add(controls[0]);
+                    break;
+                }
+            }
+        }
+        if (candidates.size !== 1) return {ready: false, error: 'Flat checkbox missing or ambiguous'};
+        const control = Array.from(candidates)[0];
+        const native = control.matches("input[type='checkbox']");
+        const aria = control.getAttribute('aria-checked');
+        const checked = native ? control.checked : aria === 'true' ? true : aria === 'false' ? false : null;
+        if (checked === null) return {ready: false, error: 'Flat checkbox state unreadable'};
+        if (checked === target) return {ready: true, enabled: checked};
+        if (control.disabled || control.getAttribute('aria-disabled') === 'true') {
+            return {ready: false, error: 'Flat checkbox disabled'};
+        }
+        control.click();
+        return {ready: false, changed: true};
+        """, enabled)
+
+    last_state = None
+
+    def confirmed(current):
+        nonlocal last_state
+        last_state = set_and_read(current)
+        return last_state if isinstance(last_state, dict) and last_state.get('ready') else False
+
+    try:
+        state = WebDriverWait(driver, 10, poll_frequency=0.25).until(confirmed)
+    except TimeoutException as exc:
+        raise Exception(f"Nie udalo sie ustawic Flat={enabled}: {last_state}") from exc
+    return state['enabled']
+
+
 def configure_generation_options(driver, metadata):
     advanced_state = None
     if GENERATION_PROFILE == ADVANCED_GENERATION_PROFILE:
         print("  Ustawiam Advanced: segmentation_free=true, steps=30...")
         advanced_state = ensure_advanced_generation_settings(driver, target_steps=30)
+
+    metadata['flat_requested'] = FLAT_ENABLED
+    metadata['flat_enabled'] = ensure_flat_generation_setting(driver, FLAT_ENABLED)
+    print(f"  OK Flat={metadata['flat_enabled']}")
 
     option_state = read_generation_option_state(driver)
     if option_state:
@@ -1987,6 +2051,8 @@ def test_single_model(test_num, model_info, run_config):
         "pairing_mode": PAIRING_MODE,
         "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
         "generation_profile_requested": GENERATION_PROFILE,
+        "flat_requested": FLAT_ENABLED,
+        "flat_enabled": None,
         "garment_run_key": run_config["key"],
         "garment_run_label": run_config["label"],
         "garment_mode_requested": run_config["site_mode"],
@@ -2273,6 +2339,8 @@ def test_single_model_wait_optimized(test_num, model_info, run_config, driver=No
         "pairing_mode": PAIRING_MODE,
         "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
         "generation_profile_requested": GENERATION_PROFILE,
+        "flat_requested": FLAT_ENABLED,
+        "flat_enabled": None,
         "garment_run_key": run_config["key"],
         "garment_run_label": run_config["label"],
         "garment_mode_requested": run_config["site_mode"],
@@ -2463,6 +2531,7 @@ def write_run_summary(run_config, total_tests, success, failed, elapsed_total, s
         "pairing_mode": PAIRING_MODE,
         "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
         "generation_profile": GENERATION_PROFILE,
+        "flat_requested": FLAT_ENABLED,
         "garments_per_person": GARMENTS_PER_PERSON,
         "reuse_browser_session": REUSE_BROWSER_SESSION,
         "selected_run_keys": SELECTED_RUN_KEYS or [config["key"] for config in GARMENT_RUNS],
@@ -2623,6 +2692,7 @@ if __name__ == "__main__":
             "pairing_mode": PAIRING_MODE,
             "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
             "generation_profile": GENERATION_PROFILE,
+            "flat_requested": FLAT_ENABLED,
             "selected_run_keys": [run_config["key"] for run_config in selected_run_configs],
             "reuse_browser_session": REUSE_BROWSER_SESSION,
             "runs": run_summaries,
