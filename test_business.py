@@ -17,6 +17,7 @@ GARMENTS_PER_PERSON_RAW = os.getenv('TEST_GARMENTS_PER_PERSON', '').strip()
 TEST_RUN_KEYS_RAW = os.getenv('TEST_RUN_KEYS', '').strip()
 GENERATION_PROFILE = os.getenv('TEST_GENERATION_PROFILE', 'default').strip().lower() or 'default'
 FLAT_ENABLED = os.getenv('TEST_FLAT', 'false').strip().lower() in ('1', 'true', 'yes', 'on')
+PREMIUM_ENABLED = os.getenv('TEST_PREMIUM', 'false').strip().lower() in ('1', 'true', 'yes', 'on')
 REUSE_BROWSER_SESSION = os.getenv('TEST_REUSE_BROWSER_SESSION', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
 GENERATION_RESULT_TIMEOUT = int(os.getenv('TEST_GENERATION_RESULT_TIMEOUT', '60').strip() or '60')
 GENERATION_ACTIVE_GRACE_TIMEOUT = int(os.getenv('TEST_GENERATION_ACTIVE_GRACE_TIMEOUT', '45').strip() or '45')
@@ -1314,7 +1315,68 @@ def ensure_flat_generation_setting(driver, enabled):
     return state['enabled']
 
 
+def ensure_premium_generation_setting(driver):
+    """Select Premium and confirm it on the live control after React rerenders."""
+    last_state = None
+
+    def confirmed(current):
+        nonlocal last_state
+        last_state = current.execute_script("""
+        const normalize = (value) => String(value || '').trim().toLowerCase();
+        const controls = Array.from(document.querySelectorAll(
+            "button, [role='button'], [role='tab'], [role='radio']"
+        )).filter((el) => {
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0 &&
+                window.getComputedStyle(el).visibility !== 'hidden' &&
+                [el.textContent, el.getAttribute('aria-label')].some(
+                    (value) => normalize(value) === 'premium'
+                );
+        });
+        if (controls.length !== 1) return {error: 'Premium button missing or ambiguous'};
+        const control = controls[0];
+        let selected = null;
+        for (const attr of ['aria-pressed', 'aria-selected', 'aria-checked']) {
+            const value = control.getAttribute(attr);
+            if (value === 'true' || value === 'false') {
+                selected = value === 'true';
+                break;
+            }
+        }
+        if (selected === null) {
+            const state = control.getAttribute('data-state');
+            if (['on', 'active', 'selected', 'checked'].includes(state)) selected = true;
+            if (['off', 'inactive', 'unchecked'].includes(state)) selected = false;
+        }
+        if (selected === null) {
+            const classes = Array.from(control.classList);
+            if (classes.some((value) => ['Mui-selected', 'selected', 'active'].includes(value) ||
+                value.endsWith('-variantSolid'))) selected = true;
+            else if (classes.some((value) => value.endsWith('-variantPlain') ||
+                value.endsWith('-variantOutlined'))) selected = false;
+        }
+        if (selected === true) return {ready: true};
+        if (control.disabled || control.getAttribute('aria-disabled') === 'true') {
+            return {error: 'Premium button disabled'};
+        }
+        if (selected === null) return {error: 'Premium selection state unreadable'};
+        control.click();
+        return {changed: true};
+        """)
+        return isinstance(last_state, dict) and last_state.get('ready', False)
+
+    try:
+        WebDriverWait(driver, 10, poll_frequency=0.25).until(confirmed)
+    except TimeoutException as exc:
+        raise Exception(f"Could not select Premium: {last_state}") from exc
+
+
 def configure_generation_options(driver, metadata):
+    metadata['premium_requested'] = PREMIUM_ENABLED
+    if PREMIUM_ENABLED:
+        ensure_premium_generation_setting(driver)
+        print("  OK Premium selected")
+
     advanced_state = None
     if GENERATION_PROFILE == ADVANCED_GENERATION_PROFILE:
         print("  Ustawiam Advanced: segmentation_free=true, steps=30...")
@@ -1336,6 +1398,12 @@ def configure_generation_options(driver, metadata):
         metadata["quality_mode_state_source"] = option_state.get("quality_mode_state_source")
         metadata["turbo_enabled"] = option_state.get("turbo_enabled")
         metadata["turbo_state_source"] = option_state.get("turbo_state_source")
+
+    if PREMIUM_ENABLED:
+        # The legacy reader also scans neighbouring controls; use the state
+        # confirmed directly on the Premium button for quality metadata.
+        metadata["quality_mode_selected"] = "premium"
+        metadata["quality_mode_state_source"] = "premium_button_confirmed"
 
     if advanced_state:
         metadata["advanced_enabled"] = advanced_state.get("advanced_enabled")

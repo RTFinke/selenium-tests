@@ -1,5 +1,5 @@
 name: Siz3r Model Tests
-run-name: "runs=${{ inputs.run_keys || 'all' }} | pairing=${{ inputs.pairing_mode }} | cap=${{ inputs.garments_per_person || 'default' }} | profile=${{ inputs.generation_profile }} | flat=${{ inputs.flat }} | reuse=${{ inputs.reuse_browser_session }}"
+run-name: "runs=${{ inputs.run_keys || 'all' }} | pairing=${{ inputs.pairing_mode }} | cap=${{ inputs.garments_per_person || 'default' }} | profile=${{ inputs.generation_profile }} | premium=${{ inputs.premium }} | flat=${{ inputs.flat }} | reuse=${{ inputs.reuse_browser_session }}"
 
 on:
   workflow_dispatch:
@@ -32,6 +32,11 @@ on:
         options:
           - default
           - advanced_segmentation_free_30
+      premium:
+        description: Select Premium generation before every try-on
+        required: false
+        default: false
+        type: boolean
       flat:
         description: Enable Flat for garment images before every try-on
         required: false
@@ -84,6 +89,7 @@ jobs:
           TEST_GARMENTS_PER_PERSON: ${{ inputs.garments_per_person }}
           TEST_RUN_KEYS: ${{ inputs.run_keys }}
           TEST_GENERATION_PROFILE: ${{ inputs.generation_profile }}
+          TEST_PREMIUM: ${{ inputs.premium }}
           TEST_FLAT: ${{ inputs.flat }}
           TEST_REUSE_BROWSER_SESSION: ${{ inputs.reuse_browser_session }}
           FAIL_ON_TEST_FAILURES: "false"
