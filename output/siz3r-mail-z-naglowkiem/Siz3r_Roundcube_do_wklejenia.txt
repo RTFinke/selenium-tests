@@ -1,0 +1,120 @@
+<style type="text/css">
+    /* These Gmail rules require a doctype marker in the received HTML. */
+    u + .siz3r-body .siz3r-cta-text,
+    u + div .siz3r-cta-text {
+      background-image:linear-gradient(#09090B,#09090B);
+      -webkit-background-clip:text; background-clip:text; color:transparent !important;
+    }
+    u + .siz3r-body .siz3r-terms-text,
+    u + div .siz3r-terms-text {
+      background-image:linear-gradient(#6B7280,#6B7280);
+      -webkit-background-clip:text; background-clip:text; color:transparent !important;
+    }
+    #siz3r-email a { text-decoration:none !important; }
+    #siz3r-email .siz3r-contact a { color:inherit !important; font:inherit !important; }
+    a[x-apple-data-detectors] { color:inherit !important; text-decoration:none !important; font:inherit !important; }
+  </style>
+
+  <!--
+    SZABLON KORESPONDENCJI PERSONALNEJ Siz3r.
+    Logo: wysokość 24 px. Tytuł: 28 px bold. Tekst: 16 px regular, przycisk: 16 px bold (700).
+    Font: Inter, Arial, sans-serif. Boki: 40 px. Odstępy pionowe: 40 px i 24 px.
+    Logo jest pobierane z publicznego adresu HTTPS. Nie dołączaj pliku obrazu.
+    Szczegóły: README.txt. Zakres sprawdzeń: Weryfikacja.txt.
+  -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:100%; border-collapse:collapse; background-color:#FFFFFF; mso-table-lspace:0pt; mso-table-rspace:0pt;">
+    <tr>
+      <td align="center" valign="top" style="padding:24px 0;">
+        <!--[if mso]>
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center"><tr><td>
+        <![endif]-->
+        <table id="siz3r-email" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" bgcolor="#FFFFFF" style="width:100%; max-width:600px; table-layout:fixed; border-collapse:collapse; background-color:#FFFFFF; mso-table-lspace:0pt; mso-table-rspace:0pt;">
+          <tr>
+            <td id="siz3r-brand-line-cell" style="padding:0 40px; font-size:0; line-height:0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;">
+                <tr>
+                  <td id="siz3r-brand-line" height="3" bgcolor="#00E676" style="height:3px; font-size:0; line-height:0; background-color:#00E676; background-image:linear-gradient(#00E676,#00E676);">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td id="siz3r-header" align="left" valign="top" style="padding:40px;">
+              <img id="siz3r-wordmark" src="https://framerusercontent.com/images/JF3MdmjcwZGTeEWKNb3c8BEwqg.png" width="102" height="24" alt="Siz3r" border="0" style="display:block; width:102px; height:24px; border:0; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#09090B;">
+            </td>
+          </tr>
+          <tr>
+            <td id="siz3r-title-cell" align="left" valign="top" style="padding:0 40px 24px; font-family:'Inter', Arial, sans-serif;">
+              <h1 style="margin:0; font-family:'Inter', Arial, sans-serif; font-size:28px; line-height:36px; font-weight:700; color:#09090B;">Wirtualna przymierzalnia Siz3r</h1>
+            </td>
+          </tr>
+          <tr>
+            <td id="siz3r-subtitle-cell" align="left" valign="top" style="padding:0 40px 24px; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#6B7280;">
+              <p id="siz3r-subtitle" style="margin:0; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#6B7280;">Propozycja współpracy dla [nazwa sklepu]</p>
+            </td>
+          </tr>
+          <tr>
+            <td id="siz3r-greeting-cell" align="left" valign="top" style="padding:0 40px 24px; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#09090B;">
+              <p id="siz3r-greeting" style="margin:0; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#09090B;">Dzień dobry,</p>
+            </td>
+          </tr>
+          <tr>
+            <td id="siz3r-intro-cell" align="left" valign="top" style="padding:0 40px 24px; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#09090B;">
+              <p id="siz3r-intro" style="margin:0; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#09090B;">przesyłam propozycję współpracy z Siz3r. Nasza wirtualna przymierzalnia pozwala kupującym zobaczyć ubranie na sobie, zanim klikną »kup«.</p>
+            </td>
+          </tr>
+          <tr>
+            <td id="siz3r-offer-cell" align="left" valign="top" style="padding:0 40px 40px; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#09090B;">
+              <p id="siz3r-offer" style="margin:0; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#09090B;">Chętnie omówię sposób wdrożenia i przygotuję warunki dopasowane do Państwa sklepu. Na naszej stronie opisujemy działanie rozwiązania i dostępne możliwości współpracy.</p>
+            </td>
+          </tr>
+          <tr>
+            <td id="siz3r-cta-cell" align="left" valign="top" style="padding:0 40px 40px; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#09090B;">
+              <table id="siz3r-button-table" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;">
+                <tr>
+                  <td align="center" valign="middle" style="font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#09090B;">
+                    <!--[if mso]>
+                    <v:rect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://siz3r.com/pl/for-business" style="height:56px; v-text-anchor:middle; width:520px;" stroked="f" fillcolor="#00E676">
+                      <w:anchorlock/>
+                      <center style="font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:700; color:#09090B;">Wypróbuj Siz3r</center>
+                    </v:rect>
+                    <![endif]-->
+                    <!--[if !mso]><!-- -->
+                    <a id="siz3r-cta" href="https://siz3r.com/pl/for-business" target="_blank" style="display:block; width:100%; height:56px; padding:0; border-radius:0; background-color:#00E676; background-image:linear-gradient(#00E676,#00E676); overflow:hidden; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:56px; font-weight:700; text-decoration:none; text-align:center; white-space:nowrap; color:#09090B; -webkit-text-size-adjust:none;"><span class="siz3r-cta-text" style="color:#09090B;">Wypróbuj Siz3r</span></a>
+                    <!--<![endif]-->
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td id="siz3r-reply-cell" align="left" valign="top" style="padding:0 40px 40px; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#09090B;">
+              <p id="siz3r-reply" style="margin:0; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#09090B;">Jeśli chcą Państwo porozmawiać o wdrożeniu, proszę odpowiedzieć na tę wiadomość i podać adres sklepu oraz platformę, na której działa.</p>
+            </td>
+          </tr>
+          <tr>
+            <td id="siz3r-signature-cell" align="left" valign="top" style="padding:0 40px 40px; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#09090B;">
+              <p id="siz3r-signature" style="margin:0; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#09090B;">Pozdrawiam,<br>Bogumił Butryn<br>Dyrektor<br><span class="siz3r-contact">tel. +48 661 497 432</span></p>
+            </td>
+          </tr>
+          <tr>
+            <td id="siz3r-footer-line-cell" style="padding:0 40px; font-size:0; line-height:0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;">
+                <tr>
+                  <td id="siz3r-footer-line" height="1" bgcolor="#E4E4E7" style="height:1px; font-size:0; line-height:0; background-color:#E4E4E7; background-image:linear-gradient(#E4E4E7,#E4E4E7);">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td id="siz3r-footer" align="left" valign="top" style="padding:40px; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#6B7280;">
+              <p id="siz3r-footer-text" class="siz3r-contact" style="margin:0; font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#6B7280;">Siz3r Sp. z o.o.<br>ul. Stanisławowska 47, 54-611 Wrocław<br><span id="siz3r-court">Sąd Rejonowy dla Wrocławia-Fabrycznej, VI Wydział Gospodarczy</span><br>KRS 0000754380, NIP 894-313-42-44<br>Kapitał zakładowy 5&nbsp;000&nbsp;zł<br>office@siz3r.com, siz3r.com, <a id="siz3r-terms" href="https://siz3r.com/terms/pl/" target="_blank" style="font-family:'Inter', Arial, sans-serif; font-size:16px; line-height:24px; font-weight:normal; color:#6B7280; text-decoration:none;"><span class="siz3r-terms-text" style="color:#6B7280;">Regulamin</span></a></p>
+            </td>
+          </tr>
+        </table>
+        <!--[if mso]>
+        </td></tr></table>
+        <![endif]-->
+      </td>
+    </tr>
+  </table>

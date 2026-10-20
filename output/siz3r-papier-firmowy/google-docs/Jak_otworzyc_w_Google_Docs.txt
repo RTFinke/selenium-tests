@@ -1,0 +1,17 @@
+﻿SIZ3R — EDYTOWALNY SZABLON DO DOKUMENTÓW GOOGLE
+
+1. Prześlij plik DOCX na Dysk Google.
+2. Kliknij go prawym przyciskiem: Otwórz w > Dokumenty Google.
+3. W menu Plik wybierz Zapisz jako Dokumenty Google, aby utworzyć natywną kopię.
+4. W Plik > Ustawienia strony używaj trybu Z podziałem na strony i formatu A4.
+5. Wpisuj odpowiedzi w pustym akapicie pod każdym pytaniem. Dokument ma automatyczne podziały stron; nie zawiera ręcznych podziałów ani serii pustych akapitów.
+6. Zachowaj plik jako szablon. Każdy nowy dokument twórz przez Plik > Utwórz kopię.
+7. Przed wysłaniem sprawdź podziały stron i numerację. Gotowy dokument pobierz jako PDF z Google Docs.
+
+Plik zawiera nowe logo wskazane przez użytkownika, bieżącą stopkę bez kapitału zakładowego, edytowalne pytania i całkowicie puste miejsca na odpowiedzi. Czcionka Arial ogranicza ryzyko podmiany kroju podczas importu. Nagłówek i stopka są natywnymi elementami DOCX.
+
+DOCX został sprawdzony lokalnie. Konwersja i wygląd na koncie Google użytkownika nie zostały jeszcze sprawdzone; bez takiego sprawdzenia nie gwarantujemy identycznego układu w Google Docs.
+
+Pomoc Google:
+https://support.google.com/docs/answer/9406611?hl=pl
+https://support.google.com/docs/answer/11528737?hl=pl

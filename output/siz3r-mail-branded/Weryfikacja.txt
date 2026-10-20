@@ -1,0 +1,87 @@
+SIZ3R — WERYFIKACJA POPRAWIONEGO SZABLONU
+Data: 9 października 2026 r.
+
+ZMIANY W WYGLĄDZIE
+Logo przeniesiono do zwartego nagłówka białej karty; po prawej są dwa
+krótkie linki. Nagłówek tekstowy zmniejszono z 40 do 32 px.
+Dodano dużą ilustrację z oryginalnego szablonu, zaadaptowaną do zieleni
+siz3r; maksymalna szerokość wyświetlania wynosi 440 px.
+Przywrócono sześć zielonych ikon przy punktach współpracy oraz cztery
+oryginalne ikony social media ze starej sygnatury siz3r.
+Stopka ma kontakt, mały okrągły znak i zwarte dane firmy. W ostatnim
+rzędzie są Terms of Service po lewej i małe ikony social media po prawej.
+Nie dodano sekcji rezygnacji z ofert.
+
+WERYFIKACJA W PRZEGLĄDARCE
+Chrome/154.0.8037.98, lokalne pliki HTML:
+900 px: 2 kolumny, stopka 148.5 px, bez poziomego przewijania.
+390 px: 1 kolumna, stopka 148.5 px, bez poziomego przewijania.
+320 px: 1 kolumna, stopka 180.5 px, bez poziomego przewijania.
+Załadowało się wszystkich 13 elementów obrazu z 8 lokalnych plików.
+Punkty przechodzą z dwóch kolumn na jedną bez media queries.
+Sprawdzono także szerokość po usunięciu head z dokumentu, co odpowiada
+użyciu samego fragmentu treści w edytorze. To nie jest test Roundcube.
+Zapisano trzy zrzuty ekranu. Obrazy są skalowane, nie wychodzą poza kartę.
+
+PLIKI I GRAFIKI
+Pełny HTML: 20,500 bajtów. EML: 780,242 bajtów.
+Zgodność pełnego HTML, podglądu, fragmentu Roundcube i wersji CID sprawdzona.
+EML ma wersję tekstową i HTML oraz 8 obrazów inline osadzonych przez CID.
+Plik nie ma odbiorcy i nie został wysłany. Każdy osadzony obraz zgadza się
+bajtowo z odpowiednim plikiem assets. Ta sama ikona check jest użyta 6 razy.
+Logo, okrągły znak i 4 ikony social media są niezmienionymi kopiami źródeł.
+Ilustracja i ikona check mają rzeczywisty kanał alfa PNG.
+Szablon ma 11 poprawnie zapisanych odnośników i 8 różnych placeholderów
+grafik. Brak skryptów, formularzy, zewnętrznych fontów i pikseli śledzących.
+Brak obrazów base64 w HTML; base64 użyte przez MIME w EML jest kodowaniem
+osadzonych załączników. W kodzie są tabele i komentarze warunkowe Outlook
+z ustawieniem 96 DPI; ilustracja ma osobny kontener MSO o szerokości 440 px.
+Prompty wbudowanego image_gen są zapisane w Grafiki_prompty.txt.
+
+ZAKRES WERYFIKACJI
+Sprawdzono przeglądarkę i strukturę plików. Nie wykonano wysyłki ani testu
+w rzeczywistych skrzynkach Gmail, Onet, WP, Outlook czy edytorze Roundcube.
+Nie testowano trybu ciemnego, uwierzytelnienia domeny ani dostarczalności.
+Wygląd szablonu sam nie gwarantuje ominięcia filtrów antyspamowych.
+W Roundcube obrazy trzeba podłączyć przez selektor plików; placeholdery
+nie ładują grafik. Instrukcja jest w README.txt. Treść oferty jest tekstem,
+więc nie zależy od tego, czy odbiorca włączy wyświetlanie obrazów.
+
+ADRESY
+Strona rozwiązania: https://siz3r.com/pl/for-business
+Terms of Service: https://siz3r.com/terms
+Linki LinkedIn, Instagram, TikTok i YouTube pochodzą ze starej sygnatury
+przekazanej przez użytkownika; nie weryfikowano na nowo stanu profili.
+
+
+AKTUALIZACJA PRZYCISKU — 9 PAŹDZIERNIKA 2026
+Wygląd dopasowano do przykładu ze strony siz3r: zielone tło #00D278,
+biały tekst Arial 16 px o zwykłej grubości, rogi zaokrąglone o 8 px.
+Zachowano tekst Poznaj rozwiązanie siz3r i adres strony rozwiązania.
+Przycisk ma 224 × 52 px. Nie wymaga grafiki ani nowego załącznika.
+W pełnym HTML, EML i fragmencie treści jest warunkowy wariant VML
+z roundrect dla klasycznego Outlooka oraz zwykły link HTML dla innych
+programów. Tło zewnętrznej komórki nie zasłania zaokrąglenia VML.
+Nie ukryto linku stylem mso-hide:all; po usunięciu komentarzy przez
+edytor zwykły przycisk HTML nadal pozostaje widoczny i klikalny.
+
+Powtórzona kontrola lokalna: Chrome/154.0.8037.98.
+900 px: przycisk 224 × 52 px, biały tekst, promień 8 px; brak przewijania poziomego.
+390 px: przycisk 224 × 52 px, biały tekst, promień 8 px; brak przewijania poziomego.
+320 px: przycisk 224 × 52 px, biały tekst, promień 8 px; brak przewijania poziomego.
+Sprawdzono też podgląd po usunięciu head i komentarzy warunkowych;
+zwykły link pozostał widoczny. To symulacja, nie test edytora ehost.
+Odświeżono trzy zrzuty, HTML, fragment Roundcube, EML i ZIP.
+Tekst, odnośniki i grafiki zgadzają się z wersją sprzed zmiany przycisku.
+Obrazy CID w EML zgadzają się bajtowo z plikami assets.
+
+Klasyczny Outlook i zachowanie edytora Roundcube nie były testowane
+na rzeczywistej wiadomości. Edytor może usuwać komentarze lub VML;
+w takim przypadku zaokrąglenie w klasycznym Outlooku zależy od kodu,
+który ostatecznie został wysłany. Przed użyciem sprawdź wysyłkę próbną.
+
+Źródła metody:
+Microsoft, VML RoundRect:
+https://learn.microsoft.com/en-us/windows/win32/vml/msdn-online-vml-roundrect-element
+Litmus, przyciski HTML i warianty VML:
+https://www.litmus.com/blog/a-guide-to-bulletproof-buttons-in-email-design

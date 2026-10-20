@@ -1,0 +1,78 @@
+SIZ3R — WYSYŁKA W EHOST / ROUNDCUBE
+9 października 2026 r.
+
+1. Otwórz Siz3r_Roundcube_do_wklejenia.txt w Notatniku.
+   Zaznacz cały kod (Ctrl+A), następnie skopiuj go (Ctrl+C).
+2. W oknie nowej wiadomości Roundcube kliknij ikonę obrazka nad treścią,
+   po lewej stronie. Włącza ona HTML i pokazuje pasek formatowania.
+3. Na tym pasku wybierz Kod źródłowy, zwykle z ikoną <>.
+   Jeśli jest ukryta, rozwiń dodatkowe przyciski (...).
+4. W OKNIE KODU zaznacz wszystko (Ctrl+A) i wklej zawartość pliku (Ctrl+V).
+   Zatwierdź. Zastąpienie całej zawartości usuwa też starą stopkę.
+   W zwykłym polu wiadomości można teraz edytować widoczną treść maila.
+5. Dodaj logo przez edytor Roundcube, zgodnie z sekcją LOGO poniżej.
+   Uzupełnij pole Do oraz Temat, np. siz3r — propozycja współpracy.
+   Dopasuj powitanie i treść do konkretnego odbiorcy.
+6. Najpierw wyślij próbę na własną skrzynkę i sprawdź wygląd oraz logo.
+   Po sprawdzeniu przygotuj wiadomość do odbiorcy i kliknij Wyślij
+   w lewym dolnym rogu. Zapisz zachowuje wersję roboczą.
+   Prezentację PDF można dodać przez Załącz / Dołącz plik.
+
+LOGO
+W tej konfiguracji ehost obraz zapisany w kodzie nie wyświetlił się
+po wklejeniu: użytkownik zobaczył tekst zastępczy siz3r. Dlatego użyj
+wbudowanego mechanizmu dołączania i osadzania obrazu w Roundcube:
+1. Kliknij Załącz / Dołącz plik i wybierz assets/siz3r-logo.png
+   z tego pakietu albo oryginalne logoSiz3r.png z folderu Downloads.
+2. Kliknij miejsce logo w stopce, gdzie widać tekst zastępczy siz3r.
+3. Na pasku formatowania kliknij Wstaw/edytuj obraz. Na przesłanym zrzucie
+   jest to ikona obrazka w drugim rzędzie, pomiędzy Ω i ikoną filmu.
+4. W oknie obrazu użyj selektora pliku obok pola Źródło / Adres,
+   wybierz dołączony PNG. W starszych wersjach wybierz go z listy obrazów.
+5. Ustaw wymiary 128 × 30 px, zachowując proporcje, i zatwierdź.
+6. Pozostaw plik dołączony do wiadomości. Usunięcie go z załączników
+   może ponownie pozbawić wiadomość logo.
+7. Wyślij próbę na własny adres i sprawdź logo w odebranej wiadomości.
+
+Jeśli kliknięcie tekstu siz3r nie zaznacza obrazu, usuń tylko ten tekst
+lub niedziałający obraz i wstaw załączone logo w tym samym miejscu
+przez Wstaw/edytuj obraz. Reszta wiadomości nie wymaga ponownego wklejania.
+
+Oryginalny plik PNG pozostaje bez zmian w grafice. Osadzanie przez
+Roundcube nie wymaga publikowania logo na stronie internetowej.
+
+Nie dołączaj pliku TXT lub HTML jako załącznika, jeśli chcesz wyświetlić
+szablon jako treść maila. Kod wklejaj w oknie Kod źródłowy.
+Szablon ma już podpis i stopkę; nie dodawaj ponownie starego Podpisu.
+
+TERMS OF SERVICE
+Szablon zawiera mały link Terms of Service na samym dole stopki.
+Adres: https://siz3r.com/terms.
+Jeśli masz już gotowy szkic z poprawnie dodanym logo, dopisz na końcu
+stopki tekst Terms of Service, zaznacz go i użyj ikony łańcucha
+Wstaw/edytuj odnośnik. Wklej powyższy adres i zatwierdź.
+Ten sposób zachowuje logo osadzone w istniejącym szkicu.
+
+DOMYŚLNY HTML
+W Ustawienia → Preferencje → Tworzenie wiadomości można ustawić
+tworzenie wiadomości HTML na Zawsze. Nazwy pól zależą od wersji.
+
+ZAKRES SPRAWDZENIA
+Przygotowano fragment treści HTML bez pełnego dokumentu strony,
+z tabelami i stylami inline. Sprawdzono zachowanie oryginalnych bajtów
+logo. Zrzut użytkownika potwierdził, że wcześniejszy sposób dodania
+logo przez kod nie zadziałał w tej konfiguracji. Instrukcja została
+poprawiona na osadzanie załączonego obrazu przez wbudowany edytor.
+Nie wykonano wysyłki z konta ehost ani sprawdzenia odebranego maila.
+
+ŹRÓDŁA
+Dokumentacja Roundcube: tworzenie wiadomości i osadzanie obrazów
+https://docs.roundcube.net/doc/help/1.1/en_US/mail/compose.html
+Dokumentacja Roundcube: ustawienia tworzenia wiadomości
+https://docs.roundcube.net/doc/help/1.1/en_US/settings/preferences.html
+Roundcube 1.6.11: przełącznik edytora w skórce Elastic
+https://github.com/roundcube/roundcubemail/blob/1.6.11/skins/elastic/ui.js
+Roundcube 1.6.11: osadzanie obrazów przy wysyłce
+https://github.com/roundcube/roundcubemail/blob/1.6.11/program/include/rcmail_sendmail.php
+TinyMCE: okno kodu źródłowego
+https://www.tiny.cloud/docs/tinymce/5/code/

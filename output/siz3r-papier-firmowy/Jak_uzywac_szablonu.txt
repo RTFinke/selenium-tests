@@ -1,0 +1,34 @@
+﻿SIZ3R — PAPIER FIRMOWY I ODPOWIEDŹ DLA AIO
+
+PLIKI
+Siz3r_Papier_firmowy.docx — uniwersalny szablon korespondencji.
+Siz3r_Odpowiedz_AIO_do_uzupelnienia.docx — szablon pod otrzymany mail, z siedmioma sekcjami, pełnymi pytaniami klienta i miejscem na odpowiedź pod każdym pytaniem.
+Pliki PDF — podglądy projektu wygenerowane z treści i stylów DOCX.
+
+IMPORT DO DOKUMENTÓW GOOGLE
+1. Prześlij wybrany plik DOCX na Dysk Google (Nowy > Prześlij plik).
+2. Otwórz go przez Otwórz w > Dokumenty Google.
+3. Wybierz Plik > Zapisz jako Dokumenty Google, aby utworzyć natywną kopię.
+4. Zachowaj ją jako SZABLON — SIZ3R — papier firmowy.
+5. Przy każdej kolejnej odpowiedzi wybieraj Plik > Utwórz kopię.
+
+EDYCJA
+Zastąp pola w nawiasach kwadratowych własnym tekstem.
+W dokumencie dla AIO uzupełnij warunki techniczne, prawne i cenowe oraz dane podpisującego.
+Szare pytania klienta można zachować albo usunąć po wpisaniu odpowiedzi.
+Logo i kontakt są w nagłówku. Dane firmy i numer strony są w stopce.
+Aby zmienić te elementy, kliknij dwukrotnie nagłówek lub stopkę.
+Układ jest przygotowany na A4, w trybie Strony. W trybie Bez stron nagłówek, stopka i numeracja nie są widoczne.
+Sekcja 04 w odpowiedzi dla AIO zaczyna nową stronę. Jeśli zmienisz długość tekstu, możesz dostosować podział przed tą sekcją.
+Przed wysłaniem sprawdź układ stron po imporcie, uzupełnienie wszystkich pól i aktualność danych firmy.
+Finalną odpowiedź możesz pobrać jako PDF przez Plik > Pobierz > Dokument PDF.
+
+MATERIAŁY I ZAKRES
+Logo: oryginalny osadzony plik z istniejącej prezentacji output/aio/Siz3r_Wyniki_AIO.pdf; zachowano proporcje i przezroczystość.
+Dane stopki: oficjalna strona https://siz3r.com/pl (sprawdzona 6.10.2026).
+Tekst odpowiedzi: szablon do uzupełnienia; nie zawiera potwierdzonych deklaracji o integracji AtomStore, cenach, obsługiwanych kategoriach ani zasadach RODO.
+Dokumenty mają edytowalny tekst, style i powtarzany nagłówek oraz stopkę. Logo jest grafiką PNG.
+Podglądy PDF pokazują projekt graficzny i treść; zostały wygenerowane lokalnie z treści i stylów DOCX. Nie są eksportem z Google Docs ani Microsoft Word. Renderowanie DOCX i konwersja w Google Docs mogą nieznacznie zmienić odstępy i podziały stron.
+
+POMOC GOOGLE
+https://support.google.com/docs/answer/9406611?hl=pl

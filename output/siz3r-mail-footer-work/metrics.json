@@ -1,0 +1,57 @@
+[
+  {
+    "mode": "light",
+    "width": 900,
+    "height": 1048,
+    "scrollWidth": 900,
+    "lineToText": 24,
+    "signatureToLine": 40,
+    "textToCardBottom": 40,
+    "buttonWidth": 520,
+    "buttonWeight": "700"
+  },
+  {
+    "mode": "light",
+    "width": 390,
+    "height": 1228,
+    "scrollWidth": 390,
+    "lineToText": 24,
+    "signatureToLine": 40,
+    "textToCardBottom": 40,
+    "buttonWidth": 310,
+    "buttonWeight": "700"
+  },
+  {
+    "mode": "light",
+    "width": 320,
+    "height": 1456,
+    "scrollWidth": 320,
+    "lineToText": 24,
+    "signatureToLine": 40,
+    "textToCardBottom": 40,
+    "buttonWidth": 240,
+    "buttonWeight": "700"
+  },
+  {
+    "mode": "dark",
+    "width": 390,
+    "height": 1228,
+    "scrollWidth": 390,
+    "lineToText": 24,
+    "signatureToLine": 40,
+    "textToCardBottom": 40,
+    "buttonWidth": 310,
+    "buttonWeight": "700"
+  },
+  {
+    "mode": "blocked",
+    "width": 390,
+    "height": 1228,
+    "scrollWidth": 390,
+    "lineToText": 24,
+    "signatureToLine": 40,
+    "textToCardBottom": 40,
+    "buttonWidth": 310,
+    "buttonWeight": "700"
+  }
+]

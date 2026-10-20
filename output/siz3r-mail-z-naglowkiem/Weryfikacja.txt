@@ -1,0 +1,87 @@
+Siz3r: weryfikacja najnowszego układu
+Data 13 października 2026
+
+KOD
+Przycisk HTML width 100%, radius 0, height 56, font 16/700 i center.
+Outlook MSO v:rect width 520, height 56, brak roundrect i arcsize.
+Karta 600 z bokami 40 daje kolumnę 520. Logo 102×24, tytuł 28/36/700.
+Niezerowe paddingi tylko 24 i 40 px, potwierdzone parserem HTML.
+Stopka dokładnie jeden P z pięcioma BR, sześć wierszy bez grup.
+REGON, separatory · i dwukropki usunięte z widocznej treści stopki.
+Separator #E4E4E7, górny pasek #00E676. Logo pozostaje oryginalne.
+Treść główna, etykieta CTA, href CTA i href Regulamin zachowane.
+
+PODGLĄDY
+Wcześniejsza kontrola Chrome/155.0.8059.40 obejmowała dziewięć scenariuszy:
+jasny 900/390/320, Gmail-struktura jasna 390, ciemna symulacja 900/390/320,
+blokada PNG 390, usunięcie bloku STYLE 390.
+Brak przewijania poziomego. Przycisk ma dokładnie szerokość kolumny:
+520 px na 900, 310 px na 390, 240 px na 320. Wysokość 56 px, radius 0,
+font-weight 700. Wymagane odstępy 40/24 zmierzono w każdym scenariuszu.
+Stopka desktop ma 6 wierszy×24 px=144 px.
+Wiersz sądu bez końcowego KRS w Arial 16 ma 473.52 px przy 520 px
+dostępnej kolumny; Chrome Range potwierdza jeden wiersz.
+Na telefonie nie użyto nowrap — treść zawija się bez przepełnienia.
+PNG pobrany z HTTPS, naturalne wymiary 448×105. Po zablokowaniu
+adresu obraz jest niedostępny; tekst tytułu nadal identyfikuje Siz3r.
+Zapisano bieżące PNG. Symulacja_dark_mobile.png jest z Chrome,
+nie z Gmaila. Kontrola pikseli symulacji wykazała zachowanie tła CTA
+#00E676, czarnych liter #09090B oraz separatora #E4E4E7.
+
+KRS
+Świeży pełny odpis KRS 0000754380 pobrany 13.10.2026 o 13:57:36,
+stan rejestru 01.07.2026, najnowszy wpis 24 SYSTEM.
+Ostatni wpis sądowy 20 z 06.10.2025 wskazuje Sąd Rejonowy dla
+Wrocławia Fabrycznej we Wrocławiu, VI Wydział Gospodarczy
+Krajowego Rejestru Sądowego. Oficjalna strona sądu potwierdza
+pisownię Wrocławia-Fabrycznej oraz nazwę VI Wydział Gospodarczy KRS.
+Użyto skrótu wskazanego w feedbacku, bez zmiany sądu ani wydziału.
+Źródła
+https://api-krs.ms.gov.pl/api/krs/OdpisPelny/0000754380?rejestr=P&format=json
+https://www.wroclaw-fabryczna.sr.gov.pl/vi-wydzial-gospodarczy-krs,m,mg,2,261,267
+
+PLIKI I MIME
+HTML i podgląd zgodne. Fragment Roundcube zawiera BODY+CSS, bez HEAD.
+EML jest zgodny z HTML/TXT: multipart/alternative, text/plain, text/html.
+Bez części obrazowych MIME, Content-ID, Content-Disposition i załączników.
+Brak To, X-Unsent 1. Niczego nie wysłano. Starszy ZIP zachował hash.
+
+OGRANICZENIA
+Nie ma w tej sesji połączenia z ehost. Użytkownik wyśle próbę sam.
+Nie wykonano renderowania odebranej wiadomości w Gmailu ani Outlooku
+i nie wykonano testu aplikacji telefonu. Przeglądarka nie zastępuje
+tej próby. Roundcube może zmieniać kod i zwykle usuwa doctype, który
+jest potrzebny regułom ochrony kolorów tekstu Gmaila. Rzeczywista
+próba i odebrany EML potwierdzą przebieg wysyłki. Obrazy może blokować
+poczta odbiorcy; alt nie jest gwarantowany. Przy lokalnym Inter/innych
+fontach nazwa sądu może mieć inną szerokość i naturalnie się zawijać.
+Nie zmieniano ustawień konta ani DNS.
+
+Rozmiary aktualnych plików
+Siz3r_Oferta_szablon.html: 11204 bajtów
+Siz3r_Roundcube_do_wklejenia.txt: 10266 bajtów
+Siz3r_Oferta_podglad.eml: 13896 bajtów
+
+OSTATNIA AKTUALIZACJA — LINIE I WIERSZ SĄDU
+Obie linie są wewnętrznymi tabelami width=100% w komórkach
+z padding:0 40px. Zostawiono wysokości 3/1 px, dotychczasowe kolory
+i gradienty. Lewa krawędź każdej linii = logo = tekst = przycisk.
+Szerokości 520/310/240 px dla podglądów 900/390/320 px.
+Wiersz sądu kończy się na „VI Wydział Gospodarczy”. Numer KRS nadal
+występuje w następnym wierszu, razem z NIP. Stopka ma sześć wierszy
+treści. Przy Arial 16 px na desktopie sąd mieści się w jednym wierszu;
+na telefonie naturalnie się zawija, bez osobnego słowa KRS.
+Przycisk, jego napis i waga 700 oraz bieżące odstępy nie zmienione.
+Potwierdzono 40 px linia→logo, 40 px logo→tytuł, 40 px linia→stopka,
+40 px stopka→dół karty. Rzeczywiste PNG i wersje dostawy odświeżone.
+Ostatnia kontrola obejmuje pięć scenariuszy: jasne 900/390/320 px,
+ciemną symulację 390 px i blokadę logo 390 px. Brak przewijania poziomego.
+Nie wysyłano wiadomości ani nie wykonano testu aplikacji Gmail/Outlook.
+
+KOREKTA ODSTĘPU POD LINIĄ STOPKI
+Przywrócono 40 px od separatora do tekstu stopki. Zmiana ograniczona
+do górnego paddingu stopki; obie linie nadal mają szerokość kolumny,
+a wiersz sądu kończy się na „VI Wydział Gospodarczy”.
+Ostatnia kontrola Chrome: 900/390/320 px, ciemna symulacja 390 px
+i blokada PNG 390 px. We wszystkich zmierzono dokładnie 40 px pod
+linią stopki. Zaktualizowano pięć PNG, wersje HTML/EML/Roundcube i ZIP.

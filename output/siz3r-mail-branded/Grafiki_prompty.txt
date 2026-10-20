@@ -1,0 +1,25 @@
+SIZ3R — GRAFIKI I PROMPTY
+
+Tryb: wbudowane narzędzie image_gen, edycja dwóch istniejących grafik
+z szablonu Interview Invitation Email.html. Przezroczyste tło.
+Logotypy siz3r nie były generowane ani zmieniane.
+
+Pliki używane w mailu:
+assets/siz3r-illustration.png — ilustracja, PNG RGBA 660 × 647 px;
+wyświetlana maksymalnie na szerokość 440 px, płynnie na telefonie.
+assets/siz3r-check.png — ikona, PNG RGBA 56 × 61 px;
+wyświetlana w rozmiarze 28 × 31 px, użyta sześć razy.
+Pliki po generacji zmniejszono na potrzeby dostarczenia w mailu,
+z zachowaniem przezroczystości. Oryginalne pliki użytkownika pozostały
+bez zmian. Grafika jest ilustracją współpracy, nie zrzutem produktu.
+
+Źródło ilustracji w oryginalnym szablonie:
+https://egfehxp.stripocdn.email/content/guids/CABINET_1232eee4cab038122cd07270cd3bb85f/images/70451618316407074.png
+Źródło ikony w oryginalnym szablonie:
+https://egfehxp.stripocdn.email/content/guids/CABINET_3d0df4c18b0cea2cd3d10f772261e0b3/images/2851617878322771.png
+
+PROMPT KOŃCOWY — ILUSTRACJA
+Use case: style-transfer. Asset type: large email illustration for siz3r, adapted from the user's email template. Image 1 is the edit target. Preserve the existing laptop, the three portrait windows, the chat bubble, the same people, poses, proportions, layout and clean flat illustration style. Change the blue/purple accent colours to siz3r green #00D278, mint #BCEFD5 and pale green #EAF8F0. Recolour the laptop dark purple to deep forest charcoal #173B2A and neutral sage gray. Make the bright coral/orange clothing calm green and neutral shades for a cohesive palette; keep the human skin tones and hair natural. The existing pale circular background stays a very pale green. Keep a genuinely transparent outer background and preserve clean alpha edges. This will be shown as a larger image in an email, so use crisp simple shapes and avoid noise. No text, no letters, no logos, no watermark, no new objects or extra people. Keep the source composition rather than inventing a different scene.
+
+PROMPT KOŃCOWY — IKONA
+Use case: style-transfer. Asset type: small check icon for the six process items in the user's siz3r email template. Image 1 is the edit target. Change only the blue/lavender check mark to solid siz3r green #00D278. Preserve exactly the bold check silhouette, slight tilt, off-white rounded square behind it, and original proportions and placement. Preserve the transparent outer background and clean alpha edges. The output must be clean and smooth at 28px display size. No additional graphics, no text, no glow, no new colours, no shadow, no border, no watermark.

@@ -1,0 +1,24 @@
+SIZ3R — WERYFIKACJA WERSJI Z KOMPAKTOWĄ STOPKĄ
+Data: 9 października 2026 r.
+Wielkość HTML: 6018 bajtów. Jeden obraz logo: 5 343 bajty.
+
+WYKONANO
+- Szerokość 320 px: bez poziomego przewijania; wysokość stopki 178.5 px.
+- Szerokość 390 px: bez poziomego przewijania; wysokość stopki 162.5 px.
+- Szerokość 900 px: bez poziomego przewijania; wysokość stopki 162.5 px.
+- Logo 128 × 30 px, pięć linków i osobisty podpis z telefonem.
+- Terms of Service na dole stopki, prowadzący do https://siz3r.com/terms.
+- Link jest widoczny w podglądach przy wszystkich trzech szerokościach.
+- Dane kontaktowe i treść dostępne również przy niedostępnym obrazie.
+- Porównano akapity HTML i zwykłego tekstu.
+- Zweryfikowano EML: część tekstowa, HTML i jeden osadzony obraz CID.
+- EML nie ma adresata ani nagłówków List-Unsubscribe / List-Unsubscribe-Post.
+- Usunięto link rezygnacji, opis zgody, ikony oraz klauzule PL/EN.
+
+ZAKRES
+Podglądy pochodzą z lokalnej przeglądarki. Nie wykonano rzeczywistych
+wysyłek do Gmaila, Onetu, WP lub Outlooka ani testów w klasycznym Outlooku.
+Nie zweryfikowano trybu ciemnego ani konfiguracji SPF, DKIM i DMARC.
+W HTML do wysyłki należy uzupełnić {{logo_url}}. W EML logo jest osadzone.
+W ehost/Roundcube logo dodaj przez selektor obrazu w edytorze,
+zgodnie z instrukcją Wysylka_w_ehost_Roundcube.txt.

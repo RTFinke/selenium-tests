@@ -1,0 +1,38 @@
+Siz3r: ostatnia lista poprawek
+
+PRZYCISK
+Proste narożniki border-radius 0. Outlook v:rect bez arcsize.
+Pełna szerokość kolumny 520 px na komputerze, width 100% na telefonie.
+Wyśrodkowany napis „Wypróbuj Siz3r”, font 16 px, bold 700.
+Zachowana wysokość 56 px i kolor #00E676 z tekstem #09090B.
+
+ODSTĘPY I TYTUŁ
+Niezerowe odstępy tylko 40 i 24 px. Wymagane odstępy 40 przed i po CTA,
+przed podpisem/stopką, od linii do logo, od logo do tytułu oraz
+boki oraz górny i dolny padding stopki. 24 px między akapitami.
+Od linii do tekstu stopki pozostaje 40 px.
+Tytuł 28 px, line-height 36, bold 700. Boki karty 40 px.
+
+STOPKA
+Separator #E4E4E7. Jeden akapit, bez odstępów wewnątrz, sześć wierszy
+w żądanej kolejności. REGON usunięty, brak separatorów · i dwukropków.
+Skrócona nazwa sądu potwierdzona w pełnym odpisie KRS.
+W Chrome przy Arial 16 w 520 px mieści się w jednym wierszu.
+Na telefonie zachowano naturalne zawijanie.
+
+LOGO
+Szerokość 102 px zamiast 102,4 px, wysokość 24 px. Ten sam publiczny
+adres HTTPS i oryginalny kolor. Górna linia nadal #00E676.
+
+KONTROLA I WYSYŁKA
+Sprawdzono desktop 900 px oraz telefon 390/320 px w przeglądarce,
+symulację ciemną, blokadę obrazu i fallback bez bloku STYLE.
+Zaktualizowano HTML, Roundcube, EML, tekst, PNG i ZIP.
+Użytkownik wyśle rzeczywistą próbę sam z ehost do Gmaila i Outlooka.
+
+OSTATNIE DWIE POPRAWKI
+Obie linie znajdują się w wewnętrznych tabelach z bocznym paddingiem
+40 px. Mają szerokość kolumny tekstu: 520 px na komputerze i płynną
+szerokość na telefonie. Lewa krawędź zgadza się z logo i tekstem.
+Wiersz sądu kończy się na „VI Wydział Gospodarczy”; numer KRS
+pozostaje w następnym wierszu. Aktualne odstępy zachowano.

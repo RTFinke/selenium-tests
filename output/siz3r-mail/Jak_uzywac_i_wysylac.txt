@@ -1,0 +1,69 @@
+SIZ3R — SZABLON KORESPONDENCJI PERSONALNEJ
+Wersja z kompaktową stopką. 8 października 2026 r.
+
+PLIKI
+Siz3r_Roundcube_do_wklejenia.txt — kod do okna Kod źródłowy w ehost/Roundcube,
+logo dodaj przez selektor obrazu w edytorze, zgodnie z instrukcją poniżej.
+Wysylka_w_ehost_Roundcube.txt — instrukcja użycia tego wariantu.
+Siz3r_Oferta_szablon.html — HTML do edycji i wysłania.
+Siz3r_Oferta_podglad.html — lokalny podgląd; zachowaj obok folder assets.
+Siz3r_Oferta_podglad.eml — wiadomość do podglądu z osadzonym logo CID,
+wersją HTML i zwykłym tekstem; bez adresata.
+Siz3r_Oferta_tekst.txt — wersja zwykłego tekstu.
+assets/siz3r-logo.png — oryginalne, przezroczyste logo użytkownika.
+Podglad_desktop.png, Podglad_mobile.png, Podglad_mobile_320.png — podglądy.
+Weryfikacja.txt — wykonane sprawdzenia i ich zakres.
+
+EDYCJA I WYSYŁKA
+Jeśli wysyłasz przez ehost/Roundcube, użyj pliku
+Siz3r_Roundcube_do_wklejenia.txt i instrukcji Wysylka_w_ehost_Roundcube.txt.
+Po wklejeniu dodaj assets/siz3r-logo.png jako załącznik i wybierz go
+przez Wstaw/edytuj obraz; sam kod nie zapewnił logo w tej konfiguracji.
+Poniższe kroki dotyczą pełnego szablonu HTML i innych klientów poczty.
+
+1. Dopasuj treść i zwrot do konkretnego adresata. Podpis zawiera
+   Bogumiła Butryna i klikalny telefon +48 661 497 432.
+2. W HTML zastąp {{logo_url}} publicznym, bezpośrednim adresem HTTPS
+   pliku assets/siz3r-logo.png, np. z biblioteki obrazów używanego systemu.
+   Plik powinien być dostępny bez logowania. Nie używaj lokalnej ścieżki.
+   W podglądzie EML logo jest już osadzone w wiadomości przez CID.
+3. Zaimportuj HTML w narzędziu obsługującym kod HTML wiadomości lub
+   otwórz EML w kliencie pocztowym i przygotuj wiadomość do konkretnej osoby.
+   Wklejenie samego kodu do zwykłego edytora może pokazać kod jako tekst.
+4. Ustaw osobno temat i adresata. Przykładowy temat: „siz3r — propozycja
+   współpracy”. Użyj istniejącego adresu nadawcy obsługującego odpowiedzi.
+5. Jeśli edytujesz treść, zaktualizuj też część tekstową. System wysyłkowy
+   powinien zakodować wiadomość w UTF-8; obie wersje mogą być wysłane
+   jako multipart/alternative.
+
+UKŁAD
+Maksymalna szerokość 600 px. Tabele prezentacyjne i style inline.
+Komentarze MSO zapewniają tabelę 600 px dla klasycznego Outlooka.
+Kompaktowa stopka jest wyrównana do lewej: logo 128 × 30 px,
+e-mail i strona, następnie dane firmy. Telefon jest przy podpisie osoby.
+Na samym dole stopki jest mały link Terms of Service do siz3r.com/terms.
+Podstawowy wygląd nie zależy od media queries ani zewnętrznych fontów.
+
+SPRAWDZENIE PRZED UŻYCIEM
+Wyślij próbę przez docelowy system na kontrolowane skrzynki Gmail, Onet,
+WP i Outlook. Sprawdź telefon, komputer, jasny i ciemny wygląd,
+odpowiedź na wiadomość, klikalny telefon i linki. Podgląd w przeglądarce
+nie zastępuje sprawdzenia rzeczywistego maila po wysyłce.
+
+Sam wygląd nie gwarantuje uniknięcia spamu. Znaczenie mają także poprawne
+SPF, DKIM i DMARC, reputacja domeny i serwera oraz reakcje odbiorców.
+Nie weryfikowano konfiguracji pocztowej domeny ani wyników dostarczalności.
+Szablon używa jednego obrazu logo i nie zawiera pikseli śledzących,
+zewnętrznych fontów, formularzy ani JavaScriptu.
+
+ŹRÓDŁA TECHNICZNE
+Gmail: obsługiwany CSS
+https://developers.google.com/workspace/gmail/design/css
+Gmail: wskazówki dla nadawców
+https://support.google.com/mail/answer/81126?hl=en
+WP: polityka antyspamowa
+https://pomoc.wp.pl/polityka-antyspamowa
+Onet: SPF, DKIM i DMARC
+https://pomoc.poczta.onet.pl/spf-dkim-dmarc-bimi
+Outlook: formatowanie HTML przy wysyłce
+https://learn.microsoft.com/en-us/troubleshoot/outlook/user-interface/formatting-lost-when-editing-the-htmlbody-property

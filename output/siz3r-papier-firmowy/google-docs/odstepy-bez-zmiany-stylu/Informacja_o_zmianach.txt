@@ -1,0 +1,7 @@
+﻿POPRAWIONE ODSTEPY ? ORYGINALNY STYL
+
+Zmiany obejmuja tylko odstepy przed i po akapitach, usuniecie pustych wierszy z szablonu i ustawienia podzialu stron. Kazda sekcja od 01 do 07 jest utrzymywana w calosci na jednej stronie.
+
+Tresc, czcionki, wielkosci, kolory, pogrubienia, kursywa, podkreslenia, linki, wciecia, listy, naglowek, stopka i caly blok kontaktowy zostaly zachowane z oryginalu. Zgodnosc zostala sprawdzona automatycznym porownaniem.
+
+Plik DOCX otworz w Dokumentach Google. PDF to lokalny podglad; koncowy podzial stron sprawdz po imporcie do Google Docs. Dokument pod dotychczasowym linkiem nie zostal zmieniony.

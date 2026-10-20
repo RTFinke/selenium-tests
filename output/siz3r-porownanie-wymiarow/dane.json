@@ -1,0 +1,4880 @@
+{
+  "records": [
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Wzrost",
+      "siz3r": 177.0,
+      "actual": 177.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód szyi",
+      "siz3r": 47.0,
+      "actual": 39.0,
+      "diff": 8.0,
+      "abs_diff": 8.0,
+      "pdf_diff": 8.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Szerokość ramion",
+      "siz3r": 46.0,
+      "actual": 44.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód klatki piersiowej",
+      "siz3r": 96.0,
+      "actual": 92.0,
+      "diff": 4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": 4.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód biustu",
+      "siz3r": 96.0,
+      "actual": 92.0,
+      "diff": 4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": 4.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód pod biustem",
+      "siz3r": 91.0,
+      "actual": 85.0,
+      "diff": 6.0,
+      "abs_diff": 6.0,
+      "pdf_diff": 6.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość ramienia",
+      "siz3r": 61.0,
+      "actual": 60.0,
+      "diff": 1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": 1.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód ramienia",
+      "siz3r": 34.0,
+      "actual": 29.0,
+      "diff": 5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": 5.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód nadgarstka",
+      "siz3r": 13.0,
+      "actual": 17.0,
+      "diff": -4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": -4.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość tułowia",
+      "siz3r": 71.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość przodu",
+      "siz3r": 61.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość pleców",
+      "siz3r": 59.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość pleców do bioder",
+      "siz3r": 71.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód talii",
+      "siz3r": 101.0,
+      "actual": 88.0,
+      "diff": 13.0,
+      "abs_diff": 13.0,
+      "pdf_diff": 13.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód bioder",
+      "siz3r": 108.0,
+      "actual": 97.0,
+      "diff": 11.0,
+      "abs_diff": 11.0,
+      "pdf_diff": 11.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Wysokość stanu",
+      "siz3r": 84.0,
+      "actual": 73.0,
+      "diff": 11.0,
+      "abs_diff": 11.0,
+      "pdf_diff": 11.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód uda",
+      "siz3r": 58.0,
+      "actual": 54.0,
+      "diff": 4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": 4.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość nogawki po wewnętrznej",
+      "siz3r": 67.0,
+      "actual": 84.0,
+      "diff": -17.0,
+      "abs_diff": 17.0,
+      "pdf_diff": -17.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód kolana",
+      "siz3r": 37.0,
+      "actual": 38.0,
+      "diff": -1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": -1.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód łydki",
+      "siz3r": 37.0,
+      "actual": 37.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód kostki",
+      "siz3r": 31.0,
+      "actual": 23.0,
+      "diff": 8.0,
+      "abs_diff": 8.0,
+      "pdf_diff": 8.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Wzrost",
+      "siz3r": 177.0,
+      "actual": 177.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód szyi",
+      "siz3r": 46.0,
+      "actual": 39.0,
+      "diff": 7.0,
+      "abs_diff": 7.0,
+      "pdf_diff": 7.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Szerokość ramion",
+      "siz3r": 45.0,
+      "actual": 44.0,
+      "diff": 1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": 1.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód klatki piersiowej",
+      "siz3r": 99.0,
+      "actual": 92.0,
+      "diff": 7.0,
+      "abs_diff": 7.0,
+      "pdf_diff": 7.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód biustu",
+      "siz3r": 99.0,
+      "actual": 92.0,
+      "diff": 7.0,
+      "abs_diff": 7.0,
+      "pdf_diff": 7.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód pod biustem",
+      "siz3r": 93.0,
+      "actual": 85.0,
+      "diff": 8.0,
+      "abs_diff": 8.0,
+      "pdf_diff": 8.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość ramienia",
+      "siz3r": 65.0,
+      "actual": 60.0,
+      "diff": 5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": 5.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód ramienia",
+      "siz3r": 35.0,
+      "actual": 29.0,
+      "diff": 6.0,
+      "abs_diff": 6.0,
+      "pdf_diff": 6.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód nadgarstka",
+      "siz3r": 19.0,
+      "actual": 17.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość tułowia",
+      "siz3r": 73.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość przodu",
+      "siz3r": 63.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość pleców",
+      "siz3r": 61.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość pleców do bioder",
+      "siz3r": 73.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód talii",
+      "siz3r": 111.0,
+      "actual": 88.0,
+      "diff": 23.0,
+      "abs_diff": 23.0,
+      "pdf_diff": 23.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód bioder",
+      "siz3r": 115.0,
+      "actual": 97.0,
+      "diff": 18.0,
+      "abs_diff": 18.0,
+      "pdf_diff": 18.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Wysokość stanu",
+      "siz3r": 89.0,
+      "actual": 73.0,
+      "diff": 16.0,
+      "abs_diff": 16.0,
+      "pdf_diff": 16.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód uda",
+      "siz3r": 58.0,
+      "actual": 54.0,
+      "diff": 4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": 4.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość nogawki po wewnętrznej",
+      "siz3r": 66.0,
+      "actual": 84.0,
+      "diff": -18.0,
+      "abs_diff": 18.0,
+      "pdf_diff": -18.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód kolana",
+      "siz3r": 46.0,
+      "actual": 38.0,
+      "diff": 8.0,
+      "abs_diff": 8.0,
+      "pdf_diff": 8.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód łydki",
+      "siz3r": 41.0,
+      "actual": 37.0,
+      "diff": 4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": 4.0
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód kostki",
+      "siz3r": 36.0,
+      "actual": 23.0,
+      "diff": 13.0,
+      "abs_diff": 13.0,
+      "pdf_diff": 13.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Wzrost",
+      "siz3r": 186.0,
+      "actual": 186.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód szyi",
+      "siz3r": 41.0,
+      "actual": 41.5,
+      "diff": -0.5,
+      "abs_diff": 0.5,
+      "pdf_diff": -0.5
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Szerokość ramion",
+      "siz3r": 48.0,
+      "actual": 46.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód klatki piersiowej",
+      "siz3r": 97.0,
+      "actual": 94.0,
+      "diff": 3.0,
+      "abs_diff": 3.0,
+      "pdf_diff": 3.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód biustu",
+      "siz3r": 97.0,
+      "actual": 94.0,
+      "diff": 3.0,
+      "abs_diff": 3.0,
+      "pdf_diff": 3.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód pod biustem",
+      "siz3r": 92.0,
+      "actual": 87.0,
+      "diff": 5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": 5.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość ramienia",
+      "siz3r": 63.0,
+      "actual": 62.0,
+      "diff": 1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": 1.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód ramienia",
+      "siz3r": 22.0,
+      "actual": 30.0,
+      "diff": -8.0,
+      "abs_diff": 8.0,
+      "pdf_diff": -8.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód nadgarstka",
+      "siz3r": 13.0,
+      "actual": 17.0,
+      "diff": -4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": -4.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość tułowia",
+      "siz3r": 68.0,
+      "actual": 44.0,
+      "diff": 24.0,
+      "abs_diff": 24.0,
+      "pdf_diff": 24.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość przodu",
+      "siz3r": 59.0,
+      "actual": 54.0,
+      "diff": 5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": 5.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość pleców",
+      "siz3r": 56.0,
+      "actual": 55.0,
+      "diff": 1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": 1.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość pleców do bioder",
+      "siz3r": 68.0,
+      "actual": 58.0,
+      "diff": 10.0,
+      "abs_diff": 10.0,
+      "pdf_diff": 10.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód talii",
+      "siz3r": 104.0,
+      "actual": 77.0,
+      "diff": 27.0,
+      "abs_diff": 27.0,
+      "pdf_diff": 27.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód bioder",
+      "siz3r": 120.0,
+      "actual": 79.0,
+      "diff": 41.0,
+      "abs_diff": 41.0,
+      "pdf_diff": 41.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Wysokość stanu",
+      "siz3r": 93.0,
+      "actual": 72.0,
+      "diff": 21.0,
+      "abs_diff": 21.0,
+      "pdf_diff": 21.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód uda",
+      "siz3r": 67.0,
+      "actual": 53.0,
+      "diff": 14.0,
+      "abs_diff": 14.0,
+      "pdf_diff": 14.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość nogawki po wewnętrznej",
+      "siz3r": 83.0,
+      "actual": 79.0,
+      "diff": 4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": 4.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód kolana",
+      "siz3r": 65.0,
+      "actual": 38.0,
+      "diff": 27.0,
+      "abs_diff": 27.0,
+      "pdf_diff": 27.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód łydki",
+      "siz3r": 21.0,
+      "actual": 34.0,
+      "diff": -13.0,
+      "abs_diff": 13.0,
+      "pdf_diff": -13.0
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód kostki",
+      "siz3r": 15.0,
+      "actual": 22.0,
+      "diff": -7.0,
+      "abs_diff": 7.0,
+      "pdf_diff": -7.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Wzrost",
+      "siz3r": 186.0,
+      "actual": 186.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód szyi",
+      "siz3r": 42.0,
+      "actual": 41.5,
+      "diff": 0.5,
+      "abs_diff": 0.5,
+      "pdf_diff": 0.5
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Szerokość ramion",
+      "siz3r": 49.0,
+      "actual": 46.0,
+      "diff": 3.0,
+      "abs_diff": 3.0,
+      "pdf_diff": 3.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód klatki piersiowej",
+      "siz3r": 99.0,
+      "actual": 94.0,
+      "diff": 5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": 5.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód biustu",
+      "siz3r": 99.0,
+      "actual": 94.0,
+      "diff": 5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": 5.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód pod biustem",
+      "siz3r": 94.0,
+      "actual": 87.0,
+      "diff": 7.0,
+      "abs_diff": 7.0,
+      "pdf_diff": 7.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Długość ramienia",
+      "siz3r": 64.0,
+      "actual": 62.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód ramienia",
+      "siz3r": 22.0,
+      "actual": 30.0,
+      "diff": -8.0,
+      "abs_diff": 8.0,
+      "pdf_diff": -8.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód nadgarstka",
+      "siz3r": 14.0,
+      "actual": 17.0,
+      "diff": -3.0,
+      "abs_diff": 3.0,
+      "pdf_diff": -3.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Długość tułowia",
+      "siz3r": 68.0,
+      "actual": 44.0,
+      "diff": 24.0,
+      "abs_diff": 24.0,
+      "pdf_diff": 24.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Długość przodu",
+      "siz3r": 59.0,
+      "actual": 54.0,
+      "diff": 5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": 5.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Długość pleców",
+      "siz3r": 57.0,
+      "actual": 55.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Długość pleców do bioder",
+      "siz3r": 68.0,
+      "actual": 58.0,
+      "diff": 10.0,
+      "abs_diff": 10.0,
+      "pdf_diff": 10.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód talii",
+      "siz3r": 106.0,
+      "actual": 77.0,
+      "diff": 29.0,
+      "abs_diff": 29.0,
+      "pdf_diff": 29.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód bioder",
+      "siz3r": 121.0,
+      "actual": 79.0,
+      "diff": 42.0,
+      "abs_diff": 42.0,
+      "pdf_diff": 42.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Wysokość stanu",
+      "siz3r": 94.0,
+      "actual": 72.0,
+      "diff": 22.0,
+      "abs_diff": 22.0,
+      "pdf_diff": 22.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód uda",
+      "siz3r": 67.0,
+      "actual": 53.0,
+      "diff": 14.0,
+      "abs_diff": 14.0,
+      "pdf_diff": 14.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Długość nogawki po wewnętrznej",
+      "siz3r": 82.0,
+      "actual": 79.0,
+      "diff": 3.0,
+      "abs_diff": 3.0,
+      "pdf_diff": 3.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód kolana",
+      "siz3r": 66.0,
+      "actual": 38.0,
+      "diff": 28.0,
+      "abs_diff": 28.0,
+      "pdf_diff": 28.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód łydki",
+      "siz3r": 9.0,
+      "actual": 34.0,
+      "diff": -25.0,
+      "abs_diff": 25.0,
+      "pdf_diff": -25.0
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód kostki",
+      "siz3r": 11.0,
+      "actual": 22.0,
+      "diff": -11.0,
+      "abs_diff": 11.0,
+      "pdf_diff": -11.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Wzrost",
+      "siz3r": 186.0,
+      "actual": 186.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód szyi",
+      "siz3r": 41.0,
+      "actual": 41.5,
+      "diff": -0.5,
+      "abs_diff": 0.5,
+      "pdf_diff": -0.5
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Szerokość ramion",
+      "siz3r": 47.0,
+      "actual": 46.0,
+      "diff": 1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": 1.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód klatki piersiowej",
+      "siz3r": 98.0,
+      "actual": 94.0,
+      "diff": 4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": 4.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód biustu",
+      "siz3r": 98.0,
+      "actual": 94.0,
+      "diff": 4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": 4.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód pod biustem",
+      "siz3r": 93.0,
+      "actual": 87.0,
+      "diff": 6.0,
+      "abs_diff": 6.0,
+      "pdf_diff": 6.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość ramienia",
+      "siz3r": 66.0,
+      "actual": 62.0,
+      "diff": 4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": 4.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód ramienia",
+      "siz3r": 29.0,
+      "actual": 30.0,
+      "diff": -1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": -1.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód nadgarstka",
+      "siz3r": 19.0,
+      "actual": 17.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość tułowia",
+      "siz3r": 68.0,
+      "actual": 44.0,
+      "diff": 24.0,
+      "abs_diff": 24.0,
+      "pdf_diff": 24.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość przodu",
+      "siz3r": 59.0,
+      "actual": 54.0,
+      "diff": 5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": 5.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość pleców",
+      "siz3r": 56.0,
+      "actual": 55.0,
+      "diff": 1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": 1.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość pleców do bioder",
+      "siz3r": 68.0,
+      "actual": 58.0,
+      "diff": 10.0,
+      "abs_diff": 10.0,
+      "pdf_diff": 10.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód talii",
+      "siz3r": 106.0,
+      "actual": 77.0,
+      "diff": 29.0,
+      "abs_diff": 29.0,
+      "pdf_diff": 29.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód bioder",
+      "siz3r": 119.0,
+      "actual": 79.0,
+      "diff": 40.0,
+      "abs_diff": 40.0,
+      "pdf_diff": 40.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Wysokość stanu",
+      "siz3r": 92.0,
+      "actual": 72.0,
+      "diff": 20.0,
+      "abs_diff": 20.0,
+      "pdf_diff": 20.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód uda",
+      "siz3r": 81.0,
+      "actual": 53.0,
+      "diff": 28.0,
+      "abs_diff": 28.0,
+      "pdf_diff": 28.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość nogawki po wewnętrznej",
+      "siz3r": 82.0,
+      "actual": 79.0,
+      "diff": 3.0,
+      "abs_diff": 3.0,
+      "pdf_diff": 3.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód kolana",
+      "siz3r": 76.0,
+      "actual": 38.0,
+      "diff": 38.0,
+      "abs_diff": 38.0,
+      "pdf_diff": 38.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód łydki",
+      "siz3r": 52.0,
+      "actual": 34.0,
+      "diff": 18.0,
+      "abs_diff": 18.0,
+      "pdf_diff": 18.0
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód kostki",
+      "siz3r": 24.0,
+      "actual": 22.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Wzrost",
+      "siz3r": 186.0,
+      "actual": 186.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód szyi",
+      "siz3r": 41.0,
+      "actual": 41.5,
+      "diff": -0.5,
+      "abs_diff": 0.5,
+      "pdf_diff": -0.5
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Szerokość ramion",
+      "siz3r": 48.0,
+      "actual": 46.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód klatki piersiowej",
+      "siz3r": 100.0,
+      "actual": 94.0,
+      "diff": 6.0,
+      "abs_diff": 6.0,
+      "pdf_diff": 6.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód biustu",
+      "siz3r": 100.0,
+      "actual": 94.0,
+      "diff": 6.0,
+      "abs_diff": 6.0,
+      "pdf_diff": 6.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód pod biustem",
+      "siz3r": 94.0,
+      "actual": 87.0,
+      "diff": 7.0,
+      "abs_diff": 7.0,
+      "pdf_diff": 7.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Długość ramienia",
+      "siz3r": 67.0,
+      "actual": 62.0,
+      "diff": 5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": 5.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód ramienia",
+      "siz3r": 30.0,
+      "actual": 30.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód nadgarstka",
+      "siz3r": 20.0,
+      "actual": 17.0,
+      "diff": 3.0,
+      "abs_diff": 3.0,
+      "pdf_diff": 3.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Długość tułowia",
+      "siz3r": 68.0,
+      "actual": 44.0,
+      "diff": 24.0,
+      "abs_diff": 24.0,
+      "pdf_diff": 24.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Długość przodu",
+      "siz3r": 59.0,
+      "actual": 54.0,
+      "diff": 5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": 5.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Długość pleców",
+      "siz3r": 57.0,
+      "actual": 55.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Długość pleców do bioder",
+      "siz3r": 68.0,
+      "actual": 58.0,
+      "diff": 10.0,
+      "abs_diff": 10.0,
+      "pdf_diff": 10.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód talii",
+      "siz3r": 108.0,
+      "actual": 77.0,
+      "diff": 31.0,
+      "abs_diff": 31.0,
+      "pdf_diff": 31.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód bioder",
+      "siz3r": 120.0,
+      "actual": 79.0,
+      "diff": 41.0,
+      "abs_diff": 41.0,
+      "pdf_diff": 41.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Wysokość stanu",
+      "siz3r": 93.0,
+      "actual": 72.0,
+      "diff": 21.0,
+      "abs_diff": 21.0,
+      "pdf_diff": 21.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód uda",
+      "siz3r": 82.0,
+      "actual": 53.0,
+      "diff": 29.0,
+      "abs_diff": 29.0,
+      "pdf_diff": 29.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Długość nogawki po wewnętrznej",
+      "siz3r": 82.0,
+      "actual": 79.0,
+      "diff": 3.0,
+      "abs_diff": 3.0,
+      "pdf_diff": 3.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód kolana",
+      "siz3r": 76.0,
+      "actual": 38.0,
+      "diff": 38.0,
+      "abs_diff": 38.0,
+      "pdf_diff": 38.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód łydki",
+      "siz3r": 47.0,
+      "actual": 34.0,
+      "diff": 13.0,
+      "abs_diff": 13.0,
+      "pdf_diff": 13.0
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód kostki",
+      "siz3r": 24.0,
+      "actual": 22.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Wzrost",
+      "siz3r": 191.0,
+      "actual": 191.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód szyi",
+      "siz3r": 43.0,
+      "actual": 41.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Szerokość ramion",
+      "siz3r": 44.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód klatki piersiowej",
+      "siz3r": 90.0,
+      "actual": 103.0,
+      "diff": -13.0,
+      "abs_diff": 13.0,
+      "pdf_diff": -13.0
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód biustu",
+      "siz3r": 90.0,
+      "actual": 103.0,
+      "diff": -13.0,
+      "abs_diff": 13.0,
+      "pdf_diff": -13.0
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód pod biustem",
+      "siz3r": 85.0,
+      "actual": 93.0,
+      "diff": -8.0,
+      "abs_diff": 8.0,
+      "pdf_diff": -8.0
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość ramienia",
+      "siz3r": 55.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód ramienia",
+      "siz3r": 29.0,
+      "actual": 32.0,
+      "diff": -3.0,
+      "abs_diff": 3.0,
+      "pdf_diff": -3.0
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód nadgarstka",
+      "siz3r": 18.0,
+      "actual": 17.0,
+      "diff": 1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": 1.0
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość tułowia",
+      "siz3r": 65.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość przodu",
+      "siz3r": 56.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość pleców",
+      "siz3r": 54.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość pleców do bioder",
+      "siz3r": 65.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód talii",
+      "siz3r": 99.0,
+      "actual": 93.0,
+      "diff": 6.0,
+      "abs_diff": 6.0,
+      "pdf_diff": 6.0
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód bioder",
+      "siz3r": 111.0,
+      "actual": 106.0,
+      "diff": 5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": 5.0
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Wysokość stanu",
+      "siz3r": 86.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód uda",
+      "siz3r": 62.0,
+      "actual": 61.0,
+      "diff": 1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": 1.0
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość nogawki po wewnętrznej",
+      "siz3r": 90.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód kolana",
+      "siz3r": 57.0,
+      "actual": 41.0,
+      "diff": 16.0,
+      "abs_diff": 16.0,
+      "pdf_diff": 16.0
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód łydki",
+      "siz3r": 32.0,
+      "actual": 39.0,
+      "diff": -7.0,
+      "abs_diff": 7.0,
+      "pdf_diff": -7.0
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód kostki",
+      "siz3r": 17.0,
+      "actual": 25.0,
+      "diff": -8.0,
+      "abs_diff": 8.0,
+      "pdf_diff": -8.0
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Wzrost",
+      "siz3r": 191.0,
+      "actual": 191.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód szyi",
+      "siz3r": 49.0,
+      "actual": 41.0,
+      "diff": 8.0,
+      "abs_diff": 8.0,
+      "pdf_diff": 8.0
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Szerokość ramion",
+      "siz3r": 50.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód klatki piersiowej",
+      "siz3r": 101.0,
+      "actual": 103.0,
+      "diff": -2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": -2.0
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód biustu",
+      "siz3r": 101.0,
+      "actual": 103.0,
+      "diff": -2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": -2.0
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód pod biustem",
+      "siz3r": 96.0,
+      "actual": 93.0,
+      "diff": 3.0,
+      "abs_diff": 3.0,
+      "pdf_diff": 3.0
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Długość ramienia",
+      "siz3r": 62.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód ramienia",
+      "siz3r": 27.0,
+      "actual": 32.0,
+      "diff": -5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": -5.0
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód nadgarstka",
+      "siz3r": 19.0,
+      "actual": 17.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Długość tułowia",
+      "siz3r": 72.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Długość przodu",
+      "siz3r": 62.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Długość pleców",
+      "siz3r": 60.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Długość pleców do bioder",
+      "siz3r": 72.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód talii",
+      "siz3r": 110.0,
+      "actual": 93.0,
+      "diff": 17.0,
+      "abs_diff": 17.0,
+      "pdf_diff": 17.0
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód bioder",
+      "siz3r": 124.0,
+      "actual": 106.0,
+      "diff": 18.0,
+      "abs_diff": 18.0,
+      "pdf_diff": 18.0
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Wysokość stanu",
+      "siz3r": 96.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód uda",
+      "siz3r": 68.0,
+      "actual": 61.0,
+      "diff": 7.0,
+      "abs_diff": 7.0,
+      "pdf_diff": 7.0
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Długość nogawki po wewnętrznej",
+      "siz3r": 79.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód kolana",
+      "siz3r": 63.0,
+      "actual": 41.0,
+      "diff": 22.0,
+      "abs_diff": 22.0,
+      "pdf_diff": 22.0
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód łydki",
+      "siz3r": 34.0,
+      "actual": 39.0,
+      "diff": -5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": -5.0
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "measurement": "Obwód kostki",
+      "siz3r": 18.0,
+      "actual": 25.0,
+      "diff": -7.0,
+      "abs_diff": 7.0,
+      "pdf_diff": -7.0
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Wzrost",
+      "siz3r": 191.0,
+      "actual": 191.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód szyi",
+      "siz3r": 43.0,
+      "actual": 41.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Szerokość ramion",
+      "siz3r": 44.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód klatki piersiowej",
+      "siz3r": 93.0,
+      "actual": 103.0,
+      "diff": -10.0,
+      "abs_diff": 10.0,
+      "pdf_diff": -10.0
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód biustu",
+      "siz3r": 93.0,
+      "actual": 103.0,
+      "diff": -10.0,
+      "abs_diff": 10.0,
+      "pdf_diff": -10.0
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód pod biustem",
+      "siz3r": 88.0,
+      "actual": 93.0,
+      "diff": -5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": -5.0
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość ramienia",
+      "siz3r": 61.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód ramienia",
+      "siz3r": 32.0,
+      "actual": 32.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód nadgarstka",
+      "siz3r": 22.0,
+      "actual": 17.0,
+      "diff": 5.0,
+      "abs_diff": 5.0,
+      "pdf_diff": 5.0
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość tułowia",
+      "siz3r": 68.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość przodu",
+      "siz3r": 59.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość pleców",
+      "siz3r": 57.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość pleców do bioder",
+      "siz3r": 68.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód talii",
+      "siz3r": 104.0,
+      "actual": 93.0,
+      "diff": 11.0,
+      "abs_diff": 11.0,
+      "pdf_diff": 11.0
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód bioder",
+      "siz3r": 112.0,
+      "actual": 106.0,
+      "diff": 6.0,
+      "abs_diff": 6.0,
+      "pdf_diff": 6.0
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Wysokość stanu",
+      "siz3r": 87.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód uda",
+      "siz3r": 72.0,
+      "actual": 61.0,
+      "diff": 11.0,
+      "abs_diff": 11.0,
+      "pdf_diff": 11.0
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość nogawki po wewnętrznej",
+      "siz3r": 88.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód kolana",
+      "siz3r": 66.0,
+      "actual": 41.0,
+      "diff": 25.0,
+      "abs_diff": 25.0,
+      "pdf_diff": 25.0
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód łydki",
+      "siz3r": 37.0,
+      "actual": 39.0,
+      "diff": -2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": -2.0
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód kostki",
+      "siz3r": 32.0,
+      "actual": 25.0,
+      "diff": 7.0,
+      "abs_diff": 7.0,
+      "pdf_diff": 7.0
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Wzrost",
+      "siz3r": 191.0,
+      "actual": 191.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód szyi",
+      "siz3r": 44.0,
+      "actual": 41.0,
+      "diff": 3.0,
+      "abs_diff": 3.0,
+      "pdf_diff": 3.0
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Szerokość ramion",
+      "siz3r": 48.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód klatki piersiowej",
+      "siz3r": 99.0,
+      "actual": 103.0,
+      "diff": -4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": -4.0
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód biustu",
+      "siz3r": 99.0,
+      "actual": 103.0,
+      "diff": -4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": -4.0
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód pod biustem",
+      "siz3r": 94.0,
+      "actual": 93.0,
+      "diff": 1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": 1.0
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Długość ramienia",
+      "siz3r": 64.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód ramienia",
+      "siz3r": 31.0,
+      "actual": 32.0,
+      "diff": -1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": -1.0
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód nadgarstka",
+      "siz3r": 23.0,
+      "actual": 17.0,
+      "diff": 6.0,
+      "abs_diff": 6.0,
+      "pdf_diff": 6.0
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Długość tułowia",
+      "siz3r": 71.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Długość przodu",
+      "siz3r": 62.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Długość pleców",
+      "siz3r": 59.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Długość pleców do bioder",
+      "siz3r": 71.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód talii",
+      "siz3r": 111.0,
+      "actual": 93.0,
+      "diff": 18.0,
+      "abs_diff": 18.0,
+      "pdf_diff": 18.0
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód bioder",
+      "siz3r": 120.0,
+      "actual": 106.0,
+      "diff": 14.0,
+      "abs_diff": 14.0,
+      "pdf_diff": 14.0
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Wysokość stanu",
+      "siz3r": 93.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód uda",
+      "siz3r": 75.0,
+      "actual": 61.0,
+      "diff": 14.0,
+      "abs_diff": 14.0,
+      "pdf_diff": 14.0
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Długość nogawki po wewnętrznej",
+      "siz3r": 83.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód kolana",
+      "siz3r": 69.0,
+      "actual": 41.0,
+      "diff": 28.0,
+      "abs_diff": 28.0,
+      "pdf_diff": 28.0
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód łydki",
+      "siz3r": 38.0,
+      "actual": 39.0,
+      "diff": -1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": -1.0
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "measurement": "Obwód kostki",
+      "siz3r": 34.0,
+      "actual": 25.0,
+      "diff": 9.0,
+      "abs_diff": 9.0,
+      "pdf_diff": 9.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Wzrost",
+      "siz3r": 191.0,
+      "actual": 191.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód szyi",
+      "siz3r": 49.0,
+      "actual": 42.0,
+      "diff": 7.0,
+      "abs_diff": 7.0,
+      "pdf_diff": 7.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Szerokość ramion",
+      "siz3r": 53.0,
+      "actual": 53.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód klatki piersiowej",
+      "siz3r": 103.0,
+      "actual": 103.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód biustu",
+      "siz3r": 103.0,
+      "actual": 102.0,
+      "diff": 1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": 1.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód pod biustem",
+      "siz3r": 98.0,
+      "actual": 94.0,
+      "diff": 4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": 4.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość ramienia",
+      "siz3r": 69.0,
+      "actual": 69.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód ramienia",
+      "siz3r": 28.0,
+      "actual": 36.0,
+      "diff": -8.0,
+      "abs_diff": 8.0,
+      "pdf_diff": -8.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód nadgarstka",
+      "siz3r": 19.0,
+      "actual": 19.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość tułowia",
+      "siz3r": 69.0,
+      "actual": 54.0,
+      "diff": 15.0,
+      "abs_diff": 15.0,
+      "pdf_diff": 15.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość przodu",
+      "siz3r": 60.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość pleców",
+      "siz3r": 58.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość pleców do bioder",
+      "siz3r": 69.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód talii",
+      "siz3r": 115.0,
+      "actual": 93.0,
+      "diff": 22.0,
+      "abs_diff": 22.0,
+      "pdf_diff": 22.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód bioder",
+      "siz3r": 143.0,
+      "actual": 109.0,
+      "diff": 34.0,
+      "abs_diff": 34.0,
+      "pdf_diff": 34.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Wysokość stanu",
+      "siz3r": 111.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód uda",
+      "siz3r": 59.0,
+      "actual": 68.0,
+      "diff": -9.0,
+      "abs_diff": 9.0,
+      "pdf_diff": -9.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Długość nogawki po wewnętrznej",
+      "siz3r": 84.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód kolana",
+      "siz3r": 48.0,
+      "actual": 42.0,
+      "diff": 6.0,
+      "abs_diff": 6.0,
+      "pdf_diff": 6.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód łydki",
+      "siz3r": 49.0,
+      "actual": 39.0,
+      "diff": 10.0,
+      "abs_diff": 10.0,
+      "pdf_diff": 10.0
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "measurement": "Obwód kostki",
+      "siz3r": 46.0,
+      "actual": 25.0,
+      "diff": 21.0,
+      "abs_diff": 21.0,
+      "pdf_diff": 21.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Wzrost",
+      "siz3r": 191.0,
+      "actual": 191.0,
+      "diff": 0.0,
+      "abs_diff": 0.0,
+      "pdf_diff": 0.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód szyi",
+      "siz3r": 49.0,
+      "actual": 42.0,
+      "diff": 7.0,
+      "abs_diff": 7.0,
+      "pdf_diff": 7.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Szerokość ramion",
+      "siz3r": 50.0,
+      "actual": 53.0,
+      "diff": -3.0,
+      "abs_diff": 3.0,
+      "pdf_diff": -3.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód klatki piersiowej",
+      "siz3r": 104.0,
+      "actual": 103.0,
+      "diff": 1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": 1.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód biustu",
+      "siz3r": 104.0,
+      "actual": 102.0,
+      "diff": 2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": 2.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód pod biustem",
+      "siz3r": 98.0,
+      "actual": 94.0,
+      "diff": 4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": 4.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość ramienia",
+      "siz3r": 68.0,
+      "actual": 69.0,
+      "diff": -1.0,
+      "abs_diff": 1.0,
+      "pdf_diff": -1.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód ramienia",
+      "siz3r": 34.0,
+      "actual": 36.0,
+      "diff": -2.0,
+      "abs_diff": 2.0,
+      "pdf_diff": -2.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód nadgarstka",
+      "siz3r": 23.0,
+      "actual": 19.0,
+      "diff": 4.0,
+      "abs_diff": 4.0,
+      "pdf_diff": 4.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość tułowia",
+      "siz3r": 67.0,
+      "actual": 54.0,
+      "diff": 13.0,
+      "abs_diff": 13.0,
+      "pdf_diff": 13.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość przodu",
+      "siz3r": 58.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość pleców",
+      "siz3r": 56.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość pleców do bioder",
+      "siz3r": 67.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód talii",
+      "siz3r": 112.0,
+      "actual": 93.0,
+      "diff": 19.0,
+      "abs_diff": 19.0,
+      "pdf_diff": 19.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód bioder",
+      "siz3r": 130.0,
+      "actual": 109.0,
+      "diff": 21.0,
+      "abs_diff": 21.0,
+      "pdf_diff": 21.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Wysokość stanu",
+      "siz3r": 101.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód uda",
+      "siz3r": 59.0,
+      "actual": 68.0,
+      "diff": -9.0,
+      "abs_diff": 9.0,
+      "pdf_diff": -9.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Długość nogawki po wewnętrznej",
+      "siz3r": 89.0,
+      "actual": null,
+      "diff": null,
+      "abs_diff": null,
+      "pdf_diff": null
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód kolana",
+      "siz3r": 58.0,
+      "actual": 42.0,
+      "diff": 16.0,
+      "abs_diff": 16.0,
+      "pdf_diff": 16.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód łydki",
+      "siz3r": 54.0,
+      "actual": 39.0,
+      "diff": 15.0,
+      "abs_diff": 15.0,
+      "pdf_diff": 15.0
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "measurement": "Obwód kostki",
+      "siz3r": 51.0,
+      "actual": 25.0,
+      "diff": 26.0,
+      "abs_diff": 26.0,
+      "pdf_diff": 26.0
+    }
+  ],
+  "files": [
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "rows": 21,
+      "pages": 1,
+      "sha256": "d6350421cb3338ce8ecb252a263379a5f8162b1284ef4cf251d7ab512d4a1210"
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "rows": 21,
+      "pages": 1,
+      "sha256": "2f36506a5147eeb2ca4df1ae929d3b89d582ff1e29f9d63e9aa55f6b9a9c0c3d"
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "rows": 21,
+      "pages": 1,
+      "sha256": "9fb0f53f56d89f3286cdc508b93c989ab8f24e241c305c500a1aeb32674efce1"
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "rows": 21,
+      "pages": 1,
+      "sha256": "2259c232b25da377958f7c7574d3b5a1f731611ef11e1d32ace566bd8b77c52e"
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "rows": 21,
+      "pages": 1,
+      "sha256": "a5c661f972549b85b40f7819433df2b6d37a96aa46eaec603bdd1a1c86edeffb"
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "rows": 21,
+      "pages": 1,
+      "sha256": "16224c5c0202745c9046dc3eb2c15e08e1c90ab98db4239a3da614f4e15d9fd1"
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "rows": 21,
+      "pages": 1,
+      "sha256": "61180199f1bf866e1614379b2a0b8d785c27cd7104e20a8f57b0d699784eaf26"
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "rows": 21,
+      "pages": 1,
+      "sha256": "49f67bc9cf913446217fcb87755a12fc9152c9ac52ede0ef5aa6687b0195adf4"
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "rows": 21,
+      "pages": 1,
+      "sha256": "45f6b0609f398d0946bf3963cd2ee83bb0beb3b3d84b3a5e622ad91ce56bc096"
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "rows": 21,
+      "pages": 1,
+      "sha256": "e24f5706f6a0bd00bbfe54d54a81efb233fee2186cf261670793780d1abc5f30"
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "rows": 21,
+      "pages": 1,
+      "sha256": "063ca8793f77a63b91c5d78169a45bafe5e0f5ebab245ecfa2193723b1d23e99"
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "rows": 21,
+      "pages": 1,
+      "sha256": "e6b6e63fc9d902bbaef85a72831476b975a70e598960640e8725392ba9180c4e"
+    }
+  ],
+  "summary": [
+    {
+      "measurement": "Wzrost",
+      "first": {
+        "n": 6,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "second": {
+        "n": 6,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "change": 0.0
+    },
+    {
+      "measurement": "Obwód szyi",
+      "first": {
+        "n": 6,
+        "mae": 4.333333333333333,
+        "bias": 4.166666666666667
+      },
+      "second": {
+        "n": 6,
+        "mae": 3.3333333333333335,
+        "bias": 3.0
+      },
+      "change": -0.9999999999999996
+    },
+    {
+      "measurement": "Szerokość ramion",
+      "first": {
+        "n": 4,
+        "mae": 1.75,
+        "bias": 1.75
+      },
+      "second": {
+        "n": 4,
+        "mae": 1.75,
+        "bias": 0.25
+      },
+      "change": 0.0
+    },
+    {
+      "measurement": "Obwód klatki piersiowej",
+      "first": {
+        "n": 6,
+        "mae": 4.5,
+        "bias": -0.5
+      },
+      "second": {
+        "n": 6,
+        "mae": 5.333333333333333,
+        "bias": 0.6666666666666666
+      },
+      "change": 0.833333333333333
+    },
+    {
+      "measurement": "Obwód biustu",
+      "first": {
+        "n": 6,
+        "mae": 4.666666666666667,
+        "bias": -0.3333333333333333
+      },
+      "second": {
+        "n": 6,
+        "mae": 5.5,
+        "bias": 0.8333333333333334
+      },
+      "change": 0.833333333333333
+    },
+    {
+      "measurement": "Obwód pod biustem",
+      "first": {
+        "n": 6,
+        "mae": 5.5,
+        "bias": 2.8333333333333335
+      },
+      "second": {
+        "n": 6,
+        "mae": 5.166666666666667,
+        "bias": 3.5
+      },
+      "change": -0.33333333333333304
+    },
+    {
+      "measurement": "Długość ramienia",
+      "first": {
+        "n": 4,
+        "mae": 1.0,
+        "bias": 1.0
+      },
+      "second": {
+        "n": 4,
+        "mae": 3.75,
+        "bias": 3.25
+      },
+      "change": 2.75
+    },
+    {
+      "measurement": "Obwód ramienia",
+      "first": {
+        "n": 6,
+        "mae": 6.166666666666667,
+        "bias": -4.5
+      },
+      "second": {
+        "n": 6,
+        "mae": 1.6666666666666667,
+        "bias": 0.3333333333333333
+      },
+      "change": -4.5
+    },
+    {
+      "measurement": "Obwód nadgarstka",
+      "first": {
+        "n": 6,
+        "mae": 2.3333333333333335,
+        "bias": -1.3333333333333333
+      },
+      "second": {
+        "n": 6,
+        "mae": 3.6666666666666665,
+        "bias": 3.6666666666666665
+      },
+      "change": 1.333333333333333
+    },
+    {
+      "measurement": "Długość tułowia",
+      "first": {
+        "n": 3,
+        "mae": 21.0,
+        "bias": 21.0
+      },
+      "second": {
+        "n": 3,
+        "mae": 20.333333333333332,
+        "bias": 20.333333333333332
+      },
+      "change": -0.6666666666666679
+    },
+    {
+      "measurement": "Długość przodu",
+      "first": {
+        "n": 2,
+        "mae": 5.0,
+        "bias": 5.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 5.0,
+        "bias": 5.0
+      },
+      "change": 0.0
+    },
+    {
+      "measurement": "Długość pleców",
+      "first": {
+        "n": 2,
+        "mae": 1.5,
+        "bias": 1.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 1.5,
+        "bias": 1.5
+      },
+      "change": 0.0
+    },
+    {
+      "measurement": "Długość pleców do bioder",
+      "first": {
+        "n": 2,
+        "mae": 10.0,
+        "bias": 10.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 10.0,
+        "bias": 10.0
+      },
+      "change": 0.0
+    },
+    {
+      "measurement": "Obwód talii",
+      "first": {
+        "n": 6,
+        "mae": 19.0,
+        "bias": 19.0
+      },
+      "second": {
+        "n": 6,
+        "mae": 21.833333333333332,
+        "bias": 21.833333333333332
+      },
+      "change": 2.833333333333332
+    },
+    {
+      "measurement": "Obwód bioder",
+      "first": {
+        "n": 6,
+        "mae": 25.166666666666668,
+        "bias": 25.166666666666668
+      },
+      "second": {
+        "n": 6,
+        "mae": 23.333333333333332,
+        "bias": 23.333333333333332
+      },
+      "change": -1.8333333333333357
+    },
+    {
+      "measurement": "Wysokość stanu",
+      "first": {
+        "n": 3,
+        "mae": 18.0,
+        "bias": 18.0
+      },
+      "second": {
+        "n": 3,
+        "mae": 19.0,
+        "bias": 19.0
+      },
+      "change": 1.0
+    },
+    {
+      "measurement": "Obwód uda",
+      "first": {
+        "n": 6,
+        "mae": 8.166666666666666,
+        "bias": 5.166666666666667
+      },
+      "second": {
+        "n": 6,
+        "mae": 15.833333333333334,
+        "bias": 12.833333333333334
+      },
+      "change": 7.666666666666668
+    },
+    {
+      "measurement": "Długość nogawki po wewnętrznej",
+      "first": {
+        "n": 3,
+        "mae": 8.0,
+        "bias": -3.3333333333333335
+      },
+      "second": {
+        "n": 3,
+        "mae": 8.0,
+        "bias": -4.0
+      },
+      "change": 0.0
+    },
+    {
+      "measurement": "Obwód kolana",
+      "first": {
+        "n": 6,
+        "mae": 16.666666666666668,
+        "bias": 16.333333333333332
+      },
+      "second": {
+        "n": 6,
+        "mae": 25.5,
+        "bias": 25.5
+      },
+      "change": 8.833333333333332
+    },
+    {
+      "measurement": "Obwód łydki",
+      "first": {
+        "n": 6,
+        "mae": 10.0,
+        "bias": -6.666666666666667
+      },
+      "second": {
+        "n": 6,
+        "mae": 8.833333333333334,
+        "bias": 7.833333333333333
+      },
+      "change": -1.166666666666666
+    },
+    {
+      "measurement": "Obwód kostki",
+      "first": {
+        "n": 6,
+        "mae": 10.333333333333334,
+        "bias": -0.6666666666666666
+      },
+      "second": {
+        "n": 6,
+        "mae": 9.833333333333334,
+        "bias": 9.833333333333334
+      },
+      "change": -0.5
+    }
+  ],
+  "overall": {
+    "1": {
+      "n": 101,
+      "mae": 8.772277227722773,
+      "bias": 4.98019801980198
+    },
+    "2": {
+      "n": 101,
+      "mae": 9.663366336633663,
+      "bias": 8.237623762376238
+    }
+  },
+  "person_summary": [
+    {
+      "person": "BB",
+      "runs": 1,
+      "first": {
+        "n": 17,
+        "mae": 5.823529411764706,
+        "bias": 3.235294117647059
+      },
+      "second": {
+        "n": 17,
+        "mae": 8.647058823529411,
+        "bias": 6.529411764705882
+      },
+      "change": 2.8235294117647056
+    },
+    {
+      "person": "JB",
+      "runs": 2,
+      "first": {
+        "n": 42,
+        "mae": 11.166666666666666,
+        "bias": 7.380952380952381
+      },
+      "second": {
+        "n": 42,
+        "mae": 11.642857142857142,
+        "bias": 11.547619047619047
+      },
+      "change": 0.4761904761904763
+    },
+    {
+      "person": "PF",
+      "runs": 2,
+      "first": {
+        "n": 26,
+        "mae": 6.961538461538462,
+        "bias": 1.3461538461538463
+      },
+      "second": {
+        "n": 26,
+        "mae": 7.576923076923077,
+        "bias": 4.730769230769231
+      },
+      "change": 0.615384615384615
+    },
+    {
+      "person": "RF",
+      "runs": 1,
+      "first": {
+        "n": 16,
+        "mae": 8.5625,
+        "bias": 6.4375
+      },
+      "second": {
+        "n": 16,
+        "mae": 8.9375,
+        "bias": 7.0625
+      },
+      "change": 0.375
+    }
+  ],
+  "person_dimensions": [
+    {
+      "person": "BB",
+      "measurement": "Wzrost",
+      "first": {
+        "n": 1,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "change": 0.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Obwód szyi",
+      "first": {
+        "n": 1,
+        "mae": 8.0,
+        "bias": 8.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 7.0,
+        "bias": 7.0
+      },
+      "change": -1.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Szerokość ramion",
+      "first": {
+        "n": 1,
+        "mae": 2.0,
+        "bias": 2.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 1.0,
+        "bias": 1.0
+      },
+      "change": -1.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Obwód klatki piersiowej",
+      "first": {
+        "n": 1,
+        "mae": 4.0,
+        "bias": 4.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 7.0,
+        "bias": 7.0
+      },
+      "change": 3.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Obwód biustu",
+      "first": {
+        "n": 1,
+        "mae": 4.0,
+        "bias": 4.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 7.0,
+        "bias": 7.0
+      },
+      "change": 3.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Obwód pod biustem",
+      "first": {
+        "n": 1,
+        "mae": 6.0,
+        "bias": 6.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 8.0,
+        "bias": 8.0
+      },
+      "change": 2.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Długość ramienia",
+      "first": {
+        "n": 1,
+        "mae": 1.0,
+        "bias": 1.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 5.0,
+        "bias": 5.0
+      },
+      "change": 4.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Obwód ramienia",
+      "first": {
+        "n": 1,
+        "mae": 5.0,
+        "bias": 5.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 6.0,
+        "bias": 6.0
+      },
+      "change": 1.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Obwód nadgarstka",
+      "first": {
+        "n": 1,
+        "mae": 4.0,
+        "bias": -4.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 2.0,
+        "bias": 2.0
+      },
+      "change": -2.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Długość tułowia",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "BB",
+      "measurement": "Długość przodu",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "BB",
+      "measurement": "Długość pleców",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "BB",
+      "measurement": "Długość pleców do bioder",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "BB",
+      "measurement": "Obwód talii",
+      "first": {
+        "n": 1,
+        "mae": 13.0,
+        "bias": 13.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 23.0,
+        "bias": 23.0
+      },
+      "change": 10.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Obwód bioder",
+      "first": {
+        "n": 1,
+        "mae": 11.0,
+        "bias": 11.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 18.0,
+        "bias": 18.0
+      },
+      "change": 7.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Wysokość stanu",
+      "first": {
+        "n": 1,
+        "mae": 11.0,
+        "bias": 11.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 16.0,
+        "bias": 16.0
+      },
+      "change": 5.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Obwód uda",
+      "first": {
+        "n": 1,
+        "mae": 4.0,
+        "bias": 4.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 4.0,
+        "bias": 4.0
+      },
+      "change": 0.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Długość nogawki po wewnętrznej",
+      "first": {
+        "n": 1,
+        "mae": 17.0,
+        "bias": -17.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 18.0,
+        "bias": -18.0
+      },
+      "change": 1.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Obwód kolana",
+      "first": {
+        "n": 1,
+        "mae": 1.0,
+        "bias": -1.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 8.0,
+        "bias": 8.0
+      },
+      "change": 7.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Obwód łydki",
+      "first": {
+        "n": 1,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 4.0,
+        "bias": 4.0
+      },
+      "change": 4.0
+    },
+    {
+      "person": "BB",
+      "measurement": "Obwód kostki",
+      "first": {
+        "n": 1,
+        "mae": 8.0,
+        "bias": 8.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 13.0,
+        "bias": 13.0
+      },
+      "change": 5.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Wzrost",
+      "first": {
+        "n": 2,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "change": 0.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Obwód szyi",
+      "first": {
+        "n": 2,
+        "mae": 0.5,
+        "bias": 0.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 0.5,
+        "bias": -0.5
+      },
+      "change": 0.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Szerokość ramion",
+      "first": {
+        "n": 2,
+        "mae": 2.5,
+        "bias": 2.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 1.5,
+        "bias": 1.5
+      },
+      "change": -1.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Obwód klatki piersiowej",
+      "first": {
+        "n": 2,
+        "mae": 4.0,
+        "bias": 4.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 5.0,
+        "bias": 5.0
+      },
+      "change": 1.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Obwód biustu",
+      "first": {
+        "n": 2,
+        "mae": 4.0,
+        "bias": 4.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 5.0,
+        "bias": 5.0
+      },
+      "change": 1.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Obwód pod biustem",
+      "first": {
+        "n": 2,
+        "mae": 6.0,
+        "bias": 6.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 6.5,
+        "bias": 6.5
+      },
+      "change": 0.5
+    },
+    {
+      "person": "JB",
+      "measurement": "Długość ramienia",
+      "first": {
+        "n": 2,
+        "mae": 1.5,
+        "bias": 1.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 4.5,
+        "bias": 4.5
+      },
+      "change": 3.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Obwód ramienia",
+      "first": {
+        "n": 2,
+        "mae": 8.0,
+        "bias": -8.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 0.5,
+        "bias": -0.5
+      },
+      "change": -7.5
+    },
+    {
+      "person": "JB",
+      "measurement": "Obwód nadgarstka",
+      "first": {
+        "n": 2,
+        "mae": 3.5,
+        "bias": -3.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 2.5,
+        "bias": 2.5
+      },
+      "change": -1.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Długość tułowia",
+      "first": {
+        "n": 2,
+        "mae": 24.0,
+        "bias": 24.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 24.0,
+        "bias": 24.0
+      },
+      "change": 0.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Długość przodu",
+      "first": {
+        "n": 2,
+        "mae": 5.0,
+        "bias": 5.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 5.0,
+        "bias": 5.0
+      },
+      "change": 0.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Długość pleców",
+      "first": {
+        "n": 2,
+        "mae": 1.5,
+        "bias": 1.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 1.5,
+        "bias": 1.5
+      },
+      "change": 0.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Długość pleców do bioder",
+      "first": {
+        "n": 2,
+        "mae": 10.0,
+        "bias": 10.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 10.0,
+        "bias": 10.0
+      },
+      "change": 0.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Obwód talii",
+      "first": {
+        "n": 2,
+        "mae": 28.0,
+        "bias": 28.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 30.0,
+        "bias": 30.0
+      },
+      "change": 2.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Obwód bioder",
+      "first": {
+        "n": 2,
+        "mae": 41.5,
+        "bias": 41.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 40.5,
+        "bias": 40.5
+      },
+      "change": -1.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Wysokość stanu",
+      "first": {
+        "n": 2,
+        "mae": 21.5,
+        "bias": 21.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 20.5,
+        "bias": 20.5
+      },
+      "change": -1.0
+    },
+    {
+      "person": "JB",
+      "measurement": "Obwód uda",
+      "first": {
+        "n": 2,
+        "mae": 14.0,
+        "bias": 14.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 28.5,
+        "bias": 28.5
+      },
+      "change": 14.5
+    },
+    {
+      "person": "JB",
+      "measurement": "Długość nogawki po wewnętrznej",
+      "first": {
+        "n": 2,
+        "mae": 3.5,
+        "bias": 3.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 3.0,
+        "bias": 3.0
+      },
+      "change": -0.5
+    },
+    {
+      "person": "JB",
+      "measurement": "Obwód kolana",
+      "first": {
+        "n": 2,
+        "mae": 27.5,
+        "bias": 27.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 38.0,
+        "bias": 38.0
+      },
+      "change": 10.5
+    },
+    {
+      "person": "JB",
+      "measurement": "Obwód łydki",
+      "first": {
+        "n": 2,
+        "mae": 19.0,
+        "bias": -19.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 15.5,
+        "bias": 15.5
+      },
+      "change": -3.5
+    },
+    {
+      "person": "JB",
+      "measurement": "Obwód kostki",
+      "first": {
+        "n": 2,
+        "mae": 9.0,
+        "bias": -9.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 2.0,
+        "bias": 2.0
+      },
+      "change": -7.0
+    },
+    {
+      "person": "PF",
+      "measurement": "Wzrost",
+      "first": {
+        "n": 2,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "change": 0.0
+    },
+    {
+      "person": "PF",
+      "measurement": "Obwód szyi",
+      "first": {
+        "n": 2,
+        "mae": 5.0,
+        "bias": 5.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 2.5,
+        "bias": 2.5
+      },
+      "change": -2.5
+    },
+    {
+      "person": "PF",
+      "measurement": "Szerokość ramion",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "PF",
+      "measurement": "Obwód klatki piersiowej",
+      "first": {
+        "n": 2,
+        "mae": 7.5,
+        "bias": -7.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 7.0,
+        "bias": -7.0
+      },
+      "change": -0.5
+    },
+    {
+      "person": "PF",
+      "measurement": "Obwód biustu",
+      "first": {
+        "n": 2,
+        "mae": 7.5,
+        "bias": -7.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 7.0,
+        "bias": -7.0
+      },
+      "change": -0.5
+    },
+    {
+      "person": "PF",
+      "measurement": "Obwód pod biustem",
+      "first": {
+        "n": 2,
+        "mae": 5.5,
+        "bias": -2.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 3.0,
+        "bias": -2.0
+      },
+      "change": -2.5
+    },
+    {
+      "person": "PF",
+      "measurement": "Długość ramienia",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "PF",
+      "measurement": "Obwód ramienia",
+      "first": {
+        "n": 2,
+        "mae": 4.0,
+        "bias": -4.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 0.5,
+        "bias": -0.5
+      },
+      "change": -3.5
+    },
+    {
+      "person": "PF",
+      "measurement": "Obwód nadgarstka",
+      "first": {
+        "n": 2,
+        "mae": 1.5,
+        "bias": 1.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 5.5,
+        "bias": 5.5
+      },
+      "change": 4.0
+    },
+    {
+      "person": "PF",
+      "measurement": "Długość tułowia",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "PF",
+      "measurement": "Długość przodu",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "PF",
+      "measurement": "Długość pleców",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "PF",
+      "measurement": "Długość pleców do bioder",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "PF",
+      "measurement": "Obwód talii",
+      "first": {
+        "n": 2,
+        "mae": 11.5,
+        "bias": 11.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 14.5,
+        "bias": 14.5
+      },
+      "change": 3.0
+    },
+    {
+      "person": "PF",
+      "measurement": "Obwód bioder",
+      "first": {
+        "n": 2,
+        "mae": 11.5,
+        "bias": 11.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 10.0,
+        "bias": 10.0
+      },
+      "change": -1.5
+    },
+    {
+      "person": "PF",
+      "measurement": "Wysokość stanu",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "PF",
+      "measurement": "Obwód uda",
+      "first": {
+        "n": 2,
+        "mae": 4.0,
+        "bias": 4.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 12.5,
+        "bias": 12.5
+      },
+      "change": 8.5
+    },
+    {
+      "person": "PF",
+      "measurement": "Długość nogawki po wewnętrznej",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "PF",
+      "measurement": "Obwód kolana",
+      "first": {
+        "n": 2,
+        "mae": 19.0,
+        "bias": 19.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 26.5,
+        "bias": 26.5
+      },
+      "change": 7.5
+    },
+    {
+      "person": "PF",
+      "measurement": "Obwód łydki",
+      "first": {
+        "n": 2,
+        "mae": 6.0,
+        "bias": -6.0
+      },
+      "second": {
+        "n": 2,
+        "mae": 1.5,
+        "bias": -1.5
+      },
+      "change": -4.5
+    },
+    {
+      "person": "PF",
+      "measurement": "Obwód kostki",
+      "first": {
+        "n": 2,
+        "mae": 7.5,
+        "bias": -7.5
+      },
+      "second": {
+        "n": 2,
+        "mae": 8.0,
+        "bias": 8.0
+      },
+      "change": 0.5
+    },
+    {
+      "person": "RF",
+      "measurement": "Wzrost",
+      "first": {
+        "n": 1,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "change": 0.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Obwód szyi",
+      "first": {
+        "n": 1,
+        "mae": 7.0,
+        "bias": 7.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 7.0,
+        "bias": 7.0
+      },
+      "change": 0.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Szerokość ramion",
+      "first": {
+        "n": 1,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 3.0,
+        "bias": -3.0
+      },
+      "change": 3.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Obwód klatki piersiowej",
+      "first": {
+        "n": 1,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 1.0,
+        "bias": 1.0
+      },
+      "change": 1.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Obwód biustu",
+      "first": {
+        "n": 1,
+        "mae": 1.0,
+        "bias": 1.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 2.0,
+        "bias": 2.0
+      },
+      "change": 1.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Obwód pod biustem",
+      "first": {
+        "n": 1,
+        "mae": 4.0,
+        "bias": 4.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 4.0,
+        "bias": 4.0
+      },
+      "change": 0.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Długość ramienia",
+      "first": {
+        "n": 1,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 1.0,
+        "bias": -1.0
+      },
+      "change": 1.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Obwód ramienia",
+      "first": {
+        "n": 1,
+        "mae": 8.0,
+        "bias": -8.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 2.0,
+        "bias": -2.0
+      },
+      "change": -6.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Obwód nadgarstka",
+      "first": {
+        "n": 1,
+        "mae": 0.0,
+        "bias": 0.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 4.0,
+        "bias": 4.0
+      },
+      "change": 4.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Długość tułowia",
+      "first": {
+        "n": 1,
+        "mae": 15.0,
+        "bias": 15.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 13.0,
+        "bias": 13.0
+      },
+      "change": -2.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Długość przodu",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "RF",
+      "measurement": "Długość pleców",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "RF",
+      "measurement": "Długość pleców do bioder",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "RF",
+      "measurement": "Obwód talii",
+      "first": {
+        "n": 1,
+        "mae": 22.0,
+        "bias": 22.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 19.0,
+        "bias": 19.0
+      },
+      "change": -3.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Obwód bioder",
+      "first": {
+        "n": 1,
+        "mae": 34.0,
+        "bias": 34.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 21.0,
+        "bias": 21.0
+      },
+      "change": -13.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Wysokość stanu",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "RF",
+      "measurement": "Obwód uda",
+      "first": {
+        "n": 1,
+        "mae": 9.0,
+        "bias": -9.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 9.0,
+        "bias": -9.0
+      },
+      "change": 0.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Długość nogawki po wewnętrznej",
+      "first": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "second": {
+        "n": 0,
+        "mae": null,
+        "bias": null
+      },
+      "change": null
+    },
+    {
+      "person": "RF",
+      "measurement": "Obwód kolana",
+      "first": {
+        "n": 1,
+        "mae": 6.0,
+        "bias": 6.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 16.0,
+        "bias": 16.0
+      },
+      "change": 10.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Obwód łydki",
+      "first": {
+        "n": 1,
+        "mae": 10.0,
+        "bias": 10.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 15.0,
+        "bias": 15.0
+      },
+      "change": 5.0
+    },
+    {
+      "person": "RF",
+      "measurement": "Obwód kostki",
+      "first": {
+        "n": 1,
+        "mae": 21.0,
+        "bias": 21.0
+      },
+      "second": {
+        "n": 1,
+        "mae": 26.0,
+        "bias": 26.0
+      },
+      "change": 5.0
+    }
+  ],
+  "trials": [
+    {
+      "file": "BB-1photo-1.pdf",
+      "person": "BB",
+      "photos": 1,
+      "run": 1,
+      "n": 17,
+      "mae": 5.823529411764706,
+      "bias": 3.235294117647059
+    },
+    {
+      "file": "BB-2photos-1.pdf",
+      "person": "BB",
+      "photos": 2,
+      "run": 1,
+      "n": 17,
+      "mae": 8.647058823529411,
+      "bias": 6.529411764705882
+    },
+    {
+      "file": "JB-1photo-1.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 1,
+      "n": 21,
+      "mae": 10.5,
+      "bias": 7.404761904761905
+    },
+    {
+      "file": "JB-1photo-2.pdf",
+      "person": "JB",
+      "photos": 1,
+      "run": 2,
+      "n": 21,
+      "mae": 11.833333333333334,
+      "bias": 7.357142857142857
+    },
+    {
+      "file": "JB-2photos-1.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 1,
+      "n": 21,
+      "mae": 11.452380952380953,
+      "bias": 11.30952380952381
+    },
+    {
+      "file": "JB-2photos-2.pdf",
+      "person": "JB",
+      "photos": 2,
+      "run": 2,
+      "n": 21,
+      "mae": 11.833333333333334,
+      "bias": 11.785714285714286
+    },
+    {
+      "file": "PF-1photo-1.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 1,
+      "n": 13,
+      "mae": 6.384615384615385,
+      "bias": -1.6153846153846154
+    },
+    {
+      "file": "PF-1photo-2.pdf",
+      "person": "PF",
+      "photos": 1,
+      "run": 2,
+      "n": 13,
+      "mae": 7.538461538461538,
+      "bias": 4.3076923076923075
+    },
+    {
+      "file": "PF-2photos-1.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 1,
+      "n": 13,
+      "mae": 7.230769230769231,
+      "bias": 3.076923076923077
+    },
+    {
+      "file": "PF-2photos-2.pdf",
+      "person": "PF",
+      "photos": 2,
+      "run": 2,
+      "n": 13,
+      "mae": 7.923076923076923,
+      "bias": 6.384615384615385
+    },
+    {
+      "file": "RF-1photo-1.pdf",
+      "person": "RF",
+      "photos": 1,
+      "run": 1,
+      "n": 16,
+      "mae": 8.5625,
+      "bias": 6.4375
+    },
+    {
+      "file": "RF-2photos-1.pdf",
+      "person": "RF",
+      "photos": 2,
+      "run": 1,
+      "n": 16,
+      "mae": 8.9375,
+      "bias": 7.0625
+    }
+  ]
+}

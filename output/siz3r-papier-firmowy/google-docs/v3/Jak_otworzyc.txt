@@ -1,0 +1,9 @@
+﻿SIZ3R — WERSJA 3
+
+Prześlij plik Siz3r_AIO_Google_Docs_v3.docx na Dysk Google i otwórz w Dokumentach Google. Zapisz jako Dokumenty Google, aby zachować natywną kopię. Używaj formatu A4 z podziałem na strony.
+
+Wpisz datę w pustym akapicie pod etykietą DATA. Pod każdym pytaniem znajduje się puste, edytowalne miejsce. Pod zwrotem Z poważaniem znajdują się dwa puste akapity na imię i nazwisko oraz stanowisko.
+
+Po wpisaniu odpowiedzi możesz usunąć pozostałe puste wiersze, jeśli nie potrzebujesz już zarezerwowanego miejsca. Przed wysłaniem sprawdź podział stron i pobierz PDF bezpośrednio z Google Docs.
+
+Załączony PDF jest podglądem układu wygenerowanym lokalnie. Nie jest eksportem nowej wersji z Google Docs. Poprzedni dokument Google oraz wcześniejsze pliki nie zostały nadpisane.
