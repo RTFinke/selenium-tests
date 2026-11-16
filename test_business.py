@@ -18,6 +18,7 @@ TEST_RUN_KEYS_RAW = os.getenv('TEST_RUN_KEYS', '').strip()
 GENERATION_PROFILE = os.getenv('TEST_GENERATION_PROFILE', 'default').strip().lower() or 'default'
 FLAT_ENABLED = os.getenv('TEST_FLAT', 'false').strip().lower() in ('1', 'true', 'yes', 'on')
 PREMIUM_ENABLED = os.getenv('TEST_PREMIUM', 'false').strip().lower() in ('1', 'true', 'yes', 'on')
+TURBO_ENABLED = os.getenv('TEST_TURBO', 'false').strip().lower() in ('1', 'true', 'yes', 'on')
 REUSE_BROWSER_SESSION = os.getenv('TEST_REUSE_BROWSER_SESSION', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
 GENERATION_RESULT_TIMEOUT = int(os.getenv('TEST_GENERATION_RESULT_TIMEOUT', '60').strip() or '60')
 GENERATION_ACTIVE_GRACE_TIMEOUT = int(os.getenv('TEST_GENERATION_ACTIVE_GRACE_TIMEOUT', '45').strip() or '45')
@@ -88,6 +89,9 @@ if GENERATION_PROFILE not in ALLOWED_GENERATION_PROFILES:
     raise ValueError(
         f"TEST_GENERATION_PROFILE must be one of: {allowed_profiles}. Got: {GENERATION_PROFILE}"
     )
+
+if PREMIUM_ENABLED and TURBO_ENABLED:
+    raise ValueError("TEST_PREMIUM and TEST_TURBO cannot both be enabled; select one generation mode.")
 
 def parse_optional_positive_int(value, variable_name):
     if not value:
@@ -1315,13 +1319,14 @@ def ensure_flat_generation_setting(driver, enabled):
     return state['enabled']
 
 
-def ensure_premium_generation_setting(driver):
-    """Select Premium and confirm it on the live control after React rerenders."""
+def ensure_generation_mode_setting(driver, mode):
+    """Select a generation mode and confirm it after React rerenders."""
     last_state = None
 
     def confirmed(current):
         nonlocal last_state
         last_state = current.execute_script("""
+        const label = arguments[0];
         const normalize = (value) => String(value || '').trim().toLowerCase();
         const controls = Array.from(document.querySelectorAll(
             "button, [role='button'], [role='tab'], [role='radio']"
@@ -1330,10 +1335,10 @@ def ensure_premium_generation_setting(driver):
             return rect.width > 0 && rect.height > 0 &&
                 window.getComputedStyle(el).visibility !== 'hidden' &&
                 [el.textContent, el.getAttribute('aria-label')].some(
-                    (value) => normalize(value) === 'premium'
+                    (value) => normalize(value) === normalize(label)
                 );
         });
-        if (controls.length !== 1) return {error: 'Premium button missing or ambiguous'};
+        if (controls.length !== 1) return {error: label + ' button missing or ambiguous'};
         const control = controls[0];
         let selected = null;
         for (const attr of ['aria-pressed', 'aria-selected', 'aria-checked']) {
@@ -1355,27 +1360,39 @@ def ensure_premium_generation_setting(driver):
             else if (classes.some((value) => value.endsWith('-variantPlain') ||
                 value.endsWith('-variantOutlined'))) selected = false;
         }
-        if (selected === true) return {ready: true};
         if (control.disabled || control.getAttribute('aria-disabled') === 'true') {
-            return {error: 'Premium button disabled'};
+            return {error: label + ' button disabled'};
         }
-        if (selected === null) return {error: 'Premium selection state unreadable'};
+        if (selected === true) return {ready: true};
+        if (selected === null) return {error: label + ' selection state unreadable'};
         control.click();
         return {changed: true};
-        """)
+        """, mode)
         return isinstance(last_state, dict) and last_state.get('ready', False)
 
     try:
         WebDriverWait(driver, 10, poll_frequency=0.25).until(confirmed)
     except TimeoutException as exc:
-        raise Exception(f"Could not select Premium: {last_state}") from exc
+        raise Exception(f"Could not select {mode}: {last_state}") from exc
+
+
+def ensure_premium_generation_setting(driver):
+    ensure_generation_mode_setting(driver, 'Premium')
+
+
+def ensure_turbo_generation_setting(driver):
+    ensure_generation_mode_setting(driver, 'Turbo')
 
 
 def configure_generation_options(driver, metadata):
     metadata['premium_requested'] = PREMIUM_ENABLED
+    metadata['turbo_requested'] = TURBO_ENABLED
     if PREMIUM_ENABLED:
         ensure_premium_generation_setting(driver)
         print("  OK Premium selected")
+    elif TURBO_ENABLED:
+        ensure_turbo_generation_setting(driver)
+        print("  OK Turbo selected")
 
     advanced_state = None
     if GENERATION_PROFILE == ADVANCED_GENERATION_PROFILE:
@@ -1399,7 +1416,13 @@ def configure_generation_options(driver, metadata):
         metadata["turbo_enabled"] = option_state.get("turbo_enabled")
         metadata["turbo_state_source"] = option_state.get("turbo_state_source")
 
-    if PREMIUM_ENABLED:
+    if TURBO_ENABLED:
+        # Read the selected mode directly; the legacy reader scans neighbours.
+        metadata["quality_mode_selected"] = "turbo"
+        metadata["quality_mode_state_source"] = "turbo_button_confirmed"
+        metadata["turbo_enabled"] = True
+        metadata["turbo_state_source"] = "turbo_button_confirmed"
+    elif PREMIUM_ENABLED:
         # The legacy reader also scans neighbouring controls; use the state
         # confirmed directly on the Premium button for quality metadata.
         metadata["quality_mode_selected"] = "premium"
@@ -2119,6 +2142,7 @@ def test_single_model(test_num, model_info, run_config):
         "pairing_mode": PAIRING_MODE,
         "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
         "generation_profile_requested": GENERATION_PROFILE,
+        "turbo_requested": TURBO_ENABLED,
         "flat_requested": FLAT_ENABLED,
         "flat_enabled": None,
         "garment_run_key": run_config["key"],
@@ -2407,6 +2431,7 @@ def test_single_model_wait_optimized(test_num, model_info, run_config, driver=No
         "pairing_mode": PAIRING_MODE,
         "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
         "generation_profile_requested": GENERATION_PROFILE,
+        "turbo_requested": TURBO_ENABLED,
         "flat_requested": FLAT_ENABLED,
         "flat_enabled": None,
         "garment_run_key": run_config["key"],
@@ -2599,6 +2624,7 @@ def write_run_summary(run_config, total_tests, success, failed, elapsed_total, s
         "pairing_mode": PAIRING_MODE,
         "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
         "generation_profile": GENERATION_PROFILE,
+        "turbo_requested": TURBO_ENABLED,
         "flat_requested": FLAT_ENABLED,
         "garments_per_person": GARMENTS_PER_PERSON,
         "reuse_browser_session": REUSE_BROWSER_SESSION,
@@ -2717,6 +2743,7 @@ if __name__ == "__main__":
     print(f"Headless mode: {HEADLESS}")
     print(f"Pairing mode: {PAIRING_MODE}")
     print(f"Generation profile: {GENERATION_PROFILE}")
+    print(f"Turbo requested: {TURBO_ENABLED}")
     if PAIRING_SEED_ACTIVE:
         print(f"Pairing seed: {PAIRING_SEED}")
     if GARMENTS_PER_PERSON is not None:
@@ -2760,6 +2787,7 @@ if __name__ == "__main__":
             "pairing_mode": PAIRING_MODE,
             "pairing_seed": PAIRING_SEED if PAIRING_SEED_ACTIVE else None,
             "generation_profile": GENERATION_PROFILE,
+            "turbo_requested": TURBO_ENABLED,
             "flat_requested": FLAT_ENABLED,
             "selected_run_keys": [run_config["key"] for run_config in selected_run_configs],
             "reuse_browser_session": REUSE_BROWSER_SESSION,
