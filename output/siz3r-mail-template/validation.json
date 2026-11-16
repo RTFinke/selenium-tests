@@ -1,0 +1,45 @@
+{
+  "output": "C:\\Users\\suici\\OneDrive\\Documents\\GitHub\\selenium-tests\\output\\siz3r-mail-template\\Siz3r_mail_ofertowy_szablon.html",
+  "source_sha256": "d29f63047b85e41f13f7e45d828a4815b734df8f6bb7f0cf3fe99942bf97ba05",
+  "output_sha256": "5f17a934f639297f9b2bcb6a68c89f543e3d2252bbee5734ea25419f272df910",
+  "subject": "Jak ułatwić klientom wybór ubrania i rozmiaru?",
+  "body_word_count_excluding_company_footer": 98,
+  "preserved_structural_elements": {
+    "table": 9,
+    "tr": 14,
+    "td": 22,
+    "img": 7,
+    "h1": 1,
+    "h2": 3,
+    "h3": 3
+  },
+  "preserved_embedded_images": 6,
+  "measurements_image": "C:\\Users\\suici\\Downloads\\Polish fitting room measurement overlay.png",
+  "measurements_image_sha256": "e767fc71855ea597487ccf4bccf2997aa036bd15d35865a7131b67547d8b46f0",
+  "embedded_font_family": "Figtree",
+  "font_weights": {
+    "h1": 600,
+    "h2": 600,
+    "h3": 600,
+    "body": 500
+  },
+  "font_sizes_px": {
+    "headings": 32,
+    "body_and_button": 16,
+    "captions_and_company_footer": 12
+  },
+  "brand_reference": "https://siz3r.com/pl/",
+  "brand_palette": {
+    "background": "#000000",
+    "panel": "#0D0D0D",
+    "headings": "#FFFFFF",
+    "body": "#CCCCCC",
+    "green": "#00D278",
+    "button": "#704B9B",
+    "border": "#222222"
+  },
+  "cta_placements": 1,
+  "distinct_cta_destinations": 1,
+  "outlook_cta_destinations_checked": true,
+  "placeholders": []
+}

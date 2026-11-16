@@ -1,0 +1,210 @@
+[
+  {
+    "variant": "desktop",
+    "viewport": 800,
+    "contentWidth": 800,
+    "contentHeight": 1721,
+    "brokenImages": 0,
+    "imageCount": 7,
+    "ctas": [
+      {
+        "label": "Porozmawiajmy↗",
+        "href": "mailto:office@siz3r.com?subject=5%20minut%20rozmowy%20o%20przymierzaniu%20online"
+      }
+    ],
+    "sheetBackground": "rgb(0, 0, 0)",
+    "headlineColor": "rgb(255, 255, 255)",
+    "headlineFont": "Figtree, Arial, Helvetica, sans-serif",
+    "headlineWeight": "600",
+    "sectionWeight": "600",
+    "bodyFont": "Figtree, Arial, Helvetica, sans-serif",
+    "bodyWeight": "500",
+    "bodyColor": "rgb(204, 204, 204)",
+    "accentColor": "rgb(0, 210, 120)",
+    "ctaColor": "rgb(255, 255, 255)",
+    "ctaBackground": "rgb(112, 75, 155)",
+    "introElements": [
+      "IMG",
+      "H1",
+      "P"
+    ],
+    "containsPlaceholders": false,
+    "fontLoaded": true,
+    "textSizes": [
+      "12px",
+      "16px",
+      "32px"
+    ],
+    "measurementImage": {
+      "naturalWidth": 1235,
+      "naturalHeight": 1274,
+      "width": 222,
+      "height": 229
+    },
+    "clippedText": [],
+    "renderedFonts": [
+      {
+        "familyName": "Figtree Light",
+        "postScriptName": "Figtree-Light-SemiBold",
+        "isCustomFont": true,
+        "glyphCount": 29
+      }
+    ]
+  },
+  {
+    "variant": "mobile",
+    "viewport": 390,
+    "contentWidth": 390,
+    "contentHeight": 1961,
+    "brokenImages": 0,
+    "imageCount": 7,
+    "ctas": [
+      {
+        "label": "Porozmawiajmy↗",
+        "href": "mailto:office@siz3r.com?subject=5%20minut%20rozmowy%20o%20przymierzaniu%20online"
+      }
+    ],
+    "sheetBackground": "rgb(0, 0, 0)",
+    "headlineColor": "rgb(255, 255, 255)",
+    "headlineFont": "Figtree, Arial, Helvetica, sans-serif",
+    "headlineWeight": "600",
+    "sectionWeight": "600",
+    "bodyFont": "Figtree, Arial, Helvetica, sans-serif",
+    "bodyWeight": "500",
+    "bodyColor": "rgb(204, 204, 204)",
+    "accentColor": "rgb(0, 210, 120)",
+    "ctaColor": "rgb(255, 255, 255)",
+    "ctaBackground": "rgb(112, 75, 155)",
+    "introElements": [
+      "IMG",
+      "H1",
+      "P"
+    ],
+    "containsPlaceholders": false,
+    "fontLoaded": true,
+    "textSizes": [
+      "12px",
+      "16px",
+      "32px"
+    ],
+    "measurementImage": {
+      "naturalWidth": 1235,
+      "naturalHeight": 1274,
+      "width": 245,
+      "height": 252.734375
+    },
+    "clippedText": [],
+    "renderedFonts": [
+      {
+        "familyName": "Figtree Light",
+        "postScriptName": "Figtree-Light-SemiBold",
+        "isCustomFont": true,
+        "glyphCount": 29
+      }
+    ]
+  },
+  {
+    "variant": "mobile-dark",
+    "viewport": 390,
+    "contentWidth": 390,
+    "contentHeight": 1961,
+    "brokenImages": 0,
+    "imageCount": 7,
+    "ctas": [
+      {
+        "label": "Porozmawiajmy↗",
+        "href": "mailto:office@siz3r.com?subject=5%20minut%20rozmowy%20o%20przymierzaniu%20online"
+      }
+    ],
+    "sheetBackground": "rgb(0, 0, 0)",
+    "headlineColor": "rgb(255, 255, 255)",
+    "headlineFont": "Figtree, Arial, Helvetica, sans-serif",
+    "headlineWeight": "600",
+    "sectionWeight": "600",
+    "bodyFont": "Figtree, Arial, Helvetica, sans-serif",
+    "bodyWeight": "500",
+    "bodyColor": "rgb(204, 204, 204)",
+    "accentColor": "rgb(0, 210, 120)",
+    "ctaColor": "rgb(255, 255, 255)",
+    "ctaBackground": "rgb(112, 75, 155)",
+    "introElements": [
+      "IMG",
+      "H1",
+      "P"
+    ],
+    "containsPlaceholders": false,
+    "fontLoaded": true,
+    "textSizes": [
+      "12px",
+      "16px",
+      "32px"
+    ],
+    "measurementImage": {
+      "naturalWidth": 1235,
+      "naturalHeight": 1274,
+      "width": 245,
+      "height": 252.734375
+    },
+    "clippedText": [],
+    "renderedFonts": [
+      {
+        "familyName": "Figtree Light",
+        "postScriptName": "Figtree-Light-SemiBold",
+        "isCustomFont": true,
+        "glyphCount": 29
+      }
+    ]
+  },
+  {
+    "variant": "mobile-narrow",
+    "viewport": 320,
+    "contentWidth": 320,
+    "contentHeight": 2022,
+    "brokenImages": 0,
+    "imageCount": 7,
+    "ctas": [
+      {
+        "label": "Porozmawiajmy↗",
+        "href": "mailto:office@siz3r.com?subject=5%20minut%20rozmowy%20o%20przymierzaniu%20online"
+      }
+    ],
+    "sheetBackground": "rgb(0, 0, 0)",
+    "headlineColor": "rgb(255, 255, 255)",
+    "headlineFont": "Figtree, Arial, Helvetica, sans-serif",
+    "headlineWeight": "600",
+    "sectionWeight": "600",
+    "bodyFont": "Figtree, Arial, Helvetica, sans-serif",
+    "bodyWeight": "500",
+    "bodyColor": "rgb(204, 204, 204)",
+    "accentColor": "rgb(0, 210, 120)",
+    "ctaColor": "rgb(255, 255, 255)",
+    "ctaBackground": "rgb(112, 75, 155)",
+    "introElements": [
+      "IMG",
+      "H1",
+      "P"
+    ],
+    "containsPlaceholders": false,
+    "fontLoaded": true,
+    "textSizes": [
+      "12px",
+      "16px",
+      "32px"
+    ],
+    "measurementImage": {
+      "naturalWidth": 1235,
+      "naturalHeight": 1274,
+      "width": 245,
+      "height": 252.734375
+    },
+    "clippedText": [],
+    "renderedFonts": [
+      {
+        "familyName": "Figtree Light",
+        "postScriptName": "Figtree-Light-SemiBold",
+        "isCustomFont": true,
+        "glyphCount": 29
+      }
+    ]
+  }
+]

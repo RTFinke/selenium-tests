@@ -1,0 +1,110 @@
+[
+  {
+    "path": "C:\\Windows\\SoftwareDistribution\\Download",
+    "files": 119966,
+    "logical_bytes": 9481050210,
+    "allocated_bytes": 9701501904,
+    "new_logical_bytes": 8701424223,
+    "new_allocated_bytes": 8738100712,
+    "allocation_unknown_logical_bytes": 32768,
+    "multi_link_files": 0,
+    "deduplicated_hard_links": 0,
+    "errors": 0
+  },
+  {
+    "path": "C:\\Users\\suici\\AppData\\Local\\Temp",
+    "files": 1885,
+    "logical_bytes": 2400972957,
+    "allocated_bytes": 2407199672,
+    "new_logical_bytes": 2400862673,
+    "new_allocated_bytes": 2407195040,
+    "allocation_unknown_logical_bytes": 105850,
+    "multi_link_files": 0,
+    "deduplicated_hard_links": 0,
+    "errors": 0
+  },
+  {
+    "path": "C:\\Users\\suici\\AppData\\Local\\Temp\\wbjvopzm",
+    "files": 260,
+    "logical_bytes": 1528088979,
+    "allocated_bytes": 1528590336,
+    "new_logical_bytes": 1528088979,
+    "new_allocated_bytes": 1528590336,
+    "allocation_unknown_logical_bytes": 0,
+    "multi_link_files": 0,
+    "deduplicated_hard_links": 0,
+    "errors": 0
+  },
+  {
+    "path": "C:\\Users\\suici\\.vscode\\extensions\\openai.chatgpt-26.1111.21308-win32-x64",
+    "files": 15476,
+    "logical_bytes": 1110315599,
+    "allocated_bytes": 1127265840,
+    "new_logical_bytes": 1110315599,
+    "new_allocated_bytes": 1127265840,
+    "allocation_unknown_logical_bytes": 0,
+    "multi_link_files": 0,
+    "deduplicated_hard_links": 0,
+    "errors": 0
+  },
+  {
+    "path": "C:\\Users\\suici\\AppData\\Roaming\\Code\\CachedExtensionVSIXs\\openai.chatgpt-26.1111.21308-win32-x64",
+    "files": 1,
+    "logical_bytes": 387703950,
+    "allocated_bytes": 387706880,
+    "new_logical_bytes": 387703950,
+    "new_allocated_bytes": 387706880,
+    "allocation_unknown_logical_bytes": 0,
+    "multi_link_files": 0,
+    "deduplicated_hard_links": 0,
+    "errors": 0
+  },
+  {
+    "path": "C:\\Users\\suici\\AppData\\Local\\Programs\\Microsoft VS Code",
+    "files": 3281,
+    "logical_bytes": 1293126956,
+    "allocated_bytes": 1299036080,
+    "new_logical_bytes": 865291498,
+    "new_allocated_bytes": 871187808,
+    "allocation_unknown_logical_bytes": 0,
+    "multi_link_files": 0,
+    "deduplicated_hard_links": 0,
+    "errors": 0
+  },
+  {
+    "path": "C:\\Users\\suici\\AppData\\Local\\Microsoft\\OneDrive\\logs",
+    "files": 4287,
+    "logical_bytes": 3121679217,
+    "allocated_bytes": 1007758344,
+    "new_logical_bytes": 430198064,
+    "new_allocated_bytes": 140861440,
+    "allocation_unknown_logical_bytes": 0,
+    "multi_link_files": 0,
+    "deduplicated_hard_links": 0,
+    "errors": 0
+  },
+  {
+    "path": "C:\\Users\\suici\\OneDrive\\Documents\\GitHub\\selenium-tests",
+    "files": 12439,
+    "logical_bytes": 2085025442,
+    "allocated_bytes": 2105752136,
+    "new_logical_bytes": 14947611,
+    "new_allocated_bytes": 15159048,
+    "allocation_unknown_logical_bytes": 0,
+    "multi_link_files": 0,
+    "deduplicated_hard_links": 0,
+    "errors": 0
+  },
+  {
+    "path": "C:\\Users\\suici\\.codex",
+    "files": 15674,
+    "logical_bytes": 1922159292,
+    "allocated_bytes": 1949435192,
+    "new_logical_bytes": 91837047,
+    "new_allocated_bytes": 92307264,
+    "allocation_unknown_logical_bytes": 0,
+    "multi_link_files": 0,
+    "deduplicated_hard_links": 0,
+    "errors": 0
+  }
+]
