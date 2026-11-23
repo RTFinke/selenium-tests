@@ -199,6 +199,63 @@ test("failed artifact audit never leaves a successful score", async () => {
   });
 });
 
+const contradictoryGlitter = JSON.parse(fs.readFileSync(path.join(repo, "tests/fixtures/contradictory-glitter-assessment.json"), "utf8"));
+
+test("archived inconsistent glitter judgment is corrected once before audit", async () => {
+  const root = path.join(temporary, "corrected-glitter"); makeCase(root, { category: "full" });
+  await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async module => {
+    const corrected = structuredClone(contradictoryGlitter);
+    corrected.minor_issues.push(...corrected.critical_issues); corrected.critical_issues = [];
+    const requests = [];
+    globalThis.fetch = async (_url, options) => {
+      const request = JSON.parse(options.body); requests.push(request);
+      if (requests.length === 1) return response(contradictoryGlitter);
+      if (requests.length === 2) {
+        assert.equal(request.messages[1].role, "assistant");
+        assert.deepEqual(JSON.parse(request.messages[1].content), contradictoryGlitter);
+        assert.match(request.messages[2].content, /same images/);
+        return response(corrected);
+      }
+      return response(cleanAudit());
+    };
+    const result = await module.main();
+    assert.equal(result.exitCode, 0); assert.equal(result.summary.errors, 0); assert.equal(requests.length, 3);
+    const record = result.report.results[0];
+    assert.equal(record.assessment_attempts, 2); assert.equal(record.assessment_validation_errors.length, 1);
+    assert.equal(record.assessment_validation_errors[0].code, "INCONSISTENT_SEVERITY");
+    assert.equal(record.rating.quality_percent, 80); assert.equal(record.artifact_audit_status, "completed");
+    assert(record.rating.minor_issues.includes(contradictoryGlitter.critical_issues[0]));
+  });
+});
+
+test("a severity correction can confirm a major failure without forcing a pass", async () => {
+  const root = path.join(temporary, "confirmed-glitter-failure"); makeCase(root, { category: "full" });
+  await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async module => {
+    const corrected = structuredClone(contradictoryGlitter); corrected.labels.garment_structure_error = "MAJOR";
+    let calls = 0;
+    globalThis.fetch = async () => response(++calls === 1 ? contradictoryGlitter : corrected);
+    const result = await module.main();
+    assert.equal(result.exitCode, 0); assert.equal(result.summary.failed, 1); assert.equal(calls, 2);
+    const record = result.report.results[0];
+    assert.equal(record.assessment_attempts, 2); assert.equal(record.rating.labels.garment_structure_error, "MAJOR");
+    assert.equal(record.rating.quality_percent, 40); assert.equal(record.rating.successful, "NO");
+    assert.deepEqual(record.rating.critical_issues, contradictoryGlitter.critical_issues);
+  });
+});
+
+test("repeatedly inconsistent severity stops after one correction and preserves both replies", async () => {
+  const root = path.join(temporary, "uncorrected-glitter"); makeCase(root);
+  await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async module => {
+    let calls = 0; globalThis.fetch = async () => { calls++; return response(contradictoryGlitter); };
+    const result = await module.main();
+    assert.equal(result.exitCode, 1); assert.equal(result.summary.errors, 1); assert.equal(calls, 2);
+    const record = result.report.results[0];
+    assert.equal(record.rating, null); assert.equal(record.assessment_attempts, 2);
+    assert.equal(record.assessment_validation_errors.length, 2);
+    assert(record.assessment_validation_errors.every(item => JSON.parse(item.raw_output_text).critical_issues[0] === contradictoryGlitter.critical_issues[0]));
+  });
+});
+
 test("truncated judgments and missing original people are errors", async () => {
   for (const missingModel of [false, true]) {
     const root = path.join(temporary, `invalid-${missingModel}`); makeCase(root, { missingModel });

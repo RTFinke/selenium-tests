@@ -577,13 +577,29 @@ async function evaluateFolder(folderName, folderContext) {
       { type: "text", text: "IMAGE 3: GENERATED_RESULT" }, { type: "image_url", image_url: { url: resultUrl } },
     ] }],
   };
-  const response = await postChatCompletions(payload);
-  const finishReason = response?.choices?.[0]?.finish_reason;
-  const raw = extractAssistantText(response);
-  const parsed = safeJsonParse(raw);
-  const validated = parsed.ok && finishReason === "stop" ? validateAndNormalizeRating(parsed.json) : null;
-  if (!validated?.ok) {
-    return { folder: folderName, ok: false, error: finishReason !== "stop" ? "Assessment did not finish: " + (finishReason || "missing response") : validated?.error || parsed.error, raw_output_text: raw, finish_reason: finishReason };
+  let validated;
+  let finishReason;
+  const diagnostics = { assessment_attempts: 0, assessment_validation_errors: [] };
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    diagnostics.assessment_attempts = attempt;
+    let response;
+    try { response = await postChatCompletions(payload); }
+    catch (error) { return { folder: folderName, ok: false, error: error.message, status: error.status ?? null, ...diagnostics }; }
+    finishReason = response?.choices?.[0]?.finish_reason;
+    const raw = extractAssistantText(response);
+    const parsed = safeJsonParse(raw);
+    validated = parsed.ok && finishReason === "stop" ? validateAndNormalizeRating(parsed.json) : null;
+    if (validated?.ok) break;
+    const error = finishReason !== "stop" ? "Assessment did not finish: " + (finishReason || "missing response") : validated?.error || parsed.error;
+    diagnostics.assessment_validation_errors.push({ attempt, code: validated?.code ?? null, error, raw_output_text: raw });
+    if (validated?.code !== "INCONSISTENT_SEVERITY" || attempt === 2) {
+      return { folder: folderName, ok: false, error, raw_output_text: raw, finish_reason: finishReason, ...diagnostics };
+    }
+    console.warn(folderName + ": AI returned conflicting issue severity; requesting one correction.");
+    payload.messages.push(
+      { role: "assistant", content: raw },
+      { role: "user", content: "Your previous assessment is inconsistent: it lists critical issues but assigns no MAJOR labels. Recheck the same images and return a complete corrected JSON assessment. If an issue is genuinely critical, assign the appropriate MAJOR label. If it is only minor, put it in minor_issues rather than critical_issues. Do not automatically upgrade, downgrade, or delete the defect just to satisfy validation; decide from the visible evidence. Keep the required response schema." },
+    );
   }
   let rating = validated.rating;
   let auditResult = null;
@@ -594,7 +610,7 @@ async function evaluateFolder(folderName, folderContext) {
       auditResult = { ok: false, parse_error: error.message };
     }
     if (!auditResult.ok) return {
-      folder: folderName, ok: false, rating: null, preliminary_rating: rating,
+      folder: folderName, ok: false, rating: null, preliminary_rating: rating, ...diagnostics,
       error: "Assessment incomplete: artifact audit failed. " + (auditResult.parse_error || "Invalid response"),
       artifact_audit_error: auditResult.parse_error,
       artifact_audit_raw_output: auditResult.raw_output_text ?? null,
@@ -602,7 +618,7 @@ async function evaluateFolder(folderName, folderContext) {
     };
     rating = applyArtifactAuditToRating(rating, auditResult.audit);
   }
-  return { folder: folderName, ok: true, rating, finish_reason: finishReason,
+  return { folder: folderName, ok: true, rating, finish_reason: finishReason, ...diagnostics,
     artifact_audit: auditResult?.audit ?? null, artifact_audit_status: auditResult ? "completed" : "not_required" };
 }
 
@@ -646,6 +662,8 @@ function createPerFolderPayload(folderName, folderContext, record) {
     metadata: summarizeMetadata(folderContext.metadata),
     source_run: folderContext.sourceRun ?? null,
     preliminary_rating: record.preliminary_rating ?? null,
+    assessment_attempts: record.assessment_attempts ?? 0,
+    assessment_validation_errors: record.assessment_validation_errors ?? [],
     metadata_error: folderContext.metadataError ?? null,
     files: {
       model: describeFile(folderContext.modelPath),

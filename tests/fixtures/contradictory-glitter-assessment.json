@@ -1,0 +1,16 @@
+{
+  "garment_type": "black glitter dress with sheer sleeves",
+  "garment_category": "dress",
+  "intended_fit": "regular",
+  "silhouette_preserved": "YES",
+  "critical_issues": ["Loss of glitter texture and sparkle detail from original dress"],
+  "minor_issues": ["Sheer sleeve effect is less visible", "Dress hem slightly less defined"],
+  "positives": ["Dress silhouette, neckline, and sleeve length are well preserved", "Person's identity and pose are intact", "No major artifacts or body damage"],
+  "notes": "The main structure and fit of the dress are preserved, but the glittery texture and sheer sleeve effect are lost, making the dress appear plain black. No major artifacts or person damage.",
+  "labels": {
+    "garment_structure_error": "MINOR",
+    "construction_alignment_error": "NONE",
+    "fit_error": "NONE",
+    "artifact_error": "NONE"
+  }
+}

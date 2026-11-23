@@ -59,6 +59,8 @@ The application starts at 100 and subtracts these fixed penalties:
 
 Passing requires at least 80% by default, at most two MINOR labels, no MAJOR labels, and no critical issues. Free-text keywords never override structured labels. Passing candidates receive a second artifact audit. If that audit fails, the assessment is incomplete and has no final score.
 
+If the AI lists a critical issue but assigns only NONE/MINOR labels, it is asked once to correct its assessment using the same images. This adds one assessment request for the affected case. The application does not choose which severity is correct. A second inconsistent reply remains an assessment error; both the original reply and correction attempt are recorded in `analysis.json`.
+
 Assessment errors make the command fail after saving the diagnostic report. Ordinary AI quality failures are valid completed judgments. Failed generations are skipped, retain their original failure reason, and do not trigger API requests. If every generation failed, an AI review cannot produce judgments and exits with an error.
 
 `review` requires an API key. `gallery` generates an image gallery; `comparison` explicitly creates a no-AI review. Missing keys never silently turn an AI assessment into a successful comparison report.
