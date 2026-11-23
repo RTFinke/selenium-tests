@@ -1,0 +1,2666 @@
+{
+  "pdf": "C:\\Users\\suici\\Downloads\\Siz3r_Standard_and_Turbo_By_Garment.pdf",
+  "pages": 78,
+  "standard_pages": [
+    1,
+    39
+  ],
+  "turbo_pages": [
+    40,
+    78
+  ],
+  "test_cases": 156,
+  "successful_results": 152,
+  "timeout_placeholders": 4,
+  "unique_source_images": 194,
+  "source_display_pixels_preserved": true,
+  "source_resolution_preserved": true,
+  "archives": [
+    "siz3r-full-default-results(1).zip",
+    "siz3r-full-default-results(2).zip",
+    "siz3r-lower-default-results(1).zip",
+    "siz3r-lower-default-results(2).zip",
+    "siz3r-upper-default-results(1).zip",
+    "siz3r-upper-default-results(2).zip"
+  ],
+  "page_plan": [
+    {
+      "page": 1,
+      "mode": "standard",
+      "kind": "section"
+    },
+    {
+      "page": 2,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "blause multi color.jpg",
+      "title": "blause multi color",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 9,
+          "model_xref": 226,
+          "result_xref": 232,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_9_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_blause multi color/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 22,
+          "model_xref": 237,
+          "result_xref": 241,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_22_upper_women_image1 (1)_blause multi color/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 35,
+          "model_xref": 246,
+          "result_xref": 250,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_35_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_blause multi color/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 41
+    },
+    {
+      "page": 3,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "Bluzka Agata.png",
+      "title": "Bluzka Agata",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 2,
+          "model_xref": 226,
+          "result_xref": 278,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_2_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_Bluzka Agata/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 15,
+          "model_xref": 237,
+          "result_xref": 186,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_15_upper_women_image1 (1)_Bluzka Agata/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 28,
+          "model_xref": 246,
+          "result_xref": 293,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_28_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_Bluzka Agata/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 42
+    },
+    {
+      "page": 4,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "BLUZKA LEA.jpg",
+      "title": "BLUZKA LEA",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 1,
+          "model_xref": 226,
+          "result_xref": 321,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_1_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_BLUZKA LEA/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 14,
+          "model_xref": 237,
+          "result_xref": 329,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_14_upper_women_image1 (1)_BLUZKA LEA/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 27,
+          "model_xref": 246,
+          "result_xref": 337,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_27_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_BLUZKA LEA/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 43
+    },
+    {
+      "page": 5,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "Button-down blouse.webp",
+      "title": "Button-down blouse",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 3,
+          "model_xref": 226,
+          "result_xref": 365,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_3_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_Button-down blouse/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 16,
+          "model_xref": 237,
+          "result_xref": 373,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_16_upper_women_image1 (1)_Button-down blouse/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 29,
+          "model_xref": 246,
+          "result_xref": 381,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_29_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_Button-down blouse/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 44
+    },
+    {
+      "page": 6,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "dark blouse.webp",
+      "title": "dark blouse",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 10,
+          "model_xref": 226,
+          "result_xref": 409,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_10_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_dark blouse/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 23,
+          "model_xref": 237,
+          "result_xref": 417,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_23_upper_women_image1 (1)_dark blouse/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 36,
+          "model_xref": 246,
+          "result_xref": 425,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_36_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_dark blouse/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 45
+    },
+    {
+      "page": 7,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "dark gray print tshirt.webp",
+      "title": "dark gray print tshirt",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 11,
+          "model_xref": 226,
+          "result_xref": 453,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_11_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_dark gray print tshirt/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 24,
+          "model_xref": 237,
+          "result_xref": 461,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_24_upper_women_image1 (1)_dark gray print tshirt/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 37,
+          "model_xref": 246,
+          "result_xref": 469,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_37_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_dark gray print tshirt/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 46
+    },
+    {
+      "page": 8,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "dark red jumper.webp",
+      "title": "dark red jumper",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 12,
+          "model_xref": 226,
+          "result_xref": 497,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_12_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_dark red jumper/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 25,
+          "model_xref": 237,
+          "result_xref": 505,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_25_upper_women_image1 (1)_dark red jumper/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 38,
+          "model_xref": 246,
+          "result_xref": 513,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_38_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_dark red jumper/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 47
+    },
+    {
+      "page": 9,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "dark top.webp",
+      "title": "dark top",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 13,
+          "model_xref": 226,
+          "result_xref": 541,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_13_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_dark top/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 26,
+          "model_xref": 237,
+          "result_xref": 549,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_26_upper_women_image1 (1)_dark top/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 39,
+          "model_xref": 246,
+          "result_xref": 557,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_39_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_dark top/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 48
+    },
+    {
+      "page": 10,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "Koszula Zoja.png",
+      "title": "Koszula Zoja",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 4,
+          "model_xref": 226,
+          "result_xref": 585,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_4_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_Koszula Zoja/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 17,
+          "model_xref": 237,
+          "result_xref": 593,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_17_upper_women_image1 (1)_Koszula Zoja/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 30,
+          "model_xref": 246,
+          "result_xref": 601,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_30_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_Koszula Zoja/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 49
+    },
+    {
+      "page": 11,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "P\u0142aszcz AMANDA Br\u0105zowy .webp",
+      "title": "P\u0142aszcz AMANDA Br\u0105zowy",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 5,
+          "model_xref": 226,
+          "result_xref": 629,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_5_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_P\u0142aszcz AMANDA Br\u0105zowy /metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 18,
+          "model_xref": 237,
+          "result_xref": 637,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_18_upper_women_image1 (1)_P\u0142aszcz AMANDA Br\u0105zowy /metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 31,
+          "model_xref": 246,
+          "result_xref": 645,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_31_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_P\u0142aszcz AMANDA Br\u0105zowy /metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 50
+    },
+    {
+      "page": 12,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "P\u0142aszcz MAGDA Ecru.webp",
+      "title": "P\u0142aszcz MAGDA Ecru",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 6,
+          "model_xref": 226,
+          "result_xref": 673,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_6_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_P\u0142aszcz MAGDA Ecru/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 19,
+          "model_xref": 237,
+          "result_xref": 681,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_19_upper_women_image1 (1)_P\u0142aszcz MAGDA Ecru/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 32,
+          "model_xref": 246,
+          "result_xref": 689,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_32_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_P\u0142aszcz MAGDA Ecru/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 51
+    },
+    {
+      "page": 13,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "TOP WONDER.jpg",
+      "title": "TOP WONDER",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 7,
+          "model_xref": 226,
+          "result_xref": 717,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_7_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_TOP WONDER/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 20,
+          "model_xref": 237,
+          "result_xref": 725,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_20_upper_women_image1 (1)_TOP WONDER/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 33,
+          "model_xref": 246,
+          "result_xref": 733,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_33_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_TOP WONDER/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 52
+    },
+    {
+      "page": 14,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "Tunika Wies\u0142awa.jpeg",
+      "title": "Tunika Wies\u0142awa",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 8,
+          "model_xref": 226,
+          "result_xref": 763,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_8_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_Tunika Wies\u0142awa/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 21,
+          "model_xref": 237,
+          "result_xref": 771,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_21_upper_women_image1 (1)_Tunika Wies\u0142awa/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 34,
+          "model_xref": 246,
+          "result_xref": 779,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_34_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_Tunika Wies\u0142awa/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 53
+    },
+    {
+      "page": 15,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "2 color sweatshirt.webp",
+      "title": "2 color sweatshirt",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 40,
+          "model_xref": 804,
+          "result_xref": 810,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_40_upper_men_BB1_2 color sweatshirt/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 54
+    },
+    {
+      "page": 16,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "black hoodie.webp",
+      "title": "black hoodie",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 47,
+          "model_xref": 804,
+          "result_xref": 838,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_47_upper_men_BB1_black hoodie/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 55
+    },
+    {
+      "page": 17,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "Blazer_dark_brown.webp",
+      "title": "Blazer dark brown",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 41,
+          "model_xref": 804,
+          "result_xref": 866,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_41_upper_men_BB1_Blazer_dark_brown/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 56
+    },
+    {
+      "page": 18,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "blue jumper.webp",
+      "title": "blue jumper",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 48,
+          "model_xref": 804,
+          "result_xref": 894,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_48_upper_men_BB1_blue jumper/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 57
+    },
+    {
+      "page": 19,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "dark tshirt.webp",
+      "title": "dark tshirt",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 49,
+          "model_xref": 804,
+          "result_xref": 922,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_49_upper_men_BB1_dark tshirt/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 58
+    },
+    {
+      "page": 20,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "Jacket_black_bomber.jpg",
+      "title": "Jacket black bomber",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 42,
+          "model_xref": 804,
+          "result_xref": 950,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_42_upper_men_BB1_Jacket_black_bomber/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 59
+    },
+    {
+      "page": 21,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "Jacket_black_hooded.jpg",
+      "title": "Jacket black hooded",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 43,
+          "model_xref": 804,
+          "result_xref": 978,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_43_upper_men_BB1_Jacket_black_hooded/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 60
+    },
+    {
+      "page": 22,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "Jacket_navy_quilted.jpg",
+      "title": "Jacket navy quilted",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 44,
+          "model_xref": 804,
+          "result_xref": 1006,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_44_upper_men_BB1_Jacket_navy_quilted/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 61
+    },
+    {
+      "page": 23,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "knitted Hoodie.webp",
+      "title": "knitted Hoodie",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 50,
+          "model_xref": 804,
+          "result_xref": 1034,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_50_upper_men_BB1_knitted Hoodie/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 62
+    },
+    {
+      "page": 24,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "knitwear jumper.webp",
+      "title": "knitwear jumper",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 51,
+          "model_xref": 804,
+          "result_xref": 1062,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_51_upper_men_BB1_knitwear jumper/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 63
+    },
+    {
+      "page": 25,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "striped polo shirt.webp",
+      "title": "striped polo shirt",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 52,
+          "model_xref": 804,
+          "result_xref": 1090,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_52_upper_men_BB1_striped polo shirt/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 64
+    },
+    {
+      "page": 26,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "Sweater_gray_cowl_neck.jpg",
+      "title": "Sweater gray cowl neck",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 45,
+          "model_xref": 804,
+          "result_xref": 1118,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_45_upper_men_BB1_Sweater_gray_cowl_neck/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 65
+    },
+    {
+      "page": 27,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "Tshirt_black_graphic.webp",
+      "title": "Tshirt black graphic",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 46,
+          "model_xref": 804,
+          "result_xref": 1146,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_46_upper_men_BB1_Tshirt_black_graphic/metadata.json",
+          "archive": "siz3r-upper-default-results(2).zip"
+        }
+      ],
+      "compare_page": 66
+    },
+    {
+      "page": 28,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "lower",
+      "gender": "women",
+      "garment": "Spodnie Luna.png",
+      "title": "Spodnie Luna",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "failed",
+          "test_number": 1,
+          "model_xref": 226,
+          "result_xref": null,
+          "row_top": 206.0,
+          "metadata_member": "test_results_lower/test_1_lower_women_emmanuel-zua-dyHgXou1t4k-unsplash_Spodnie Luna/metadata.json",
+          "archive": "siz3r-lower-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 3,
+          "model_xref": 237,
+          "result_xref": 1183,
+          "row_top": 598.0,
+          "metadata_member": "test_results_lower/test_3_lower_women_image1 (1)_Spodnie Luna/metadata.json",
+          "archive": "siz3r-lower-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 5,
+          "model_xref": 246,
+          "result_xref": 1191,
+          "row_top": 990.0,
+          "metadata_member": "test_results_lower/test_5_lower_women_nassim-boughazi-dodzmVtjoKs-unsplash_Spodnie Luna/metadata.json",
+          "archive": "siz3r-lower-default-results(2).zip"
+        }
+      ],
+      "compare_page": 67
+    },
+    {
+      "page": 29,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "lower",
+      "gender": "women",
+      "garment": "Spodnie Renata.png",
+      "title": "Spodnie Renata",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 2,
+          "model_xref": 226,
+          "result_xref": 1219,
+          "row_top": 206.0,
+          "metadata_member": "test_results_lower/test_2_lower_women_emmanuel-zua-dyHgXou1t4k-unsplash_Spodnie Renata/metadata.json",
+          "archive": "siz3r-lower-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 4,
+          "model_xref": 237,
+          "result_xref": 1227,
+          "row_top": 598.0,
+          "metadata_member": "test_results_lower/test_4_lower_women_image1 (1)_Spodnie Renata/metadata.json",
+          "archive": "siz3r-lower-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 6,
+          "model_xref": 246,
+          "result_xref": 1235,
+          "row_top": 990.0,
+          "metadata_member": "test_results_lower/test_6_lower_women_nassim-boughazi-dodzmVtjoKs-unsplash_Spodnie Renata/metadata.json",
+          "archive": "siz3r-lower-default-results(2).zip"
+        }
+      ],
+      "compare_page": 68
+    },
+    {
+      "page": 30,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "lower",
+      "gender": "men",
+      "garment": "Jeans_black_washed.webp",
+      "title": "Jeans black washed",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 7,
+          "model_xref": 804,
+          "result_xref": 1263,
+          "row_top": 206.0,
+          "metadata_member": "test_results_lower/test_7_lower_men_BB1_Jeans_black_washed/metadata.json",
+          "archive": "siz3r-lower-default-results(2).zip"
+        }
+      ],
+      "compare_page": 69
+    },
+    {
+      "page": 31,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "lower",
+      "gender": "men",
+      "garment": "Jeans_blue_slim.jpg",
+      "title": "Jeans blue slim",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 8,
+          "model_xref": 804,
+          "result_xref": 192,
+          "row_top": 206.0,
+          "metadata_member": "test_results_lower/test_8_lower_men_BB1_Jeans_blue_slim/metadata.json",
+          "archive": "siz3r-lower-default-results(2).zip"
+        }
+      ],
+      "compare_page": 70
+    },
+    {
+      "page": 32,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "full",
+      "gender": "women",
+      "garment": "Dzianinowa SUKIENKA NECK midi.jpg",
+      "title": "Dzianinowa SUKIENKA NECK midi",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 1,
+          "model_xref": 226,
+          "result_xref": 1318,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_1_full_women_emmanuel-zua-dyHgXou1t4k-unsplash_Dzianinowa SUKIENKA NECK midi/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 6,
+          "model_xref": 237,
+          "result_xref": 1326,
+          "row_top": 598.0,
+          "metadata_member": "test_results_full/test_6_full_women_image1 (1)_Dzianinowa SUKIENKA NECK midi/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 11,
+          "model_xref": 246,
+          "result_xref": 1334,
+          "row_top": 990.0,
+          "metadata_member": "test_results_full/test_11_full_women_nassim-boughazi-dodzmVtjoKs-unsplash_Dzianinowa SUKIENKA NECK midi/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        }
+      ],
+      "compare_page": 71
+    },
+    {
+      "page": 33,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "full",
+      "gender": "women",
+      "garment": "SUKIENKA ARIELLA.jpg",
+      "title": "SUKIENKA ARIELLA",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 2,
+          "model_xref": 226,
+          "result_xref": 1362,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_2_full_women_emmanuel-zua-dyHgXou1t4k-unsplash_SUKIENKA ARIELLA/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 7,
+          "model_xref": 237,
+          "result_xref": 1370,
+          "row_top": 598.0,
+          "metadata_member": "test_results_full/test_7_full_women_image1 (1)_SUKIENKA ARIELLA/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 12,
+          "model_xref": 246,
+          "result_xref": 1378,
+          "row_top": 990.0,
+          "metadata_member": "test_results_full/test_12_full_women_nassim-boughazi-dodzmVtjoKs-unsplash_SUKIENKA ARIELLA/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        }
+      ],
+      "compare_page": 72
+    },
+    {
+      "page": 34,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "full",
+      "gender": "women",
+      "garment": "Sukienka Cecylia.jpeg",
+      "title": "Sukienka Cecylia",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 5,
+          "model_xref": 226,
+          "result_xref": 1406,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_5_full_women_emmanuel-zua-dyHgXou1t4k-unsplash_Sukienka Cecylia/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 10,
+          "model_xref": 237,
+          "result_xref": 196,
+          "row_top": 598.0,
+          "metadata_member": "test_results_full/test_10_full_women_image1 (1)_Sukienka Cecylia/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 15,
+          "model_xref": 246,
+          "result_xref": 1421,
+          "row_top": 990.0,
+          "metadata_member": "test_results_full/test_15_full_women_nassim-boughazi-dodzmVtjoKs-unsplash_Sukienka Cecylia/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        }
+      ],
+      "compare_page": 73
+    },
+    {
+      "page": 35,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "full",
+      "gender": "women",
+      "garment": "SUKIENKA-LAMIRA(2).jpg",
+      "title": "SUKIENKA-LAMIRA(2)",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 3,
+          "model_xref": 226,
+          "result_xref": 1449,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_3_full_women_emmanuel-zua-dyHgXou1t4k-unsplash_SUKIENKA-LAMIRA(2)/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 8,
+          "model_xref": 237,
+          "result_xref": 1457,
+          "row_top": 598.0,
+          "metadata_member": "test_results_full/test_8_full_women_image1 (1)_SUKIENKA-LAMIRA(2)/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 13,
+          "model_xref": 246,
+          "result_xref": 1465,
+          "row_top": 990.0,
+          "metadata_member": "test_results_full/test_13_full_women_nassim-boughazi-dodzmVtjoKs-unsplash_SUKIENKA-LAMIRA(2)/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        }
+      ],
+      "compare_page": 74
+    },
+    {
+      "page": 36,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "full",
+      "gender": "women",
+      "garment": "SUKIENKA-LAMIRA.jpg",
+      "title": "SUKIENKA-LAMIRA",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 4,
+          "model_xref": 226,
+          "result_xref": 1493,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_4_full_women_emmanuel-zua-dyHgXou1t4k-unsplash_SUKIENKA-LAMIRA/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 9,
+          "model_xref": 237,
+          "result_xref": 1501,
+          "row_top": 598.0,
+          "metadata_member": "test_results_full/test_9_full_women_image1 (1)_SUKIENKA-LAMIRA/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 14,
+          "model_xref": 246,
+          "result_xref": 1509,
+          "row_top": 990.0,
+          "metadata_member": "test_results_full/test_14_full_women_nassim-boughazi-dodzmVtjoKs-unsplash_SUKIENKA-LAMIRA/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        }
+      ],
+      "compare_page": 75
+    },
+    {
+      "page": 37,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "full",
+      "gender": "men",
+      "garment": "blue suit combo.webp",
+      "title": "blue suit combo",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 18,
+          "model_xref": 804,
+          "result_xref": 1537,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_18_full_men_BB1_blue suit combo/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        }
+      ],
+      "compare_page": 76
+    },
+    {
+      "page": 38,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "full",
+      "gender": "men",
+      "garment": "Outfit_black_shirt_charcoal_trousers.webp",
+      "title": "Outfit black shirt charcoal trousers",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 16,
+          "model_xref": 804,
+          "result_xref": 1565,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_16_full_men_BB1_Outfit_black_shirt_charcoal_trousers/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        }
+      ],
+      "compare_page": 77
+    },
+    {
+      "page": 39,
+      "mode": "standard",
+      "kind": "garment",
+      "category": "full",
+      "gender": "men",
+      "garment": "Outfit_burgundy_shirt_charcoal_trousers.webp",
+      "title": "Outfit burgundy shirt charcoal trousers",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 17,
+          "model_xref": 804,
+          "result_xref": 1593,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_17_full_men_BB1_Outfit_burgundy_shirt_charcoal_trousers/metadata.json",
+          "archive": "siz3r-full-default-results(2).zip"
+        }
+      ],
+      "compare_page": 78
+    },
+    {
+      "page": 40,
+      "mode": "turbo",
+      "kind": "section"
+    },
+    {
+      "page": 41,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "blause multi color.jpg",
+      "title": "blause multi color",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 9,
+          "model_xref": 226,
+          "result_xref": 1653,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_9_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_blause multi color/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 22,
+          "model_xref": 237,
+          "result_xref": 1661,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_22_upper_women_image1 (1)_blause multi color/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 35,
+          "model_xref": 246,
+          "result_xref": 1669,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_35_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_blause multi color/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 2
+    },
+    {
+      "page": 42,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "Bluzka Agata.png",
+      "title": "Bluzka Agata",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 2,
+          "model_xref": 226,
+          "result_xref": 1696,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_2_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_Bluzka Agata/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 15,
+          "model_xref": 237,
+          "result_xref": 1613,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_15_upper_women_image1 (1)_Bluzka Agata/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 28,
+          "model_xref": 246,
+          "result_xref": 1711,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_28_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_Bluzka Agata/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 3
+    },
+    {
+      "page": 43,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "BLUZKA LEA.jpg",
+      "title": "BLUZKA LEA",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 1,
+          "model_xref": 226,
+          "result_xref": 1738,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_1_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_BLUZKA LEA/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 14,
+          "model_xref": 237,
+          "result_xref": 1746,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_14_upper_women_image1 (1)_BLUZKA LEA/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 27,
+          "model_xref": 246,
+          "result_xref": 1754,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_27_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_BLUZKA LEA/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 4
+    },
+    {
+      "page": 44,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "Button-down blouse.webp",
+      "title": "Button-down blouse",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 3,
+          "model_xref": 226,
+          "result_xref": 1781,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_3_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_Button-down blouse/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 16,
+          "model_xref": 237,
+          "result_xref": 1789,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_16_upper_women_image1 (1)_Button-down blouse/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 29,
+          "model_xref": 246,
+          "result_xref": 1797,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_29_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_Button-down blouse/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 5
+    },
+    {
+      "page": 45,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "dark blouse.webp",
+      "title": "dark blouse",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 10,
+          "model_xref": 226,
+          "result_xref": 1824,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_10_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_dark blouse/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 23,
+          "model_xref": 237,
+          "result_xref": 1832,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_23_upper_women_image1 (1)_dark blouse/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 36,
+          "model_xref": 246,
+          "result_xref": 1840,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_36_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_dark blouse/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 6
+    },
+    {
+      "page": 46,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "dark gray print tshirt.webp",
+      "title": "dark gray print tshirt",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 11,
+          "model_xref": 226,
+          "result_xref": 1867,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_11_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_dark gray print tshirt/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 24,
+          "model_xref": 237,
+          "result_xref": 1875,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_24_upper_women_image1 (1)_dark gray print tshirt/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 37,
+          "model_xref": 246,
+          "result_xref": 1883,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_37_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_dark gray print tshirt/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 7
+    },
+    {
+      "page": 47,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "dark red jumper.webp",
+      "title": "dark red jumper",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 12,
+          "model_xref": 226,
+          "result_xref": 1910,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_12_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_dark red jumper/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 25,
+          "model_xref": 237,
+          "result_xref": 1918,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_25_upper_women_image1 (1)_dark red jumper/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 38,
+          "model_xref": 246,
+          "result_xref": 1926,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_38_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_dark red jumper/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 8
+    },
+    {
+      "page": 48,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "dark top.webp",
+      "title": "dark top",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 13,
+          "model_xref": 226,
+          "result_xref": 1953,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_13_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_dark top/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 26,
+          "model_xref": 237,
+          "result_xref": 1961,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_26_upper_women_image1 (1)_dark top/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 39,
+          "model_xref": 246,
+          "result_xref": 1969,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_39_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_dark top/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 9
+    },
+    {
+      "page": 49,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "Koszula Zoja.png",
+      "title": "Koszula Zoja",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 4,
+          "model_xref": 226,
+          "result_xref": 1996,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_4_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_Koszula Zoja/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 17,
+          "model_xref": 237,
+          "result_xref": 2004,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_17_upper_women_image1 (1)_Koszula Zoja/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 30,
+          "model_xref": 246,
+          "result_xref": 2012,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_30_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_Koszula Zoja/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 10
+    },
+    {
+      "page": 50,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "P\u0142aszcz AMANDA Br\u0105zowy .webp",
+      "title": "P\u0142aszcz AMANDA Br\u0105zowy",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 5,
+          "model_xref": 226,
+          "result_xref": 2039,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_5_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_P\u0142aszcz AMANDA Br\u0105zowy /metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 18,
+          "model_xref": 237,
+          "result_xref": 2047,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_18_upper_women_image1 (1)_P\u0142aszcz AMANDA Br\u0105zowy /metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 31,
+          "model_xref": 246,
+          "result_xref": 2055,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_31_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_P\u0142aszcz AMANDA Br\u0105zowy /metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 11
+    },
+    {
+      "page": 51,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "P\u0142aszcz MAGDA Ecru.webp",
+      "title": "P\u0142aszcz MAGDA Ecru",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "failed",
+          "test_number": 6,
+          "model_xref": 226,
+          "result_xref": null,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_6_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_P\u0142aszcz MAGDA Ecru/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 19,
+          "model_xref": 237,
+          "result_xref": 2091,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_19_upper_women_image1 (1)_P\u0142aszcz MAGDA Ecru/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 32,
+          "model_xref": 246,
+          "result_xref": 2099,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_32_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_P\u0142aszcz MAGDA Ecru/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 12
+    },
+    {
+      "page": 52,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "TOP WONDER.jpg",
+      "title": "TOP WONDER",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 7,
+          "model_xref": 226,
+          "result_xref": 2126,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_7_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_TOP WONDER/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 20,
+          "model_xref": 237,
+          "result_xref": 2134,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_20_upper_women_image1 (1)_TOP WONDER/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 33,
+          "model_xref": 246,
+          "result_xref": 2142,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_33_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_TOP WONDER/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 13
+    },
+    {
+      "page": 53,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "women",
+      "garment": "Tunika Wies\u0142awa.jpeg",
+      "title": "Tunika Wies\u0142awa",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 8,
+          "model_xref": 226,
+          "result_xref": 2169,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_8_upper_women_emmanuel-zua-dyHgXou1t4k-unsplash_Tunika Wies\u0142awa/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 21,
+          "model_xref": 237,
+          "result_xref": 2177,
+          "row_top": 598.0,
+          "metadata_member": "test_results_upper/test_21_upper_women_image1 (1)_Tunika Wies\u0142awa/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 34,
+          "model_xref": 246,
+          "result_xref": 2185,
+          "row_top": 990.0,
+          "metadata_member": "test_results_upper/test_34_upper_women_nassim-boughazi-dodzmVtjoKs-unsplash_Tunika Wies\u0142awa/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 14
+    },
+    {
+      "page": 54,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "2 color sweatshirt.webp",
+      "title": "2 color sweatshirt",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 40,
+          "model_xref": 804,
+          "result_xref": 2212,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_40_upper_men_BB1_2 color sweatshirt/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 15
+    },
+    {
+      "page": 55,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "black hoodie.webp",
+      "title": "black hoodie",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 47,
+          "model_xref": 804,
+          "result_xref": 2239,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_47_upper_men_BB1_black hoodie/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 16
+    },
+    {
+      "page": 56,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "Blazer_dark_brown.webp",
+      "title": "Blazer dark brown",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 41,
+          "model_xref": 804,
+          "result_xref": 2266,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_41_upper_men_BB1_Blazer_dark_brown/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 17
+    },
+    {
+      "page": 57,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "blue jumper.webp",
+      "title": "blue jumper",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 48,
+          "model_xref": 804,
+          "result_xref": 2293,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_48_upper_men_BB1_blue jumper/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 18
+    },
+    {
+      "page": 58,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "dark tshirt.webp",
+      "title": "dark tshirt",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 49,
+          "model_xref": 804,
+          "result_xref": 2320,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_49_upper_men_BB1_dark tshirt/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 19
+    },
+    {
+      "page": 59,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "Jacket_black_bomber.jpg",
+      "title": "Jacket black bomber",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 42,
+          "model_xref": 804,
+          "result_xref": 2347,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_42_upper_men_BB1_Jacket_black_bomber/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 20
+    },
+    {
+      "page": 60,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "Jacket_black_hooded.jpg",
+      "title": "Jacket black hooded",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 43,
+          "model_xref": 804,
+          "result_xref": 2374,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_43_upper_men_BB1_Jacket_black_hooded/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 21
+    },
+    {
+      "page": 61,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "Jacket_navy_quilted.jpg",
+      "title": "Jacket navy quilted",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 44,
+          "model_xref": 804,
+          "result_xref": 2401,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_44_upper_men_BB1_Jacket_navy_quilted/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 22
+    },
+    {
+      "page": 62,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "knitted Hoodie.webp",
+      "title": "knitted Hoodie",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 50,
+          "model_xref": 804,
+          "result_xref": 2428,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_50_upper_men_BB1_knitted Hoodie/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 23
+    },
+    {
+      "page": 63,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "knitwear jumper.webp",
+      "title": "knitwear jumper",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 51,
+          "model_xref": 804,
+          "result_xref": 2455,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_51_upper_men_BB1_knitwear jumper/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 24
+    },
+    {
+      "page": 64,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "striped polo shirt.webp",
+      "title": "striped polo shirt",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 52,
+          "model_xref": 804,
+          "result_xref": 2482,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_52_upper_men_BB1_striped polo shirt/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 25
+    },
+    {
+      "page": 65,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "Sweater_gray_cowl_neck.jpg",
+      "title": "Sweater gray cowl neck",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 45,
+          "model_xref": 804,
+          "result_xref": 2509,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_45_upper_men_BB1_Sweater_gray_cowl_neck/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 26
+    },
+    {
+      "page": 66,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "upper",
+      "gender": "men",
+      "garment": "Tshirt_black_graphic.webp",
+      "title": "Tshirt black graphic",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 46,
+          "model_xref": 804,
+          "result_xref": 2536,
+          "row_top": 206.0,
+          "metadata_member": "test_results_upper/test_46_upper_men_BB1_Tshirt_black_graphic/metadata.json",
+          "archive": "siz3r-upper-default-results(1).zip"
+        }
+      ],
+      "compare_page": 27
+    },
+    {
+      "page": 67,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "lower",
+      "gender": "women",
+      "garment": "Spodnie Luna.png",
+      "title": "Spodnie Luna",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "failed",
+          "test_number": 1,
+          "model_xref": 226,
+          "result_xref": null,
+          "row_top": 206.0,
+          "metadata_member": "test_results_lower/test_1_lower_women_emmanuel-zua-dyHgXou1t4k-unsplash_Spodnie Luna/metadata.json",
+          "archive": "siz3r-lower-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 3,
+          "model_xref": 237,
+          "result_xref": 2572,
+          "row_top": 598.0,
+          "metadata_member": "test_results_lower/test_3_lower_women_image1 (1)_Spodnie Luna/metadata.json",
+          "archive": "siz3r-lower-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 5,
+          "model_xref": 246,
+          "result_xref": 2580,
+          "row_top": 990.0,
+          "metadata_member": "test_results_lower/test_5_lower_women_nassim-boughazi-dodzmVtjoKs-unsplash_Spodnie Luna/metadata.json",
+          "archive": "siz3r-lower-default-results(1).zip"
+        }
+      ],
+      "compare_page": 28
+    },
+    {
+      "page": 68,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "lower",
+      "gender": "women",
+      "garment": "Spodnie Renata.png",
+      "title": "Spodnie Renata",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 2,
+          "model_xref": 226,
+          "result_xref": 2607,
+          "row_top": 206.0,
+          "metadata_member": "test_results_lower/test_2_lower_women_emmanuel-zua-dyHgXou1t4k-unsplash_Spodnie Renata/metadata.json",
+          "archive": "siz3r-lower-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 4,
+          "model_xref": 237,
+          "result_xref": 2615,
+          "row_top": 598.0,
+          "metadata_member": "test_results_lower/test_4_lower_women_image1 (1)_Spodnie Renata/metadata.json",
+          "archive": "siz3r-lower-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 6,
+          "model_xref": 246,
+          "result_xref": 2623,
+          "row_top": 990.0,
+          "metadata_member": "test_results_lower/test_6_lower_women_nassim-boughazi-dodzmVtjoKs-unsplash_Spodnie Renata/metadata.json",
+          "archive": "siz3r-lower-default-results(1).zip"
+        }
+      ],
+      "compare_page": 29
+    },
+    {
+      "page": 69,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "lower",
+      "gender": "men",
+      "garment": "Jeans_black_washed.webp",
+      "title": "Jeans black washed",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 7,
+          "model_xref": 804,
+          "result_xref": 2650,
+          "row_top": 206.0,
+          "metadata_member": "test_results_lower/test_7_lower_men_BB1_Jeans_black_washed/metadata.json",
+          "archive": "siz3r-lower-default-results(1).zip"
+        }
+      ],
+      "compare_page": 30
+    },
+    {
+      "page": 70,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "lower",
+      "gender": "men",
+      "garment": "Jeans_blue_slim.jpg",
+      "title": "Jeans blue slim",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 8,
+          "model_xref": 804,
+          "result_xref": 1617,
+          "row_top": 206.0,
+          "metadata_member": "test_results_lower/test_8_lower_men_BB1_Jeans_blue_slim/metadata.json",
+          "archive": "siz3r-lower-default-results(1).zip"
+        }
+      ],
+      "compare_page": 31
+    },
+    {
+      "page": 71,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "full",
+      "gender": "women",
+      "garment": "Dzianinowa SUKIENKA NECK midi.jpg",
+      "title": "Dzianinowa SUKIENKA NECK midi",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 1,
+          "model_xref": 226,
+          "result_xref": 2703,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_1_full_women_emmanuel-zua-dyHgXou1t4k-unsplash_Dzianinowa SUKIENKA NECK midi/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 6,
+          "model_xref": 237,
+          "result_xref": 2711,
+          "row_top": 598.0,
+          "metadata_member": "test_results_full/test_6_full_women_image1 (1)_Dzianinowa SUKIENKA NECK midi/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 11,
+          "model_xref": 246,
+          "result_xref": 2719,
+          "row_top": 990.0,
+          "metadata_member": "test_results_full/test_11_full_women_nassim-boughazi-dodzmVtjoKs-unsplash_Dzianinowa SUKIENKA NECK midi/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        }
+      ],
+      "compare_page": 32
+    },
+    {
+      "page": 72,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "full",
+      "gender": "women",
+      "garment": "SUKIENKA ARIELLA.jpg",
+      "title": "SUKIENKA ARIELLA",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 2,
+          "model_xref": 226,
+          "result_xref": 2746,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_2_full_women_emmanuel-zua-dyHgXou1t4k-unsplash_SUKIENKA ARIELLA/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 7,
+          "model_xref": 237,
+          "result_xref": 2754,
+          "row_top": 598.0,
+          "metadata_member": "test_results_full/test_7_full_women_image1 (1)_SUKIENKA ARIELLA/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "failed",
+          "test_number": 12,
+          "model_xref": 246,
+          "result_xref": null,
+          "row_top": 990.0,
+          "metadata_member": "test_results_full/test_12_full_women_nassim-boughazi-dodzmVtjoKs-unsplash_SUKIENKA ARIELLA/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        }
+      ],
+      "compare_page": 33
+    },
+    {
+      "page": 73,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "full",
+      "gender": "women",
+      "garment": "Sukienka Cecylia.jpeg",
+      "title": "Sukienka Cecylia",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 5,
+          "model_xref": 226,
+          "result_xref": 2790,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_5_full_women_emmanuel-zua-dyHgXou1t4k-unsplash_Sukienka Cecylia/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 10,
+          "model_xref": 237,
+          "result_xref": 1621,
+          "row_top": 598.0,
+          "metadata_member": "test_results_full/test_10_full_women_image1 (1)_Sukienka Cecylia/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 15,
+          "model_xref": 246,
+          "result_xref": 2805,
+          "row_top": 990.0,
+          "metadata_member": "test_results_full/test_15_full_women_nassim-boughazi-dodzmVtjoKs-unsplash_Sukienka Cecylia/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        }
+      ],
+      "compare_page": 34
+    },
+    {
+      "page": 74,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "full",
+      "gender": "women",
+      "garment": "SUKIENKA-LAMIRA(2).jpg",
+      "title": "SUKIENKA-LAMIRA(2)",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 3,
+          "model_xref": 226,
+          "result_xref": 2832,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_3_full_women_emmanuel-zua-dyHgXou1t4k-unsplash_SUKIENKA-LAMIRA(2)/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 8,
+          "model_xref": 237,
+          "result_xref": 2840,
+          "row_top": 598.0,
+          "metadata_member": "test_results_full/test_8_full_women_image1 (1)_SUKIENKA-LAMIRA(2)/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 13,
+          "model_xref": 246,
+          "result_xref": 2848,
+          "row_top": 990.0,
+          "metadata_member": "test_results_full/test_13_full_women_nassim-boughazi-dodzmVtjoKs-unsplash_SUKIENKA-LAMIRA(2)/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        }
+      ],
+      "compare_page": 35
+    },
+    {
+      "page": 75,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "full",
+      "gender": "women",
+      "garment": "SUKIENKA-LAMIRA.jpg",
+      "title": "SUKIENKA-LAMIRA",
+      "rows": [
+        {
+          "model_id": "W1",
+          "model": "emmanuel-zua-dyHgXou1t4k-unsplash.jpg",
+          "status": "success",
+          "test_number": 4,
+          "model_xref": 226,
+          "result_xref": 2875,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_4_full_women_emmanuel-zua-dyHgXou1t4k-unsplash_SUKIENKA-LAMIRA/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        },
+        {
+          "model_id": "W2",
+          "model": "image1 (1).png",
+          "status": "success",
+          "test_number": 9,
+          "model_xref": 237,
+          "result_xref": 2883,
+          "row_top": 598.0,
+          "metadata_member": "test_results_full/test_9_full_women_image1 (1)_SUKIENKA-LAMIRA/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        },
+        {
+          "model_id": "W3",
+          "model": "nassim-boughazi-dodzmVtjoKs-unsplash.jpg",
+          "status": "success",
+          "test_number": 14,
+          "model_xref": 246,
+          "result_xref": 2891,
+          "row_top": 990.0,
+          "metadata_member": "test_results_full/test_14_full_women_nassim-boughazi-dodzmVtjoKs-unsplash_SUKIENKA-LAMIRA/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        }
+      ],
+      "compare_page": 36
+    },
+    {
+      "page": 76,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "full",
+      "gender": "men",
+      "garment": "blue suit combo.webp",
+      "title": "blue suit combo",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 18,
+          "model_xref": 804,
+          "result_xref": 2918,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_18_full_men_BB1_blue suit combo/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        }
+      ],
+      "compare_page": 37
+    },
+    {
+      "page": 77,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "full",
+      "gender": "men",
+      "garment": "Outfit_black_shirt_charcoal_trousers.webp",
+      "title": "Outfit black shirt charcoal trousers",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 16,
+          "model_xref": 804,
+          "result_xref": 2945,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_16_full_men_BB1_Outfit_black_shirt_charcoal_trousers/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        }
+      ],
+      "compare_page": 38
+    },
+    {
+      "page": 78,
+      "mode": "turbo",
+      "kind": "garment",
+      "category": "full",
+      "gender": "men",
+      "garment": "Outfit_burgundy_shirt_charcoal_trousers.webp",
+      "title": "Outfit burgundy shirt charcoal trousers",
+      "rows": [
+        {
+          "model_id": "M1",
+          "model": "BB1.jpg",
+          "status": "success",
+          "test_number": 17,
+          "model_xref": 804,
+          "result_xref": 2972,
+          "row_top": 206.0,
+          "metadata_member": "test_results_full/test_17_full_men_BB1_Outfit_burgundy_shirt_charcoal_trousers/metadata.json",
+          "archive": "siz3r-full-default-results(1).zip"
+        }
+      ],
+      "compare_page": 39
+    }
+  ]
+}
