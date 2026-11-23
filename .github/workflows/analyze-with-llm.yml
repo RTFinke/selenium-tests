@@ -1,61 +1,113 @@
 name: Analyze with LLM
+run-name: "Assess: ${{ inputs.run_ids || inputs.selection || 'triggering run' }} | branch=${{ inputs.source_branch || github.event.workflow_run.head_branch || github.ref_name }}"
+
 on:
   workflow_dispatch:
+    inputs:
+      selection:
+        description: Which generations to assess when run_ids is blank
+        type: choice
+        default: latest_per_category
+        options: [latest_per_category, latest_run]
+      source_branch:
+        description: Generation branch. Blank uses the selected workflow branch; explicit run IDs may span branches.
+        type: string
+        default: ""
+      run_ids:
+        description: Optional comma-separated generation run IDs or run URLs. Overrides selection.
+        type: string
+        default: ""
+      run_keys:
+        description: Categories to assess (upper,lower,full or a subset)
+        type: string
+        default: upper,lower,full
+      generation_profile:
+        description: Filter generation profiles
+        type: choice
+        default: any
+        options: [any, default, advanced_segmentation_free_30]
+      quality_mode:
+        description: Filter generation quality (use run_ids for older runs without quality in their title)
+        type: choice
+        default: any
+        options: [any, standard, premium, turbo]
+      openai_model:
+        description: Vision model supporting Structured Outputs
+        type: string
+        default: gpt-4.1
   workflow_run:
     workflows: ["Siz3r Model Tests"]
     types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   analyze:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
+    timeout-minutes: 180
     steps:
-    - uses: actions/checkout@v4
+      # Automatic workflow_run jobs use this evaluator from the default branch.
+      # Generation artifacts are pinned to the triggering run below.
+      - uses: actions/checkout@v4
 
-    - name: Download triggered test results
-      if: ${{ github.event_name == 'workflow_run' }}
-      uses: dawidd6/action-download-artifact@v6
-      with:
-        workflow: selenium.yml
-        run_id: ${{ github.event.workflow_run.id }}
-        name: siz3r-test-results
-        path: test_results/
-        if_no_artifact_found: fail
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
 
-    - name: Download latest test results
-      if: ${{ github.event_name == 'workflow_dispatch' }}
-      uses: dawidd6/action-download-artifact@v6
-      with:
-        workflow: selenium.yml
-        name: siz3r-test-results
-        path: test_results/
-        search_artifacts: true
-        if_no_artifact_found: fail
+      - name: Check API key configuration
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          node -e 'if (!process.env.OPENAI_API_KEY?.trim()) { console.error("Set the OPENAI_API_KEY repository secret under Settings > Secrets and variables > Actions."); process.exit(1); }'
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Check assessment code
+        run: npm test
 
-    - name: Run analysis
-      env:
-        ANALYZE_SOURCE_DIR: test_results/test_results_upper,test_results/test_results_lower,test_results/test_results_full
-        ANALYSIS_REPORT_MODE: review
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        OPENAI_CONCURRENCY: 1
-        OPENAI_DELAY_MS: 750
-        OPENAI_MIN_RETRY_DELAY_MS: 1000
-        OPENAI_RATE_LIMIT_JITTER_MS: 250
-        OPENAI_TIMEOUT_MS: 120000
-        OPENAI_PASS_SCORE_THRESHOLD: 80
-        OPENAI_MAX_MINOR_LABELS_FOR_PASS: 2
-      run: node analyze_quality.js
+      - name: Select and download generation results
+        uses: actions/github-script@v7
+        env:
+          ANALYSIS_SELECTION: ${{ inputs.selection || 'latest_per_category' }}
+          ANALYSIS_SOURCE_BRANCH: ${{ inputs.source_branch }}
+          ANALYSIS_RUN_IDS: ${{ inputs.run_ids }}
+          ANALYSIS_RUN_KEYS: ${{ inputs.run_keys || 'upper,lower,full' }}
+          ANALYSIS_GENERATION_PROFILE: ${{ inputs.generation_profile || 'any' }}
+          ANALYSIS_QUALITY_MODE: ${{ inputs.quality_mode || 'any' }}
+        with:
+          script: |
+            const { downloadArtifacts } = require('./.github/scripts/analysis-artifacts.cjs');
+            await downloadArtifacts({ github, context, core });
 
-    - name: Upload results
-      uses: actions/upload-artifact@v4
-      with:
-        name: llm-quality-analysis
-        path: |
-          outputs/
-          test_results/
+      - name: Run assessment
+        env:
+          ANALYSIS_REPORT_MODE: review
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ inputs.openai_model || vars.OPENAI_MODEL || 'gpt-4.1' }}
+          OPENAI_CONCURRENCY: "1"
+          OPENAI_DELAY_MS: "750"
+          OPENAI_MIN_RETRY_DELAY_MS: "1000"
+          OPENAI_TIMEOUT_MS: "120000"
+          OPENAI_PASS_SCORE_THRESHOLD: ${{ vars.OPENAI_PASS_SCORE_THRESHOLD || '80' }}
+          OPENAI_MAX_MINOR_LABELS_FOR_PASS: "2"
+        run: npm run analyze
+
+      - name: Upload report and source images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-quality-analysis
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            outputs/
+            test_results/

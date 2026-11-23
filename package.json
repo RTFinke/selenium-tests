@@ -5,7 +5,11 @@
   "main": "analyze_quality.js",
   "scripts": {
     "analyze": "node analyze_quality.js",
-    "start": "node analyze_quality.js"
+    "start": "node analyze_quality.js",
+    "test": "node --test --experimental-test-isolation=none tests/assessment.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "keywords": [],
   "author": "",
@@ -13,6 +17,10 @@
   "description": "OpenAI-based garment analysis",
   "dependencies": {
     "dotenv": "^17.4.2",
-    "openai": "^6.34.0"
+    "openai": "^6.34.0",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "yaml": "^2.9.1"
   }
 }

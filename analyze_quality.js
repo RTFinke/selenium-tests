@@ -1,23 +1,34 @@
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  LABEL_KEYS, envNumber, fileToDataUrl, parseRetryAfterMs,
+  RATING_RESPONSE_FORMAT, AUDIT_RESPONSE_FORMAT,
+  validateAndNormalizeRating as normalizeRating, validateArtifactAudit,
+  applyArtifactAuditToRating as applyAudit,
+} from "./lib/assessment.js";
 
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || "").trim();
 const HAS_OPENAI_API_KEY = OPENAI_API_KEY.length > 0;
 const MODEL = String(process.env.OPENAI_MODEL || "gpt-4.1").trim();
 const ENDPOINT = "https://api.openai.com/v1/chat/completions";
-const TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 180000);
-const DELAY_MS = Number(process.env.OPENAI_DELAY_MS || 2000);
-const MAX_RETRIES = Number(process.env.OPENAI_MAX_RETRIES || 3);
-const CONCURRENCY = Math.max(1, Number(process.env.OPENAI_CONCURRENCY || 4));
-const MIN_RETRY_DELAY_MS = Math.max(250, Number(process.env.OPENAI_MIN_RETRY_DELAY_MS || 1000));
-const RATE_LIMIT_JITTER_MS = Math.max(0, Number(process.env.OPENAI_RATE_LIMIT_JITTER_MS || 250));
-const INCLUDE_MODEL_IN_MAIN = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_INCLUDE_MODEL_IN_MAIN || "1").trim());
+const TIMEOUT_MS = envNumber(process.env, "OPENAI_TIMEOUT_MS", 180000, { min: 1 });
+const DELAY_MS = envNumber(process.env, "OPENAI_DELAY_MS", 750, { min: 0 });
+const MAX_RETRIES = envNumber(process.env, "OPENAI_MAX_RETRIES", 3, { min: 1 });
+const CONCURRENCY = envNumber(process.env, "OPENAI_CONCURRENCY", 2, { min: 1 });
+const MIN_RETRY_DELAY_MS = envNumber(process.env, "OPENAI_MIN_RETRY_DELAY_MS", 1000, { min: 1 });
+const RATE_LIMIT_JITTER_MS = envNumber(process.env, "OPENAI_RATE_LIMIT_JITTER_MS", 250, { min: 0 });
 const ENABLE_ARTIFACT_AUDIT = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_ENABLE_ARTIFACT_AUDIT || "").trim());
 const REPORT_MODE = String(process.env.ANALYSIS_REPORT_MODE || "review").trim().toLowerCase();
 const GALLERY_ONLY_MODE = REPORT_MODE === "gallery";
+const COMPARISON_ONLY_MODE = REPORT_MODE === "comparison";
+const SCORE_POLICY = {
+  passScore: envNumber(process.env, "OPENAI_PASS_SCORE_THRESHOLD", 80, { max: 100 }),
+  maxMinorLabels: envNumber(process.env, "OPENAI_MAX_MINOR_LABELS_FOR_PASS", 2, { max: 4 }),
+};
 const OUTPUTS_DIR = path.resolve(process.env.ANALYSIS_OUTPUT_DIR || "outputs");
-const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif"]);
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"]);
 
 const PROMPT = `You are a common-sense QA evaluator for virtual try-on transfer quality.
 Your job is to judge whether the clothing from garment.png was transferred well onto the person from model.png, creating result.png.
@@ -98,6 +109,11 @@ What matters most:
 - Smaller warping or mild resolution loss can be MINOR if it is noticeable enough to reduce trust.
 
 Category focus:
+- The supplied transfer mode defines which clothing is meant to change.
+- UPPER: transfer the upper garment; preserve lower clothing unless naturally covered.
+- LOWER: transfer pants, shorts, or skirt; preserve the upper clothing unless naturally occluded.
+- FULL: transfer the full dress, jumpsuit, suit, or multi-piece outfit shown in TARGET_GARMENT. Replacing both upper and lower clothing is expected; do not call those replacements collateral damage.
+- For FULL multi-piece references, compare every intended garment, not just the top. Use garment_category="outfit" for multi-piece outfits.
 - If TARGET_GARMENT is a top or outerwear, judge only that transferred top garment for garment fidelity.
 - If TARGET_GARMENT is pants, judge only the transferred pants for garment fidelity.
 - Ignore other clothing for identity matching unless that other clothing was damaged by the generation.
@@ -113,25 +129,16 @@ Label assignment, choose ONE per category:
 - fit_error: NONE | MINOR | MAJOR
 - artifact_error: NONE | MINOR | MAJOR
 
-Scoring, mechanical fixed penalties:
-Start score = 100
-Subtract:
-- garment_structure_error: MINOR -20, MAJOR -60
-- construction_alignment_error: MINOR -15, MAJOR -40
-- fit_error: MINOR -10, MAJOR -30
-- artifact_error: MINOR -5, MAJOR -40
-Clamp score to 0..100.
-
-Decision rule:
-- YES if score >= 75 AND garment_structure_error != MAJOR AND artifact_error != MAJOR
-- Otherwise NO
+Scoring and pass/fail are calculated by the application from your severity labels.
+Do not calculate scores or make the final pass/fail decision yourself.
 
 Output requirements:
 Return ONLY valid JSON, no markdown and no commentary, exactly in this schema:
 {
-  "successful": "YES" | "NO",
-  "quality_percent": number,
   "garment_type": string,
+  "garment_category": "top" | "pants" | "dress" | "skirt" | "outerwear" | "outfit" | "other",
+  "intended_fit": "tight" | "regular" | "loose" | "oversized" | null,
+  "silhouette_preserved": "YES" | "PARTIAL" | "NO",
   "critical_issues": [string],
   "minor_issues": [string],
   "positives": [string],
@@ -143,6 +150,9 @@ Return ONLY valid JSON, no markdown and no commentary, exactly in this schema:
     "artifact_error": "NONE" | "MINOR" | "MAJOR"
   }
 }
+Use null for intended_fit if the visible evidence is insufficient.
+Every critical issue must correspond to at least one MAJOR label.
+Garment structure includes silhouette and length preservation.
 
 Hard limits:
 - critical_issues: max 6 items
@@ -167,6 +177,8 @@ You may receive:
 1) MODEL_ORIGINAL - the original person before try-on
 2) TARGET_GARMENT - the intended garment reference
 3) GENERATED_RESULT - the final try-on image to audit
+
+Use the supplied transfer mode. For LOWER transfers, upper clothing is non-target. For FULL transfers, both upper and lower target garments may change; only damage outside the target outfit counts as collateral damage.
 
 Focus especially on:
 - neck and shoulder leftovers from the original clothing: old collars, hoods, padded neck shapes, scarf-like wraps, masks, or fragments that clearly do not belong to TARGET_GARMENT
@@ -222,184 +234,11 @@ Begin with "{" and end with "}".
 No trailing text after the final "}".`.trim();
 
 
-const ALLOWED_CATEGORIES = new Set(["top", "pants", "dress", "skirt", "outerwear", "other"]);
-const ALLOWED_FITS = new Set(["tight", "regular", "loose", "oversized"]);
-const ALLOWED_SILHOUETTES = new Set(["YES", "PARTIAL", "NO"]);
-const ALLOWED_SEVERITIES = new Set(["NONE", "MINOR", "MAJOR"]);
-const ALLOWED_YES_NO = new Set(["YES", "NO"]);
-const LABEL_KEYS = [
-  "garment_structure_error",
-  "construction_alignment_error",
-  "fit_error",
-  "artifact_error",
-  "silhouette_error",
-];
-const SCORE_PENALTIES = {
-  garment_structure_error: { NONE: 0, MINOR: 20, MAJOR: 60 },
-  construction_alignment_error: { NONE: 0, MINOR: 15, MAJOR: 40 },
-  fit_error: { NONE: 0, MINOR: 10, MAJOR: 30 },
-  artifact_error: { NONE: 0, MINOR: 5, MAJOR: 40 },
-  silhouette_error: { NONE: 0, MINOR: 0, MAJOR: 0 },
-};
-const PASS_SCORE_THRESHOLD = 75;
-const ARTIFACT_PATTERNS = [
-  /artifact/i,
-  /leftover/i,
-  /remnant/i,
-  /residual/i,
-  /mask/i,
-  /ghost/i,
-  /merged hair/i,
-  /broken boundar/i,
-  /old clothing/i,
-  /damaged neck/i,
-  /neck.*(artifact|leftover|remnant|residual|hood|old)/i,
-  /(hood|collar).*(artifact|leftover|remnant|residual|old)/i,
-  /(damaged|warped|melted|broken|merged).*(hair|skin|hand|face|arm|body|neck)/i,
-  /(bottom|pants|skirt|shorts|shoes).*(damaged|recolored|warped|erased|changed|replaced)/i,
-  /(shorts|skirt|leggings|pants).*(added|invented|new|extra)/i,
-  /added.*(shorts|skirt|leggings|pants)/i,
-  /extra.*(shorts|skirt|leggings|pants)/i,
-];
-const MAJOR_ARTIFACT_PATTERNS = [
-  /large.*artifact/i,
-  /obvious.*artifact/i,
-  /major.*artifact/i,
-  /obvious.*damage/i,
-  /clearly damaged/i,
-  /damaged neck/i,
-  /neck.*(leftover|remnant|residual|hood|old)/i,
-  /(hood|collar).*(leftover|remnant|residual|old)/i,
-  /(damaged|warped|melted|broken|merged).*(hair|skin|hand|face|arm|body|neck)/i,
-  /(bottom|pants|skirt|shorts|shoes).*(damaged|recolored|warped|erased|changed|replaced)/i,
-  /(shorts|skirt|leggings|pants).*(added|invented|new|extra)/i,
-  /added.*(shorts|skirt|leggings|pants)/i,
-  /extra.*(shorts|skirt|leggings|pants)/i,
-  /ghost garment/i,
-  /broken boundar/i,
-];
-const COVERED_NECK_SYNTHESIS_PATTERNS = [
-  /(neck|upper chest).*(newly visible|revealed|shown|synthesized|generated).*(turtleneck|high neck|high collar|covered|obscured|hidden)/i,
-  /(turtleneck|high neck|high collar|covered neck|hidden neck).*(neck|upper chest).*(newly visible|revealed|shown|synthesized|generated)/i,
-  /(natural|plausible|clean|smooth).*(generated|synthesized).*(neck|upper chest)/i,
-];
-const TUCKED_UPPER_BOTTOM_PATTERNS = [
-  /(waistband|top of pants|top of skirt|top of shorts|upper bottoms?|upper (pants|shorts|skirt) area).*(newly visible|revealed|shown|synthesized|generated|tuck|tucked)/i,
-  /(tuck|tucked|tucked-in).*(waistband|top of pants|top of skirt|top of shorts|upper bottoms?|upper (pants|shorts|skirt) area)/i,
-  /(elastic|gathered|bunched).*(waistband|top of pants|top of shorts|top of skirt).*(tuck|tucked|tucked-in)/i,
-  /(waistband|top of pants|top of shorts|top of skirt).*(high|higher|raised|bunched|gathered).*(tuck|tucked|tucked-in|newly visible|synthesized|generated)/i,
-  /(tuck|tucked|tucked-in|newly visible|synthesized|generated).*(waistband|top of pants|top of shorts|top of skirt).*(high|higher|raised|bunched|gathered)/i,
-  /(pants|shorts|skirt).*(partially replaced at the top|replaced at the top|distorted at the top|warped at the top).*(tuck|tucked|tucked-in|newly visible|synthesized|generated)/i,
-  /(tuck|tucked|tucked-in|newly visible|synthesized|generated).*(pants|shorts|skirt).*(partially replaced at the top|replaced at the top|distorted at the top|warped at the top)/i,
-  /upper (pants|shorts|skirt) area inconsistent.*(tuck|tucked|tucked-in|newly visible|synthesized|generated)/i,
-  /(tuck|tucked|tucked-in|newly visible|synthesized|generated).*(upper (pants|shorts|skirt) area inconsistent)/i,
-  /tucked-in effect.*(implausible|inconsistent|corrupted)/i,
-  /(waistband|top of pants|top of shorts|top of skirt).*(warped|distorted|inconsistent|corrupted|implausible).*(tuck|tucked|tucked-in|newly visible|synthesized|generated)/i,
-  /(tuck|tucked|tucked-in|newly visible|synthesized|generated).*(waistband|top of pants|top of shorts|top of skirt).*(warped|distorted|inconsistent|corrupted|implausible)/i,
-  /(waistband|top of pants|top of shorts|top of skirt).*(detached|detachment|floating|gap from the body|from the body).*(tuck|tucked|tucked-in|newly visible|synthesized|generated)/i,
-  /(tuck|tucked|tucked-in|newly visible|synthesized|generated).*(waistband|top of pants|top of shorts|top of skirt).*(detached|detachment|floating|gap from the body|from the body)/i,
-  /(shorts|pants|skirt).*(waistband|top).*(warping|distortion|detachment).*(tuck|tucked|tucked-in|newly visible|synthesized|generated)/i,
-  /(tuck|tucked|tucked-in|newly visible|synthesized|generated).*(shorts|pants|skirt).*(waistband|top).*(warping|distortion|detachment)/i,
-];
-const LAYERED_LOWER_GARMENT_PATTERNS = [
-  /(dress|skirt|tunic|romper|pinafore).*(remain|remains|remaining|still visible|visible|showing|left).*(under|beneath|below).*(hoodie|jacket|coat|cardigan|sweater|top|outerwear)/i,
-  /(dress|skirt|tunic|romper|pinafore).*(under|beneath|below).*(hoodie|jacket|coat|cardigan|sweater|top|outerwear)/i,
-  /(hoodie|jacket|coat|cardigan|sweater|top|outerwear).*(over|on top of|layered over|worn over).*(dress|skirt|tunic|romper|pinafore)/i,
-  /(layered outfit|layered look|natural layering|worn over a dress|over the dress|over a skirt|over the original dress)/i,
-  /(original dress|model_original.*dress).*(left as a skirt|visible as a skirt).*(under|beneath|below)/i,
-];
-const LOW_IMPACT_ARTIFACT_PATTERNS = [
-  /(tiny|small|slight|subtle|faint|minor|localized|barely noticeable).*(artifact|leftover|remnant|trace|blur|boundary|warp|roughness)/i,
-  /(artifact|leftover|remnant|trace|blur|boundary|warp|roughness).*(tiny|small|slight|subtle|faint|minor|localized|barely noticeable)/i,
-  /mild blur/i,
-  /minor blur/i,
-  /slight blur/i,
-  /minor sleeve edge blur/i,
-  /slight sleeve edge blur/i,
-  /slight edge roughness/i,
-  /slight boundary wobble/i,
-  /tiny neck shading oddit/i,
-  /(slight|minor).*(warp|warping).*(waistband|top of pants|top of shorts|top of skirt|upper bottoms?)/i,
-  /(waistband|top of pants|top of shorts|top of skirt|upper bottoms?).*(slight|minor).*(warp|warping)/i,
-  ...COVERED_NECK_SYNTHESIS_PATTERNS,
-  ...TUCKED_UPPER_BOTTOM_PATTERNS,
-  ...LAYERED_LOWER_GARMENT_PATTERNS,
-  /(pants|skirt|shorts|bottoms).*(newly visible|revealed|shown).*(because|due to).*(tuck|tucked)/i,
-];
-const STRUCTURE_MAJOR_PATTERNS = [
-  /shorts?\s+are\s+visible\s+instead\s+of\s+expected\s+pants/i,
-  /shorts?\s+instead\s+of\s+pants/i,
-  /pants\s+instead\s+of\s+shorts/i,
-  /added.*shorts/i,
-  /invented.*shorts/i,
-  /extra.*lower-body garment/i,
-  /wrong garment type/i,
-  /different garment type/i,
-  /missing visible buttons?/i,
-  /buttons?\s+are\s+missing/i,
-  /closure.*missing/i,
-  /zipper.*missing/i,
-];
-const SILHOUETTE_MAJOR_PATTERNS = [
-  /garment appears shorter/i,
-  /garment is shorter/i,
-  /too short/i,
-  /wrong length/i,
-  /length.*altered/i,
-  /crop level/i,
-];
-const FIT_MAJOR_PATTERNS = [/too tight/i, /too loose/i, /wrong tightness/i];
-const TOLERABLE_ISSUE_PATTERNS = [
-  /pose may affect/i,
-  /lighting may affect/i,
-  /body shape may affect/i,
-  /gravity may affect/i,
-  /normal fabric drape/i,
-  /slightly narrower on body than flatlay/i,
-  ...COVERED_NECK_SYNTHESIS_PATTERNS,
-  ...TUCKED_UPPER_BOTTOM_PATTERNS,
-  ...LAYERED_LOWER_GARMENT_PATTERNS,
-  /(pants|skirt|shorts|bottoms).*(newly visible|revealed|shown).*(because|due to).*(tuck|tucked)/i,
-];
-const CLEAN_ARTIFACT_PATTERNS = [
-  /no artifacts?/i,
-  /no visible artifacts?/i,
-  /no major artifacts?/i,
-  /no major artifacts? or (garment )?errors?/i,
-  /no major artifacts? or ghosting/i,
-  /no person damage/i,
-  /no damage to the person/i,
-  /person remains intact/i,
-  /(shorts|pants|skirt|bottoms|accessories|shoes).*(remain|remains) unchanged/i,
-  /realistic and trustworthy/i,
-  /result is realistic/i,
-  /looks realistic/i,
-  /trustworthy/i,
-  /no artifacts or person damage/i,
-  /do not break trust/i,
-];
 let globalCooldownUntil = 0;
+let nextRequestAt = 0;
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function normalizeOptionalEnum(value, allowedSet) {
-  const normalized = normalizeString(value);
-  if (!normalized) return null;
-  return allowedSet.has(normalized) ? normalized : null;
-}
-
-function normalizeGarmentType(value) {
-  if (typeof value === "string") return value.trim();
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => normalizeString(item))
-      .filter(Boolean)
-      .join("; ")
-      .slice(0, 160);
-  }
-  return "";
 }
 
 function ensureDir(dirPath) {
@@ -424,122 +263,20 @@ function toReviewAssetPath(reviewRoot, sourcePath) {
   return toWebPath(path.relative(reviewRoot, sourcePath));
 }
 
-function listSubfoldersSorted(dir) {
-  if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name)
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
-}
-
-function scoreSourceDirCandidate(candidate) {
-  if (!fs.existsSync(candidate) || !fs.statSync(candidate).isDirectory()) {
-    return { score: -1, folderCount: 0 };
-  }
-
-  const folders = listSubfoldersSorted(candidate);
-  if (folders.length === 0) {
-    return { score: 0, folderCount: 0 };
-  }
-
-  const layout = detectSourceLayout(candidate, folders);
-  let usableFolders = 0;
-
-  for (const folderName of folders) {
-    const folderPath = path.join(candidate, folderName);
-    if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
-      continue;
-    }
-
-    const assets = collectFolderAssets(folderName, folderPath, layout);
-    if (assets.garmentPath && assets.resultPath) {
-      usableFolders++;
-    }
-  }
-
-  return { score: usableFolders, folderCount: folders.length };
-}
-
 function parseSourceDirList(value) {
-  const normalized = normalizeString(value);
-  if (!normalized) return [];
-
-  return [...new Set(
-    normalized
-      .split(/[\r\n,;]+/)
-      .map((part) => normalizeString(part))
-      .filter(Boolean)
-      .map((part) => path.resolve(part)),
-  )];
+  return [...new Set(String(value || "").split(/[\r\n,;]+/).map(part => part.trim()).filter(Boolean).map(part => path.resolve(part)))];
 }
 
 function resolveSourceDirs() {
-  const envPaths = parseSourceDirList(process.env.ANALYZE_SOURCE_DIR);
-  if (envPaths.length > 0) return envPaths;
-
-  const candidates = [path.resolve("test_results"), path.resolve("images")];
-  let firstExisting = null;
-  let bestCandidate = null;
-  let bestScore = -1;
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-      firstExisting ||= candidate;
-
-      const { score } = scoreSourceDirCandidate(candidate);
-      if (score > bestScore) {
-        bestScore = score;
-        bestCandidate = candidate;
-      }
-    }
-  }
-
-  if (bestCandidate && bestScore > 0) {
-    return [bestCandidate];
-  }
-  if (firstExisting) {
-    return [firstExisting];
-  }
-
-  return [candidates[0]];
-}
-
-function detectSourceLayout(sourceDir, folders) {
-  for (const folderName of folders) {
-    const folderPath = path.join(sourceDir, folderName);
-    if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
-      continue;
-    }
-
-    const hasNestedAssets =
-      fs.existsSync(path.join(folderPath, "garment")) ||
-      fs.existsSync(path.join(folderPath, "model")) ||
-      fs.existsSync(path.join(folderPath, "result"));
-
-    return hasNestedAssets ? "test_results" : "flat";
-  }
-
-  return "flat";
+  const explicit = parseSourceDirList(process.env.ANALYZE_SOURCE_DIR);
+  if (explicit.length) return explicit;
+  const defaults = ["test_results_upper", "test_results_lower", "test_results_full", "test_results"]
+    .map(name => path.resolve(name)).filter(dir => fs.existsSync(dir) && fs.statSync(dir).isDirectory());
+  return defaults.length ? defaults : [path.resolve("images")];
 }
 
 function isSupportedImage(filename) {
   return IMAGE_EXTENSIONS.has(path.extname(filename).toLowerCase());
-}
-
-function guessMimeType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
-  if (ext === ".png") return "image/png";
-  if (ext === ".webp") return "image/webp";
-  if (ext === ".avif") return "image/avif";
-  return "application/octet-stream";
-}
-
-function fileToDataUrl(filePath) {
-  const mimeType = guessMimeType(filePath);
-  const b64 = fs.readFileSync(filePath, { encoding: "base64" });
-  return `data:${mimeType};base64,${b64}`;
 }
 
 function findUniqueImageByBase(dirPath, base) {
@@ -592,6 +329,20 @@ function summarizeMetadata(metadata) {
     "garment_filename",
     "garment_run_key",
     "garment_mode_requested",
+    "garment_mode_selected",
+    "quality_mode_selected",
+    "premium_requested",
+    "turbo_requested",
+    "turbo_enabled",
+    "flat_requested",
+    "flat_enabled",
+    "generation_profile_requested",
+    "advanced_enabled",
+    "segmentation_free_enabled",
+    "steps_selected",
+    "pairing_mode",
+    "pairing_seed",
+    "error",
     "status",
     "timestamp",
   ]) {
@@ -610,9 +361,9 @@ function collectFolderAssets(folderName, folderPath, sourceLayout) {
   const garment = sourceLayout === "test_results" ? nested("garment", "garment") : flat("garment");
   const model = sourceLayout === "test_results" ? nested("model", "model") : flat("model");
   const result = sourceLayout === "test_results" ? nested("result", "result") : flat("result");
-  const metadataPath = sourceLayout === "test_results" ? path.join(folderPath, "metadata.json") : null;
+  const metadataPath = path.join(folderPath, "metadata.json");
   const metadata = readJsonFileSafe(metadataPath);
-  const errors = [garment.error, model.error, result.error].filter(Boolean);
+  const errors = [garment.error, model.error, result.error, metadata.error].filter(Boolean);
 
   return {
     folder: folderName,
@@ -638,507 +389,39 @@ function safeJsonParse(text) {
   }
 }
 
-function normalizeStringList(value, maxItems) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => normalizeString(item))
-    .filter(Boolean)
-    .slice(0, maxItems);
+function validateAndNormalizeRating(raw) {
+  return normalizeRating(raw, SCORE_POLICY);
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
+function applyArtifactAuditToRating(rating, audit) {
+  return applyAudit(rating, audit, SCORE_POLICY);
 }
 
-function severityRank(value) {
-  if (value === "MAJOR") return 2;
-  if (value === "MINOR") return 1;
-  return 0;
+function shouldRunArtifactAudit(rating) {
+  return ENABLE_ARTIFACT_AUDIT || rating.successful === "YES";
 }
 
-function maxSeverity(a, b) {
-  return severityRank(b) > severityRank(a) ? b : a;
-}
-
-function matchesAnyPattern(text, patterns) {
-  return patterns.some((pattern) => pattern.test(text));
-}
-
-function isContextualArtifactText(text) {
-  return (
-    matchesAnyPattern(text, COVERED_NECK_SYNTHESIS_PATTERNS) ||
-    matchesAnyPattern(text, TUCKED_UPPER_BOTTOM_PATTERNS) ||
-    matchesAnyPattern(text, LAYERED_LOWER_GARMENT_PATTERNS)
-  );
-}
-
-function sanitizeIssueLists(rating) {
-  if (!rating) return rating;
-
-  const shouldKeep = (issue) => {
-    const text = normalizeString(issue);
-    if (!text) return false;
-    return !matchesAnyPattern(text, TOLERABLE_ISSUE_PATTERNS);
-  };
-
-  return {
-    ...rating,
-    critical_issues: rating.critical_issues.filter(shouldKeep),
-    minor_issues: rating.minor_issues.filter(shouldKeep),
-  };
-}
-
-function applyIssueConsistencyGuards(rating) {
-  if (!rating) return rating;
-
-  const criticalText = rating.critical_issues.join(" ");
-  const minorText = rating.minor_issues.join(" ");
-  const notesText = normalizeString(rating.notes);
-  const allText = `${criticalText}\n${minorText}\n${notesText}`;
-  const nextLabels = { ...rating.labels };
-  const artifactTexts = [...rating.critical_issues, ...rating.minor_issues, notesText]
-    .map(normalizeString)
-    .filter(Boolean);
-  const hasIndependentMajorArtifactSignal = artifactTexts.some((text) =>
-    matchesAnyPattern(text, MAJOR_ARTIFACT_PATTERNS) &&
-    !isContextualArtifactText(text),
-  );
-  const hasActionableArtifactSignal = artifactTexts.some((text) =>
-    matchesAnyPattern(text, ARTIFACT_PATTERNS) &&
-    !matchesAnyPattern(text, LOW_IMPACT_ARTIFACT_PATTERNS),
-  );
-
-  if (hasIndependentMajorArtifactSignal) {
-    nextLabels.artifact_error = maxSeverity(nextLabels.artifact_error, "MAJOR");
-  } else if (
-    hasActionableArtifactSignal ||
-    (matchesAnyPattern(allText, ARTIFACT_PATTERNS) && nextLabels.artifact_error !== "NONE")
-  ) {
-    nextLabels.artifact_error = maxSeverity(nextLabels.artifact_error, "MINOR");
-  }
-
-  if (matchesAnyPattern(criticalText, STRUCTURE_MAJOR_PATTERNS)) {
-    nextLabels.garment_structure_error = maxSeverity(nextLabels.garment_structure_error, "MAJOR");
-  }
-
-  if (matchesAnyPattern(criticalText, SILHOUETTE_MAJOR_PATTERNS)) {
-    nextLabels.silhouette_error = maxSeverity(nextLabels.silhouette_error, "MAJOR");
-  }
-
-  if (matchesAnyPattern(criticalText, FIT_MAJOR_PATTERNS)) {
-    nextLabels.fit_error = maxSeverity(nextLabels.fit_error, "MAJOR");
-  }
-
-  return {
-    ...rating,
-    labels: nextLabels,
-  };
-}
-
-function relaxContextualArtifactOvercalls(rating) {
-  if (!rating || rating.labels?.artifact_error !== "MAJOR") return rating;
-
-  const artifactTexts = [...rating.critical_issues, ...rating.minor_issues, rating.notes]
-    .map(normalizeString)
-    .filter(Boolean);
-  const hasContextualSynthesisSignal = artifactTexts.some((text) => isContextualArtifactText(text));
-  const hasIndependentMajorArtifactSignal = artifactTexts.some((text) =>
-    matchesAnyPattern(text, MAJOR_ARTIFACT_PATTERNS) &&
-    !isContextualArtifactText(text),
-  );
-
-  if (!hasContextualSynthesisSignal || hasIndependentMajorArtifactSignal) {
-    return rating;
-  }
-
-  return {
-    ...rating,
-    labels: {
-      ...rating.labels,
-      artifact_error: "MINOR",
-    },
-  };
-}
-
-function resolveArtifactLabelContradictions(rating) {
-  if (!rating || rating.labels?.artifact_error === "NONE") return rating;
-
-  const notesText = normalizeString(rating.notes);
-  const positivesText = rating.positives.map(normalizeString).filter(Boolean).join(" ");
-  const evidenceTexts = [...rating.critical_issues, ...rating.minor_issues]
-    .map(normalizeString)
-    .filter(Boolean);
-
-  const hasConcreteArtifactEvidence = evidenceTexts.some((text) =>
-    matchesAnyPattern(text, ARTIFACT_PATTERNS) &&
-    !matchesAnyPattern(text, CLEAN_ARTIFACT_PATTERNS) &&
-    !matchesAnyPattern(text, LOW_IMPACT_ARTIFACT_PATTERNS),
-  );
-  const hasLowImpactArtifactEvidence = evidenceTexts.some((text) =>
-    matchesAnyPattern(text, LOW_IMPACT_ARTIFACT_PATTERNS),
-  );
-  const hasCleanArtifactSignal = matchesAnyPattern(`${notesText}\n${positivesText}`, CLEAN_ARTIFACT_PATTERNS);
-
-  if (!hasCleanArtifactSignal || hasConcreteArtifactEvidence) {
-    return rating;
-  }
-
-  return {
-    ...rating,
-    labels: {
-      ...rating.labels,
-      artifact_error: hasLowImpactArtifactEvidence ? "MINOR" : "NONE",
-    },
-  };
-}
-
-function demoteLowImpactArtifactCriticalIssues(rating) {
-  if (!rating || rating.labels?.artifact_error === "MAJOR") return rating;
-
-  const retainedCritical = [];
-  let nextMinor = [...rating.minor_issues];
-
-  for (const issue of rating.critical_issues) {
-    const text = normalizeString(issue);
-    if (!text) continue;
-
-    const isArtifactIssue = matchesAnyPattern(text, ARTIFACT_PATTERNS);
-    const isClearlyMajorArtifact = matchesAnyPattern(text, MAJOR_ARTIFACT_PATTERNS);
-    const isContextualSynthesisIssue = isContextualArtifactText(text);
-    const overlapsAnotherMajorCategory =
-      matchesAnyPattern(text, STRUCTURE_MAJOR_PATTERNS) ||
-      matchesAnyPattern(text, SILHOUETTE_MAJOR_PATTERNS) ||
-      matchesAnyPattern(text, FIT_MAJOR_PATTERNS);
-
-    if ((isArtifactIssue || isContextualSynthesisIssue) && (!isClearlyMajorArtifact || isContextualSynthesisIssue) && !overlapsAnotherMajorCategory) {
-      nextMinor = appendUniqueStrings(nextMinor, [text], 6);
-      continue;
-    }
-
-    retainedCritical.push(text);
-  }
-
-  return {
-    ...rating,
-    critical_issues: retainedCritical,
-    minor_issues: nextMinor,
-  };
-}
-
-function ensureCriticalIssuesHaveMajorLabel(rating) {
-  if (!rating) return rating;
-  if (rating.critical_issues.length === 0) return rating;
-  if (Object.values(rating.labels).some((value) => value === "MAJOR")) return rating;
-
-  return {
-    ...rating,
-    labels: {
-      ...rating.labels,
-      garment_structure_error: maxSeverity(rating.labels.garment_structure_error, "MAJOR"),
-    },
-  };
-}
-
-function ensureIssuesMatchLabels(rating) {
-  if (!rating) return rating;
-
-  let criticalIssues = [...rating.critical_issues];
-  let minorIssues = [...rating.minor_issues];
-
-  const issueTextByLabel = {
-    garment_structure_error: {
-      MINOR: "Some visible garment structure or detail differs from the source garment.",
-      MAJOR: "Important visible garment structure or detail is missing, wrong, or invented.",
-    },
-    construction_alignment_error: {
-      MINOR: "Some visible garment details are slightly misaligned or placed incorrectly.",
-      MAJOR: "Visible garment details are clearly misaligned, broken, or placed incorrectly.",
-    },
-    fit_error: {
-      MINOR: "The garment fit or placement looks somewhat off on the person.",
-      MAJOR: "The garment fit or placement is clearly wrong on the person.",
-    },
-    artifact_error: {
-      MINOR: "There are noticeable but limited generation artifacts or minor damage in the result.",
-      MAJOR: "There are obvious generation artifacts or damage to the person or other clothing.",
-    },
-    silhouette_error: {
-      MINOR: "The garment silhouette differs somewhat from the source garment.",
-      MAJOR: "The garment silhouette is clearly wrong compared with the source garment.",
-    },
-  };
-
-  for (const key of LABEL_KEYS) {
-    const severity = rating.labels?.[key] || "NONE";
-    if (severity === "NONE") continue;
-
-    const text = issueTextByLabel[key]?.[severity];
-    if (!text) continue;
-
-    if (severity === "MAJOR") {
-      criticalIssues = appendUniqueStrings(criticalIssues, [text], 6);
-    } else {
-      minorIssues = appendUniqueStrings(minorIssues, [text], 6);
-    }
-  }
-
-  return {
-    ...rating,
-    critical_issues: criticalIssues,
-    minor_issues: minorIssues,
-  };
-}
-
-function calculateQualityScore(labels) {
-  let score = 100;
-  for (const key of LABEL_KEYS) {
-    score -= SCORE_PENALTIES[key][labels[key]];
-  }
-  return clamp(score, 0, 100);
-}
-
-function determineSuccessful(score, labels, criticalIssues) {
-  return score >= PASS_SCORE_THRESHOLD &&
-    criticalIssues.length === 0 &&
-    labels.garment_structure_error !== "MAJOR" &&
-    labels.artifact_error !== "MAJOR"
-      ? "YES"
-      : "NO";
-}
-
-function finalizeRating(rating) {
-  const sanitizedRating = sanitizeIssueLists(rating);
-  const consistentRating = applyIssueConsistencyGuards(sanitizedRating);
-  const relaxedRating = relaxContextualArtifactOvercalls(consistentRating);
-  const contradictionResolvedRating = resolveArtifactLabelContradictions(relaxedRating);
-  const rebalancedRating = demoteLowImpactArtifactCriticalIssues(contradictionResolvedRating);
-  const guardedRating = ensureCriticalIssuesHaveMajorLabel(rebalancedRating);
-  const completedRating = ensureIssuesMatchLabels(guardedRating);
-  let qualityPercent = calculateQualityScore(completedRating.labels);
-  if (completedRating.critical_issues.length > 0 && qualityPercent >= PASS_SCORE_THRESHOLD) {
-    qualityPercent = PASS_SCORE_THRESHOLD - 1;
-  }
-  return {
-    ...completedRating,
-    quality_percent: qualityPercent,
-    successful: determineSuccessful(qualityPercent, completedRating.labels, completedRating.critical_issues),
-  };
-}
-
-function appendUniqueStrings(existing, incoming, maxItems) {
-  const result = [];
-  const seen = new Set();
-
-  for (const item of [...existing, ...incoming]) {
-    const normalized = normalizeString(item);
-    if (!normalized) continue;
-    const key = normalized.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(normalized);
-    if (result.length >= maxItems) break;
-  }
-
-  return result;
-}
-
-function mergeNotes(baseNotes, extraNotes) {
-  const base = normalizeString(baseNotes);
-  const extra = normalizeString(extraNotes);
-  if (!extra) return base.slice(0, 350);
-  if (!base) return extra.slice(0, 350);
-  if (base.toLowerCase().includes(extra.toLowerCase())) return base.slice(0, 350);
-  return `${base} ${extra}`.slice(0, 350);
-}
-
-function parseDurationMs(text) {
-  if (!text) return null;
-
-  const trimmed = String(text).trim();
-  if (/^\d+ms$/i.test(trimmed)) return Number.parseInt(trimmed, 10);
-  if (/^\d+(\.\d+)?s$/i.test(trimmed)) return Math.ceil(Number.parseFloat(trimmed) * 1000);
-  if (/^\d+(\.\d+)?m$/i.test(trimmed)) return Math.ceil(Number.parseFloat(trimmed) * 60_000);
-
-  const composite = trimmed.match(/(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?/i);
-  if (composite && (composite[1] || composite[2])) {
-    const minutes = composite[1] ? Number.parseInt(composite[1], 10) : 0;
-    const seconds = composite[2] ? Number.parseFloat(composite[2]) : 0;
-    return Math.ceil(minutes * 60_000 + seconds * 1000);
-  }
-
-  return null;
-}
-
-function parseRetryAfterMs(err) {
-  const headerValue = err?.headers?.["retry-after-ms"] || err?.headers?.["retry-after"];
-  const headerMs = parseDurationMs(headerValue);
-  if (headerMs !== null) return headerMs;
-
-  const resetTokenMs = parseDurationMs(err?.headers?.["x-ratelimit-reset-tokens"]);
-  const resetRequestMs = parseDurationMs(err?.headers?.["x-ratelimit-reset-requests"]);
-  const resetMs = Math.max(resetTokenMs ?? 0, resetRequestMs ?? 0);
-  if (resetMs > 0) return resetMs;
-
-  const message = `${err?.message ?? ""}\n${err?.body ?? ""}`;
-  const match = message.match(/try again in\s+(\d+)\s*ms/i);
-  if (match) return Number.parseInt(match[1], 10);
-
-  const secondsMatch = message.match(/try again in\s+(\d+(?:\.\d+)?)\s*s/i);
-  if (secondsMatch) return Math.ceil(Number.parseFloat(secondsMatch[1]) * 1000);
-
-  return null;
+function requestContext(context) {
+  const metadata = summarizeMetadata(context.metadata) || {};
+  const mode = inferGarmentRunType({ ...metadata, folder: context.folder, source_folder: context.folderPath });
+  return "Transfer mode: " + mode.toUpperCase() + ". Generation settings (context only, apply the same quality standard to every setting): " + JSON.stringify({
+    quality: metadata.quality_mode_selected ?? null,
+    flat: metadata.flat_enabled ?? metadata.flat_requested ?? null,
+    profile: metadata.generation_profile_requested ?? null,
+    steps: metadata.steps_selected ?? null,
+  });
 }
 
 function setGlobalCooldown(ms) {
-  const jitter = Math.floor(Math.random() * (RATE_LIMIT_JITTER_MS + 1));
-  globalCooldownUntil = Math.max(globalCooldownUntil, Date.now() + ms + jitter);
+  globalCooldownUntil = Math.max(globalCooldownUntil, Date.now() + ms + Math.floor(Math.random() * (RATE_LIMIT_JITTER_MS + 1)));
 }
 
 async function waitForGlobalCooldown() {
-  const remaining = globalCooldownUntil - Date.now();
-  if (remaining > 0) {
-    await sleep(remaining);
-  }
-}
-
-function validateArtifactAudit(raw) {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return { ok: false, error: "Artifact audit JSON is not an object." };
-  }
-
-  const artifactPresent = normalizeString(raw.artifact_present);
-  if (!ALLOWED_YES_NO.has(artifactPresent)) {
-    return { ok: false, error: `Invalid artifact_present: ${JSON.stringify(raw.artifact_present)}` };
-  }
-
-  const artifactSeverity = normalizeString(raw.artifact_severity);
-  if (!ALLOWED_SEVERITIES.has(artifactSeverity)) {
-    return { ok: false, error: `Invalid artifact_severity: ${JSON.stringify(raw.artifact_severity)}` };
-  }
-
-  if (artifactPresent === "NO" && artifactSeverity !== "NONE") {
-    return { ok: false, error: "artifact_present=NO requires artifact_severity=NONE." };
-  }
-
-  if (artifactPresent === "YES" && artifactSeverity === "NONE") {
-    return { ok: false, error: "artifact_present=YES requires artifact_severity=MINOR or MAJOR." };
-  }
-
-  return {
-    ok: true,
-    audit: {
-      artifact_present: artifactPresent,
-      artifact_severity: artifactSeverity,
-      artifact_reasons: normalizeStringList(raw.artifact_reasons, 4),
-      notes: normalizeString(raw.notes).slice(0, 240),
-    },
-  };
-}
-
-function validateAndNormalizeRating(raw) {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return { ok: false, error: "Response JSON is not an object." };
-  }
-
-  const garmentCategory = normalizeOptionalEnum(raw.garment_category, ALLOWED_CATEGORIES);
-  const intendedFit = normalizeOptionalEnum(raw.intended_fit, ALLOWED_FITS);
-  const silhouettePreserved = normalizeOptionalEnum(raw.silhouette_preserved, ALLOWED_SILHOUETTES);
-
-  const labels = raw.labels;
-  if (!labels || typeof labels !== "object" || Array.isArray(labels)) {
-    return { ok: false, error: "Missing or invalid labels object." };
-  }
-
-  const normalizedLabels = {};
-  for (const key of LABEL_KEYS) {
-    let value = normalizeString(labels[key]);
-    if (!value && key === "silhouette_error") {
-      value = "NONE";
-    }
-    if (key === "silhouette_error" && value === "PARTIAL") {
-      value = "MINOR";
-    }
-    if (!ALLOWED_SEVERITIES.has(value)) {
-      return { ok: false, error: `Invalid label for ${key}: ${JSON.stringify(labels[key])}` };
-    }
-    normalizedLabels[key] = value;
-  }
-
-  return {
-    ok: true,
-    rating: finalizeRating({
-      garment_category: garmentCategory,
-      garment_type: normalizeGarmentType(raw.garment_type),
-      intended_fit: intendedFit,
-      silhouette_preserved: silhouettePreserved,
-      critical_issues: normalizeStringList(raw.critical_issues, 6),
-      minor_issues: normalizeStringList(raw.minor_issues, 6),
-      positives: normalizeStringList(raw.positives, 6),
-      notes: normalizeString(raw.notes).slice(0, 350),
-      labels: normalizedLabels,
-    }),
-  };
-}
-
-function applyArtifactAuditToRating(rating, artifactAudit) {
-  if (!rating || !artifactAudit) return rating;
-  if (artifactAudit.artifact_present !== "YES") return rating;
-
-  const nextLabels = { ...rating.labels };
-  if (severityRank(artifactAudit.artifact_severity) > severityRank(nextLabels.artifact_error)) {
-    nextLabels.artifact_error = artifactAudit.artifact_severity;
-  }
-
-  const reasons =
-    artifactAudit.artifact_reasons.length > 0
-      ? artifactAudit.artifact_reasons
-      : [artifactAudit.notes || "Artifact audit detected visible residual or damaged clothing elements."];
-
-  const nextRating = {
-    ...rating,
-    labels: nextLabels,
-    critical_issues:
-      artifactAudit.artifact_severity === "MAJOR"
-        ? appendUniqueStrings(rating.critical_issues, reasons, 6)
-        : rating.critical_issues,
-    minor_issues:
-      artifactAudit.artifact_severity === "MINOR"
-        ? appendUniqueStrings(rating.minor_issues, reasons, 6)
-        : rating.minor_issues,
-    notes: mergeNotes(rating.notes, artifactAudit.notes),
-  };
-
-  return finalizeRating(nextRating);
-}
-
-function shouldRunArtifactAudit(rating, hasModelImage) {
-  if (ENABLE_ARTIFACT_AUDIT) return true;
-  if (!hasModelImage || !rating) return false;
-  return rating.successful === "YES";
-}
-
-function enforcePerfectScoreGuard(rating, artifactAuditResult) {
-  if (!rating || rating.quality_percent < 100) return rating;
-
-  if (artifactAuditResult?.ok && artifactAuditResult.audit?.artifact_present === "NO") {
-    return rating;
-  }
-
-  const nextLabels = { ...rating.labels };
-  if (nextLabels.artifact_error === "NONE") {
-    nextLabels.artifact_error = "MINOR";
-  }
-
-  return finalizeRating({
-    ...rating,
-    labels: nextLabels,
-    minor_issues: appendUniqueStrings(
-      rating.minor_issues,
-      ["Perfect score withheld because artifact audit did not confirm a fully clean image."],
-      6,
-    ),
-    notes: mergeNotes(rating.notes, "Perfect score withheld because artifact audit did not confirm a fully clean image."),
-  });
+  const reserved = Math.max(Date.now(), nextRequestAt, globalCooldownUntil);
+  nextRequestAt = reserved + DELAY_MS;
+  if (reserved > Date.now()) await sleep(reserved - Date.now());
+  // A concurrent request may have received a 429 while this one was waiting.
+  while (globalCooldownUntil > Date.now()) await sleep(globalCooldownUntil - Date.now());
 }
 
 function extractAssistantText(resp) {
@@ -1176,9 +459,10 @@ async function postChatCompletionsOnce(payload) {
 
     const text = await res.text();
     if (!res.ok) {
-      const err = new Error(`HTTP ${res.status}: ${text}`);
+      const safeText = OPENAI_API_KEY ? text.replaceAll(OPENAI_API_KEY, "[redacted]") : text;
+      const err = new Error(`HTTP ${res.status}: ${safeText}`);
       err.status = res.status;
-      err.body = text;
+      err.body = safeText;
       err.headers = Object.fromEntries(res.headers.entries());
       throw err;
     }
@@ -1223,8 +507,8 @@ async function postChatCompletions(payload) {
   throw lastErr;
 }
 
-async function runArtifactAudit(garmentUrl, modelUrl, resultUrl, garmentCategory) {
-  const content = [{ type: "text", text: ARTIFACT_AUDIT_PROMPT }];
+async function runArtifactAudit(garmentUrl, modelUrl, resultUrl, garmentCategory, contextText) {
+  const content = [{ type: "text", text: ARTIFACT_AUDIT_PROMPT }, { type: "text", text: contextText }];
 
   if (garmentCategory) {
     content.push({ type: "text", text: `Predicted target garment category: ${garmentCategory}` });
@@ -1247,11 +531,11 @@ async function runArtifactAudit(garmentUrl, modelUrl, resultUrl, garmentCategory
   const payload = {
     model: MODEL,
     temperature: 0,
-    max_tokens: 220,
+    max_completion_tokens: 800,
     top_p: 1,
     presence_penalty: 0,
     n: 1,
-    response_format: { type: "json_object" },
+    response_format: AUDIT_RESPONSE_FORMAT,
     messages: [
       {
         role: "user",
@@ -1263,133 +547,63 @@ async function runArtifactAudit(garmentUrl, modelUrl, resultUrl, garmentCategory
   const resp = await postChatCompletions(payload);
   const raw = extractAssistantText(resp);
   const parsed = safeJsonParse(raw);
-  const validated = parsed.ok ? validateArtifactAudit(parsed.json) : null;
+  const stopped = resp?.choices?.[0]?.finish_reason === "stop";
+  const validated = parsed.ok && stopped ? validateArtifactAudit(parsed.json) : null;
 
   return {
     ok: Boolean(parsed.ok && validated?.ok),
     audit: validated?.ok ? validated.audit : null,
     raw_output_text: parsed.ok && validated?.ok ? null : raw,
-    parse_error: parsed.ok ? validated?.error ?? null : parsed.error,
+    parse_error: !stopped ? `Artifact audit did not finish: ${resp?.choices?.[0]?.finish_reason ?? "missing response"}` : parsed.ok ? validated?.error ?? null : parsed.error,
     finish_reason: resp?.choices?.[0]?.finish_reason ?? null,
   };
 }
 
 async function evaluateFolder(folderName, folderContext) {
-  if (!folderContext.ok) {
-    return { folder: folderName, ok: false, error: folderContext.error };
-  }
-
+  if (!folderContext.ok) return { folder: folderName, ok: false, error: folderContext.error };
   const { garmentPath, modelPath, resultPath } = folderContext;
-
-  if (!garmentPath || !resultPath) {
-    return {
-      folder: folderName,
-      ok: false,
-      error: "Missing required files. Expected garment.* and result.*",
-      found: {
-        garment: garmentPath ? path.basename(garmentPath) : null,
-        result: resultPath ? path.basename(resultPath) : null,
-      },
-    };
+  if (!garmentPath || !modelPath || !resultPath) {
+    return { folder: folderName, ok: false, error: "Missing required images: garment.*, model.*, and result.* are all needed for a complete assessment." };
   }
-
-  for (const p of [garmentPath, resultPath]) {
-    const st = fs.statSync(p);
-    if (!st.isFile() || st.size < 1024) {
-      return {
-        folder: folderName,
-        ok: false,
-        error: `File too small or invalid: ${path.basename(p)} (size=${st.size})`,
-        found: {
-          garment: path.basename(garmentPath),
-          result: path.basename(resultPath),
-        },
-      };
-    }
-  }
-
-  const garmentUrl = fileToDataUrl(garmentPath);
-  const modelUrl = modelPath && INCLUDE_MODEL_IN_MAIN ? fileToDataUrl(modelPath) : null;
-  const resultUrl = fileToDataUrl(resultPath);
-  const useModelInMain = Boolean(modelUrl && INCLUDE_MODEL_IN_MAIN);
-
+  const [garmentUrl, modelUrl, resultUrl] = await Promise.all([garmentPath, modelPath, resultPath].map(fileToDataUrl));
+  const contextText = requestContext(folderContext);
   const payload = {
-    model: MODEL,
-    temperature: 0,
-    max_tokens: 1000,
-    top_p: 1,
-    presence_penalty: 0,
-    n: 1,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "text", text: PROMPT },
-          ...(useModelInMain
-            ? [
-                { type: "text", text: "IMAGE 1: TARGET_GARMENT" },
-                { type: "image_url", image_url: { url: garmentUrl } },
-                { type: "text", text: "IMAGE 2: PERSON" },
-                { type: "image_url", image_url: { url: modelUrl } },
-                { type: "text", text: "IMAGE 3: GENERATED_RESULT" },
-                { type: "image_url", image_url: { url: resultUrl } },
-              ]
-            : [
-                { type: "text", text: "IMAGE 1: TARGET_GARMENT" },
-                { type: "image_url", image_url: { url: garmentUrl } },
-                { type: "text", text: "IMAGE 2: GENERATED_RESULT" },
-                { type: "image_url", image_url: { url: resultUrl } },
-              ]),
-        ],
-      },
-    ],
+    model: MODEL, temperature: 0, max_completion_tokens: 2000,
+    response_format: RATING_RESPONSE_FORMAT,
+    messages: [{ role: "user", content: [
+      { type: "text", text: PROMPT }, { type: "text", text: contextText },
+      { type: "text", text: "IMAGE 1: TARGET_GARMENT" }, { type: "image_url", image_url: { url: garmentUrl } },
+      { type: "text", text: "IMAGE 2: PERSON" }, { type: "image_url", image_url: { url: modelUrl } },
+      { type: "text", text: "IMAGE 3: GENERATED_RESULT" }, { type: "image_url", image_url: { url: resultUrl } },
+    ] }],
   };
-
-  const resp = await postChatCompletions(payload);
-  const raw = extractAssistantText(resp);
+  const response = await postChatCompletions(payload);
+  const finishReason = response?.choices?.[0]?.finish_reason;
+  const raw = extractAssistantText(response);
   const parsed = safeJsonParse(raw);
-  const validated = parsed.ok ? validateAndNormalizeRating(parsed.json) : null;
-  let finalRating = validated?.rating ?? null;
-  let artifactAuditResult = null;
-
-  if (validated?.ok && shouldRunArtifactAudit(finalRating, Boolean(modelPath))) {
+  const validated = parsed.ok && finishReason === "stop" ? validateAndNormalizeRating(parsed.json) : null;
+  if (!validated?.ok) {
+    return { folder: folderName, ok: false, error: finishReason !== "stop" ? "Assessment did not finish: " + (finishReason || "missing response") : validated?.error || parsed.error, raw_output_text: raw, finish_reason: finishReason };
+  }
+  let rating = validated.rating;
+  let auditResult = null;
+  if (shouldRunArtifactAudit(rating)) {
     try {
-      const auditModelUrl = modelUrl ?? (modelPath ? fileToDataUrl(modelPath) : null);
-      artifactAuditResult = await runArtifactAudit(
-        garmentUrl,
-        auditModelUrl,
-        resultUrl,
-        finalRating?.garment_category ?? null,
-      );
+      auditResult = await runArtifactAudit(garmentUrl, modelUrl, resultUrl, rating.garment_category, contextText);
     } catch (error) {
-      artifactAuditResult = {
-        ok: false,
-        audit: null,
-        raw_output_text: null,
-        parse_error: error?.message ?? String(error),
-        finish_reason: null,
-      };
+      auditResult = { ok: false, parse_error: error.message };
     }
+    if (!auditResult.ok) return {
+      folder: folderName, ok: false, rating: null, preliminary_rating: rating,
+      error: "Assessment incomplete: artifact audit failed. " + (auditResult.parse_error || "Invalid response"),
+      artifact_audit_error: auditResult.parse_error,
+      artifact_audit_raw_output: auditResult.raw_output_text ?? null,
+      artifact_audit_finish_reason: auditResult.finish_reason ?? null,
+    };
+    rating = applyArtifactAuditToRating(rating, auditResult.audit);
   }
-
-  if (validated?.ok && artifactAuditResult?.ok && artifactAuditResult.audit) {
-    finalRating = applyArtifactAuditToRating(finalRating, artifactAuditResult.audit);
-    finalRating = enforcePerfectScoreGuard(finalRating, artifactAuditResult);
-  }
-
-  return {
-    folder: folderName,
-    ok: Boolean(parsed.ok && validated?.ok),
-    rating: validated?.ok ? finalRating : null,
-    raw_output_text: parsed.ok && validated?.ok ? null : raw,
-    parse_error: parsed.ok ? validated?.error ?? null : parsed.error,
-    finish_reason: resp?.choices?.[0]?.finish_reason ?? null,
-    artifact_audit: artifactAuditResult?.audit ?? null,
-    artifact_audit_raw_output: artifactAuditResult?.raw_output_text ?? null,
-    artifact_audit_error: artifactAuditResult?.ok ? null : artifactAuditResult?.parse_error ?? null,
-    artifact_audit_finish_reason: artifactAuditResult?.finish_reason ?? null,
-  };
+  return { folder: folderName, ok: true, rating, finish_reason: finishReason,
+    artifact_audit: auditResult?.audit ?? null, artifact_audit_status: auditResult ? "completed" : "not_required" };
 }
 
 async function mapWithConcurrency(items, limit, worker) {
@@ -1430,6 +644,8 @@ function createPerFolderPayload(folderName, folderContext, record) {
     source_layout: folderContext.sourceLayout,
     source_folder: projectRelative(folderContext.folderPath),
     metadata: summarizeMetadata(folderContext.metadata),
+    source_run: folderContext.sourceRun ?? null,
+    preliminary_rating: record.preliminary_rating ?? null,
     metadata_error: folderContext.metadataError ?? null,
     files: {
       model: describeFile(folderContext.modelPath),
@@ -1447,6 +663,7 @@ function createPerFolderPayload(folderName, folderContext, record) {
     raw_output_text: record.raw_output_text ?? null,
     finish_reason: record.finish_reason ?? null,
     artifact_audit: record.artifact_audit ?? null,
+    artifact_audit_status: record.artifact_audit_status ?? (record.artifact_audit_error ? "failed" : null),
     artifact_audit_error: record.artifact_audit_error ?? null,
     artifact_audit_raw_output: record.artifact_audit_raw_output ?? null,
     artifact_audit_finish_reason: record.artifact_audit_finish_reason ?? null,
@@ -1462,28 +679,41 @@ function describeSourceLayouts(layouts) {
 }
 
 function collectSourceEntries(sourceDirs) {
+  const entries = [];
+  const visited = new Set();
   const sources = [];
-
-  for (const sourceDir of sourceDirs) {
-    const folders = listSubfoldersSorted(sourceDir);
-    if (folders.length === 0) continue;
-
-    const sourceLayout = detectSourceLayout(sourceDir, folders);
-    const entries = folders.map((folderName) => ({
-      folderName,
-      folderPath: path.join(sourceDir, folderName),
-      sourceDir,
-      sourceLayout,
-    }));
-
-    sources.push({ sourceDir, sourceLayout, folders, entries });
+  const expectations = [];
+  const excluded = new Set([".git", "node_modules", "outputs", "garment", "model", "result"]);
+  function visit(dir, sourceDir, sourceRun = null) {
+    if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return;
+    const real = fs.realpathSync(dir);
+    if (visited.has(real)) return;
+    visited.add(real);
+    const descriptor = readJsonFileSafe(path.join(dir, "source-run.json"));
+    if (descriptor.ok) {
+      sourceRun = descriptor.value;
+      expectations.push(sourceRun);
+    }
+    const children = fs.readdirSync(dir, { withFileTypes: true });
+    const nested = children.some(child => child.isDirectory() && ["garment", "model", "result"].includes(child.name));
+    const flat = children.some(child => child.isFile() && /^(garment|model|result)\.(jpg|jpeg|png|webp|avif|gif)$/i.test(child.name));
+    if (nested || flat || children.some(child => child.isFile() && child.name === "metadata.json")) {
+      const metadata = readJsonFileSafe(path.join(dir, "metadata.json")).value;
+      const runType = inferGarmentRunType({ ...metadata, folder: path.basename(dir), source_folder: dir });
+      if (!sourceRun?.selected_categories?.length || sourceRun.selected_categories.includes(runType)) {
+        entries.push({ folderName: path.basename(dir), folderPath: dir, sourceDir, sourceLayout: nested ? "test_results" : "flat", sourceRun });
+      }
+      return;
+    }
+    for (const child of children) if (child.isDirectory() && !excluded.has(child.name)) visit(path.join(dir, child.name), sourceDir, sourceRun);
   }
-
-  const entries = sources
-    .flatMap((source) => source.entries)
-    .sort((a, b) => a.folderName.localeCompare(b.folderName, undefined, { numeric: true, sensitivity: "base" }));
-
-  return { sources, entries };
+  for (const sourceDir of sourceDirs) {
+    const start = entries.length;
+    visit(sourceDir, sourceDir);
+    if (entries.length > start) sources.push({ sourceDir, sourceLayout: describeSourceLayouts(entries.slice(start).map(entry => entry.sourceLayout)) });
+  }
+  entries.sort((a, b) => a.folderPath.localeCompare(b.folderPath, undefined, { numeric: true }));
+  return { sources, entries, expectations };
 }
 
 function writeReviewBundle(reviewRoot, payload, folderContext) {
@@ -1527,7 +757,7 @@ function renderImageCard(label, relativePath, options = {}) {
     `;
   }
 
-  const safeSrc = encodeURI(relativePath);
+  const safeSrc = relativePath.split("/").map(encodeURIComponent).join("/");
   const safeLabel = escapeHtml(label);
   return `
     <div class="image-card image-card-${escapeHtml(variant)}">
@@ -1556,6 +786,12 @@ function renderMetaChips(entry) {
     chips.push(`Folder: ${entry.folder}`);
   }
 
+  if (entry.metadata?.quality_mode_selected) chips.push("Quality: " + entry.metadata.quality_mode_selected);
+  if (entry.metadata?.flat_enabled !== undefined && entry.metadata.flat_enabled !== null) chips.push("Flat: " + entry.metadata.flat_enabled);
+  if (entry.metadata?.generation_profile_requested) chips.push("Profile: " + entry.metadata.generation_profile_requested);
+  if (entry.metadata?.steps_selected != null) chips.push("Steps: " + entry.metadata.steps_selected);
+  if (entry.source_run?.run_id) chips.push("Run: " + entry.source_run.run_id);
+  if (entry.source_run?.branch) chips.push("Branch: " + entry.source_run.branch);
   if (chips.length === 0) return "";
   return `<div class="meta-chips">${chips.map((item) => `<span class="meta-chip">${escapeHtml(item)}</span>`).join("")}</div>`;
 }
@@ -1604,6 +840,8 @@ function createReviewEntry(payload, bundle) {
   const rating = payload.rating;
   return {
     folder: payload.folder,
+    metadata: payload.metadata,
+    source_run: payload.source_run,
     test_number: payload.metadata?.test_number ?? null,
     test_id: payload.metadata?.test_id ?? payload.folder,
     gender: payload.metadata?.gender ?? null,
@@ -1620,7 +858,7 @@ function createReviewEntry(payload, bundle) {
     intended_fit: rating?.intended_fit ?? null,
     silhouette_preserved: rating?.silhouette_preserved ?? null,
     labels: rating?.labels ?? null,
-    notes: rating?.notes ?? payload.error ?? payload.message ?? payload.parse_error ?? null,
+    notes: rating?.notes ?? ([payload.error, payload.message, payload.parse_error, payload.artifact_audit_error].filter(Boolean).join(" ") || null),
     critical_issues: rating?.critical_issues ?? [],
     minor_issues: rating?.minor_issues ?? [],
     positives: rating?.positives ?? [],
@@ -1634,8 +872,8 @@ function buildReviewHtml(reviewEntries, summary, meta) {
   const reportTitle = isGalleryOnly ? "Try-On Gallery Report" : "Try-On Review Report";
   const cards = reviewEntries
     .map((entry) => {
-      const score = entry.quality_percent ?? "ERR";
-      const aiStatus = entry.evaluation_mode === "comparison_only" ? "SKIPPED" : entry.ai_successful || "ERROR";
+      const score = entry.quality_percent ?? (entry.evaluation_mode === "generation_failed" || entry.evaluation_mode === "comparison_only" ? "—" : "ERR");
+      const aiStatus = ["generation_failed", "comparison_only"].includes(entry.evaluation_mode) ? "SKIPPED" : entry.ai_successful || "ERROR";
       const scoreClass =
         entry.quality_percent === null || entry.quality_percent === undefined
           ? "score-error"
@@ -1692,7 +930,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
               <h2>${escapeHtml(renderGenerationTitle(entry))}</h2>
               ${renderMetaChips(entry)}
             </div>
-            ${isGalleryOnly ? galleryBadges : reviewBadges}
+            ${isGalleryOnly ? galleryBadges : galleryBadges + reviewBadges}
           </div>
 
           ${isGalleryOnly
@@ -1702,6 +940,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
             ${renderImageCard("Garment", entry.files.garment)}
             ${renderImageCard("Result", entry.files.result)}
           </div>`}
+          ${isGalleryOnly && seleniumStatus === "FAILED" ? `<p class="muted">${escapeHtml(entry.notes || "Generation failed.")}</p>` : ""}
           ${detailSections}
         </article>
       `;
@@ -2059,13 +1298,16 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       <div class="summary-card"><strong>${escapeHtml(summary.generation_failed || 0)}</strong><span>Failed generations</span></div>
       <div class="summary-card"><strong>${escapeHtml(summary.generation_unknown || 0)}</strong><span>Unknown status</span></div>`
         : `
-      <div class="summary-card"><strong>${escapeHtml(summary.total)}</strong><span>Total evaluated</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.total)}</strong><span>Total cases</span></div>
       <div class="summary-card"><strong>${escapeHtml(summary.successful)}</strong><span>AI pass</span></div>
       <div class="summary-card"><strong>${escapeHtml(summary.failed)}</strong><span>AI fail</span></div>
-      <div class="summary-card"><strong>${escapeHtml(summary.comparison_only || 0)}</strong><span>Comparison Only</span></div>
-      <div class="summary-card"><strong>${escapeHtml(summary.errors)}</strong><span>Errors</span></div>`}
+      <div class="summary-card"><strong>${escapeHtml(summary.comparison_only || 0)}</strong><span>Comparison only</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.errors)}</strong><span>Assessment errors</span></div>
+      <div class="summary-card"><strong>${escapeHtml(summary.generation_failed)}</strong><span>Generation failures (skipped)</span></div>`}
     </section>
 
+    <p class="muted">${escapeHtml(meta.generatedAt)}${isGalleryOnly ? " · Generation gallery" : COMPARISON_ONLY_MODE ? " · Comparison only: AI not run" : ` · Evaluator: ${escapeHtml(MODEL)} · Pass: ${escapeHtml(SCORE_POLICY.passScore)}% · Maximum minor labels: ${escapeHtml(SCORE_POLICY.maxMinorLabels)}`}</p>
+    ${summary.source_errors?.length ? `<section><h2>Source errors</h2>${renderHtmlList(summary.source_errors, "")}</section>` : ""}
     <section class="cards">
       ${cards}
     </section>
@@ -2084,190 +1326,95 @@ function writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDirs, source
     generatedAt,
     sourceDir: sourceDirLabel,
     sourceLayout,
-    reportMode: GALLERY_ONLY_MODE ? "gallery" : "review",
+    reportMode: REPORT_MODE,
   });
   fs.writeFileSync(path.join(reviewRoot, "index.html"), html, "utf8");
 }
 
 async function main() {
+  if (!["gallery", "review", "comparison"].includes(REPORT_MODE)) throw new Error("ANALYSIS_REPORT_MODE must be gallery, review, or comparison.");
   const sourceDirs = resolveSourceDirs();
-  const { sources, entries } = collectSourceEntries(sourceDirs);
-
-  if (entries.length === 0) {
-    const attemptedDirs = sourceDirs.map((dir) => projectRelative(dir) || dir).join(", ");
-    console.error(`No subfolders found in: ${attemptedDirs}.`);
-    console.error(`Expected either <source>/<test_id>/... or <source>/<folder>/...`);
-    process.exit(1);
+  const { entries, expectations } = collectSourceEntries(sourceDirs);
+  if (!entries.length) {
+    console.error("No test cases found. Searched: " + sourceDirs.join(", "));
+    return { exitCode: 1, summary: null };
   }
-
-  const sourceLayouts = sources.map((source) => source.sourceLayout);
-  const sourceLayout = describeSourceLayouts(sourceLayouts);
-  const outDir = ensureDir(OUTPUTS_DIR);
-  const reviewRoot = outDir;
-  const sourceDirLabel = sourceDirs.map((dir) => projectRelative(dir) || dir).join(", ");
-
-  console.log(`Report mode: ${GALLERY_ONLY_MODE ? "GALLERY" : "REVIEW"}`);
-  console.log(`OpenAI endpoint: ${ENDPOINT}`);
-  console.log(`Model: ${MODEL}`);
-  console.log(
-    `AI analysis enabled: ${
-      GALLERY_ONLY_MODE ? "NO (gallery-only mode)" : HAS_OPENAI_API_KEY ? "YES" : "NO (comparison-only review mode)"
-    }`,
-  );
-  console.log(`Source dirs: ${sourceDirLabel}`);
-  console.log(`Source layout: ${sourceLayout}`);
-  console.log(`Folders: ${entries.length}`);
-  console.log(`Concurrency: ${CONCURRENCY}`);
-  console.log(`Main evaluation uses model image: ${INCLUDE_MODEL_IN_MAIN ? "YES" : "NO"}`);
-  console.log(`Artifact audit mode: ${ENABLE_ARTIFACT_AUDIT ? "ALWAYS" : "AUTO ON CLEAN PASS CANDIDATES"}`);
-  console.log(`Review bundle dir: ${projectRelative(reviewRoot) || reviewRoot}`);
-
+  const reviewRoot = ensureDir(OUTPUTS_DIR);
+  const sourceLayout = describeSourceLayouts(entries.map(entry => entry.sourceLayout));
+  console.log("Report mode: " + REPORT_MODE.toUpperCase() + "; model: " + MODEL + "; cases: " + entries.length);
+  const sourceErrors = [];
+  for (const expected of expectations) {
+    for (const category of expected.selected_categories || []) {
+      if (!entries.some(entry => entry.sourceRun === expected && inferGarmentRunType({ ...readJsonFileSafe(path.join(entry.folderPath, "metadata.json")).value, folder: entry.folderName, source_folder: entry.folderPath }) === category)) {
+        sourceErrors.push(`Artifact ${expected.artifact_name || expected.artifact_id} from run ${expected.run_id} contains no ${category} test cases.`);
+      }
+    }
+  }
+  for (const error of sourceErrors) console.error(error);
   const summary = {
-    total: 0,
-    successful: 0,
-    failed: 0,
-    comparison_only: 0,
-    errors: 0,
-    generation_successful: 0,
-    generation_failed: 0,
-    generation_unknown: 0,
-    by_category: {},
-    silhouette_stats: { YES: 0, PARTIAL: 0, NO: 0 },
-    by_fit: {
-      tight: { total: 0, pass: 0 },
-      regular: { total: 0, pass: 0 },
-      loose: { total: 0, pass: 0 },
-      oversized: { total: 0, pass: 0 },
-    },
-    source_dir: sourceDirLabel,
-    source_dirs: sourceDirs.map((dir) => projectRelative(dir) || dir),
-    source_layout: sourceLayout,
-    source_layouts: sourceLayouts,
-    review_dir: projectRelative(reviewRoot),
+    total: 0, successful: 0, failed: 0, comparison_only: 0, errors: sourceErrors.length,
+    generation_successful: 0, generation_failed: 0, generation_unknown: 0,
+    by_category: {}, silhouette_stats: { YES: 0, PARTIAL: 0, NO: 0 },
+    by_fit: Object.fromEntries(["tight", "regular", "loose", "oversized"].map(key => [key, { total: 0, pass: 0 }])),
+    source_dirs: sourceDirs.map(projectRelative), source_layout: sourceLayout, source_errors: sourceErrors,
   };
-
-  const evaluations = await mapWithConcurrency(entries, CONCURRENCY, async (entry) => {
-    const folderContext = collectFolderAssets(entry.folderName, entry.folderPath, entry.sourceLayout);
-    const sourceLabel = projectRelative(entry.sourceDir) || entry.sourceDir;
-    console.log(`\n=== Evaluating: ${entry.folderName} (${sourceLabel}) ===`);
-
+  const evaluations = await mapWithConcurrency(entries, CONCURRENCY, async entry => {
+    const context = collectFolderAssets(entry.folderName, entry.folderPath, entry.sourceLayout);
+    context.sourceRun = entry.sourceRun;
     let record;
-    if (GALLERY_ONLY_MODE) {
-      record = folderContext.ok
-        ? {
-            folder: entry.folderName,
-            ok: true,
-            rating: null,
-            evaluation_mode: "gallery_only",
-            message: "Gallery-only mode: AI evaluation skipped.",
-          }
-        : {
-            folder: entry.folderName,
-            ok: false,
-            evaluation_mode: "gallery_only",
-            error: folderContext.error,
-          };
+    if (context.metadata?.status === "failed") {
+      record = { ok: true, rating: null, evaluation_mode: "generation_failed", message: context.metadata.error || "Generation failed before a result was saved." };
+    } else if (GALLERY_ONLY_MODE || COMPARISON_ONLY_MODE) {
+      record = { ok: context.ok, rating: null, evaluation_mode: GALLERY_ONLY_MODE ? "gallery_only" : "comparison_only", error: context.error, message: "AI evaluation intentionally skipped." };
     } else if (!HAS_OPENAI_API_KEY) {
-      record = {
-        folder: entry.folderName,
-        ok: true,
-        rating: null,
-        evaluation_mode: "comparison_only",
-        message: "AI evaluation skipped because OPENAI_API_KEY is not configured.",
-      };
+      record = { ok: false, error: "OPENAI_API_KEY is missing. Set it in .env locally or in GitHub Actions repository secrets." };
     } else {
-      try {
-        record = await evaluateFolder(entry.folderName, folderContext);
-      } catch (err) {
-        record = {
-          folder: entry.folderName,
-          ok: false,
-          evaluation_mode: "llm",
-          error: "LLM request failed",
-          status: err?.status ?? null,
-          message: err?.message ?? String(err),
-          body: err?.body ?? null,
-        };
-      }
+      try { record = await evaluateFolder(entry.folderName, context); }
+      catch (error) { record = { ok: false, error: error.message, status: error.status ?? null }; }
     }
-
-    const perFolderPayload = createPerFolderPayload(entry.folderName, folderContext, record);
-    const bundle = writeReviewBundle(reviewRoot, perFolderPayload, folderContext);
-
-    return { folderContext, record, perFolderPayload, bundle };
+    record.folder = entry.folderName;
+    console.log(entry.folderName + ": " + (record.evaluation_mode === "generation_failed" ? "GENERATION FAILED (skipped)" : record.ok ? record.rating?.successful || "SKIPPED" : "ASSESSMENT ERROR: " + record.error));
+    const payload = createPerFolderPayload(entry.folderName, context, record);
+    return { record, payload, bundle: writeReviewBundle(reviewRoot, payload, context) };
   });
-
   const reviewEntries = [];
-
-  for (const evaluation of evaluations) {
-    const { record, perFolderPayload, bundle } = evaluation;
-
+  for (const { record, payload, bundle } of evaluations) {
     summary.total++;
-    const seleniumStatus = normalizeString(perFolderPayload.metadata?.status);
-    if (seleniumStatus === "success") summary.generation_successful++;
-    else if (seleniumStatus === "failed") summary.generation_failed++;
+    if (payload.metadata?.status === "success") summary.generation_successful++;
+    else if (payload.metadata?.status === "failed") summary.generation_failed++;
     else summary.generation_unknown++;
-
-    if (record.evaluation_mode === "gallery_only") {
-      // Gallery mode intentionally skips AI evaluation and only builds the visual result index.
-    } else if (record.evaluation_mode === "comparison_only") {
-      summary.comparison_only++;
-    } else if (record.ok && record.rating) {
-      console.log(JSON.stringify(record.rating, null, 2));
-
+    if (!record.ok) summary.errors++;
+    else if (record.evaluation_mode === "comparison_only") summary.comparison_only++;
+    else if (record.rating) {
       const rating = record.rating;
-      if (rating.successful === "YES") summary.successful++;
-      else summary.failed++;
-
-      if (rating.garment_category) {
-        const category = rating.garment_category;
-        if (!summary.by_category[category]) summary.by_category[category] = { total: 0, pass: 0, fail: 0 };
-        summary.by_category[category].total++;
-        if (rating.successful === "YES") summary.by_category[category].pass++;
-        else summary.by_category[category].fail++;
-      }
-
-      if (rating.silhouette_preserved && summary.silhouette_stats[rating.silhouette_preserved] !== undefined) {
-        summary.silhouette_stats[rating.silhouette_preserved]++;
-      }
-
-      if (rating.intended_fit && summary.by_fit[rating.intended_fit]) {
-        summary.by_fit[rating.intended_fit].total++;
-        if (rating.successful === "YES") summary.by_fit[rating.intended_fit].pass++;
-      }
-    } else {
-      console.log(JSON.stringify(record, null, 2));
-      summary.errors++;
+      const passed = rating.successful === "YES";
+      if (passed) summary.successful++; else summary.failed++;
+      const category = summary.by_category[rating.garment_category] ||= { total: 0, pass: 0, fail: 0 };
+      category.total++; if (passed) category.pass++; else category.fail++;
+      summary.silhouette_stats[rating.silhouette_preserved]++;
+      if (rating.intended_fit) { summary.by_fit[rating.intended_fit].total++; if (passed) summary.by_fit[rating.intended_fit].pass++; }
     }
-
-    reviewEntries.push(createReviewEntry(perFolderPayload, bundle));
+    reviewEntries.push(createReviewEntry(payload, bundle));
   }
-
   writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDirs, sourceLayout);
-
-  console.log(`\n${"=".repeat(60)}`);
-  console.log("ANALYSIS SUMMARY");
-  console.log(`${"=".repeat(60)}`);
-  console.log(`Total evaluated: ${summary.total}`);
-  console.log(`Successful (YES): ${summary.successful}`);
-  console.log(`Failed (NO): ${summary.failed}`);
-  console.log(`Comparison only: ${summary.comparison_only}`);
-  console.log(`Errors: ${summary.errors}`);
-  console.log(`\nBy garment category:`);
-  for (const [cat, stats] of Object.entries(summary.by_category)) {
-    console.log(`  ${cat}: ${stats.pass}/${stats.total} passed (${stats.fail} failed)`);
-  }
-  console.log(`\nSilhouette preservation:`);
-  console.log(`  Preserved (YES): ${summary.silhouette_stats.YES}`);
-  console.log(`  Partial: ${summary.silhouette_stats.PARTIAL}`);
-  console.log(`  Lost (NO): ${summary.silhouette_stats.NO}`);
-  console.log(`\nBy intended fit:`);
-  for (const [fit, stats] of Object.entries(summary.by_fit)) {
-    if (stats.total > 0) {
-      console.log(`  ${fit}: ${stats.pass}/${stats.total} passed`);
-    }
-  }
-  console.log(`Review index saved to: ${projectRelative(path.join(reviewRoot, "index.html")) || path.join(reviewRoot, "index.html")}`);
+  const report = {
+    schema_version: 2, generated_at: new Date().toISOString(), report_mode: REPORT_MODE,
+    evaluator_model: MODEL, scoring_policy: SCORE_POLICY, summary,
+    results: evaluations.map(item => item.payload),
+  };
+  fs.writeFileSync(path.join(reviewRoot, "analysis.json"), JSON.stringify(report, null, 2));
+  console.log("AI pass: " + summary.successful + "; AI fail: " + summary.failed + "; generation failures: " + summary.generation_failed + "; assessment errors: " + summary.errors);
+  console.log("Review report: " + path.join(reviewRoot, "index.html"));
+  const noJudgments = !GALLERY_ONLY_MODE && !COMPARISON_ONLY_MODE && summary.successful + summary.failed === 0;
+  if (noJudgments && !summary.errors) console.error("No generated results were available for AI assessment.");
+  return { exitCode: summary.errors || noJudgments ? 1 : 0, summary, report };
 }
 
-main();
+export { main, collectSourceEntries, collectFolderAssets, resolveSourceDirs, renderImageCard, evaluateFolder, buildReviewHtml };
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().then(result => { process.exitCode = result.exitCode; }).catch(error => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}

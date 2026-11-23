@@ -1,34 +1,98 @@
-# Siz3r Model Testing - LLM Analysis Guide
+# Siz3r Model Testing - AI Assessment
 
-## Local workflow
+## API key
 
-`analyze_quality.js` looks for results in `test_results/` by default. If that folder does not exist, it falls back to `images/`.
-You can also point it at multiple source directories by setting `ANALYZE_SOURCE_DIR` to a comma-, semicolon-, or newline-separated list.
+Locally, edit the project-root `.env` file and set:
 
-After analysis you get:
-- `outputs/index.html` - a single review report for manual QA
+```dotenv
+OPENAI_API_KEY=your-api-key
+```
 
-The report:
-- shows the model, garment, and result images
-- can render either a generation-only gallery or an AI review summary, depending on `ANALYSIS_REPORT_MODE`
-- reads the original files directly from the source folders you provide
-- does not create extra `json`, `csv`, or review subfolders
+For a new setup, copy `.env.example` to `.env` and replace the placeholder. Existing environment variables take precedence over `.env`. The example contains no real key; `.env` is ignored by Git.
 
-Useful environment variables:
-- `ANALYZE_SOURCE_DIR` - force the input directory or directories
-- `ANALYSIS_OUTPUT_DIR` - change the `outputs/` directory
-- `ANALYSIS_REPORT_MODE` - `gallery` for generation-only HTML, `review` for AI evaluation HTML
-- `OPENAI_CONCURRENCY` - number of parallel evaluations
+On GitHub, open **Settings > Secrets and variables > Actions > Repository secrets** and create or update **`OPENAI_API_KEY`**. GitHub Actions reads this secret directly. Updating the local `.env` does not update the GitHub secret.
 
-GitHub Actions usage:
+## Local assessment
+
+Use Node.js 22 or newer, run `npm ci`, then `npm run analyze`.
+
+The script discovers `test_results_upper/`, `test_results_lower/`, `test_results_full/`, and unpacked artifacts under `test_results/`. It also supports the older flat `images/` layout. Each case is detected independently, so several artifacts can be unpacked into separate subfolders without overwriting each other.
+
+Set `ANALYZE_SOURCE_DIR` to one artifact root, one test folder, or a comma-, semicolon-, or newline-separated list of roots to choose inputs explicitly. AI assessment requires the garment reference, original person, and generated result. AVIF inputs are converted for the API without changing the original files.
+
+Outputs:
+
+- `outputs/index.html`: pictures, generation settings, scores, explanations, and failures.
+- `outputs/analysis.json`: judgments, source-run information, and diagnostic errors.
+
+Keep the source images alongside the report when sharing it. Download and unpack the whole GitHub artifact, then open `outputs/index.html`.
+
+## Assessing three separate generation runs on GitHub
+
+Open **Actions > Analyze with LLM > Run workflow** and select a branch containing these fixes.
+
+- Keep `selection=latest_per_category` to collect the latest **upper**, **lower**, and **full** runs into one report. A blank `source_branch` uses the selected workflow branch. The current local `fashn` branch tracks remote `openAi`; use the remote name on GitHub.
+- Set `run_keys` to a subset such as `upper,lower` to request fewer categories.
+- Use `quality_mode` and `generation_profile` to restrict selection, for example to Standard generations only. `any` accepts the latest matching run for each category; actual settings appear in the report.
+- Paste generation **run IDs or run URLs**, separated by commas, into `run_ids` for precise selection. IDs override `selection`; a blank `source_branch` permits IDs from different branches. Each run must contain a matching artifact.
+- Use `selection=latest_run` to assess only the newest matching run, including whichever requested categories it contains.
+- Old `siz3r-test-results` artifacts remain supported by exact run IDs or `latest_run`; their names do not identify categories for `latest_per_category` selection.
+
+The workflow downloads each artifact into its own run/artifact directory and records the run ID, branch, commit, and selected categories. If the newest run covers all categories, an older category is not assessed twice. Missing or expired requested categories produce explicit errors. The workflow summary lists the selected source runs.
+
+Download the `llm-quality-analysis` artifact and unpack everything. Keep `test_results/` alongside `outputs/` so image links work.
+
+Automatic assessment judges the exact triggering generation run. Automatic `workflow_run` execution uses the default branch: merge the updated workflow, `.github/scripts/analysis-artifacts.cjs`, `analyze_quality.js`, `lib/assessment.js`, `package.json`, `package-lock.json`, and `tests/assessment.test.mjs` into `main` to replace its old local-LLM assessment. Manual runs can use the updated branch before that merge.
+
+The maintained workflow is `.github/workflows/analyze-with-llm.yml`.
+
+## Judgment and failure handling
+
+The API receives all three images and the intended upper/lower/full transfer mode. Full-outfit transfers may replace both upper and lower clothing. Structured responses supply category, fit, silhouette, explanations, and four severity labels.
+
+The application starts at 100 and subtracts these fixed penalties:
+
+| Label | MINOR penalty | MAJOR penalty |
+| --- | ---: | ---: |
+| Garment structure / silhouette | 20 | 60 |
+| Construction / detail alignment | 15 | 40 |
+| Fit | 10 | 30 |
+| Artifacts / collateral damage | 5 | 40 |
+
+Passing requires at least 80% by default, at most two MINOR labels, no MAJOR labels, and no critical issues. Free-text keywords never override structured labels. Passing candidates receive a second artifact audit. If that audit fails, the assessment is incomplete and has no final score.
+
+Assessment errors make the command fail after saving the diagnostic report. Ordinary AI quality failures are valid completed judgments. Failed generations are skipped, retain their original failure reason, and do not trigger API requests. If every generation failed, an AI review cannot produce judgments and exits with an error.
+
+`review` requires an API key. `gallery` generates an image gallery; `comparison` explicitly creates a no-AI review. Missing keys never silently turn an AI assessment into a successful comparison report.
+
+## Configuration
+
+- `OPENAI_API_KEY`: local `.env` value or GitHub Actions repository secret.
+- `OPENAI_MODEL`: vision model with Structured Outputs support; default `gpt-4.1`.
+- `OPENAI_PASS_SCORE_THRESHOLD`: passing score; default `80`.
+- `OPENAI_MAX_MINOR_LABELS_FOR_PASS`: maximum MINOR labels on a pass; default `2`.
+- `OPENAI_CONCURRENCY`: parallel evaluations; default `2`, workflow `1`.
+- `OPENAI_DELAY_MS`: minimum spacing between API requests; default `750`.
+- `OPENAI_TIMEOUT_MS`: timeout per request; default `180000`.
+- `OPENAI_MAX_RETRIES`: total attempts per request; default `3`.
+- `ANALYZE_ENABLE_ARTIFACT_AUDIT=true`: run the second audit on failing candidates too; passing candidates always receive it.
+- `ANALYZE_SOURCE_DIR`: optional input root or list of roots.
+- `ANALYSIS_OUTPUT_DIR`: report directory; default `outputs`.
+- `ANALYSIS_REPORT_MODE`: `gallery`, `review` (default), or `comparison`.
+
+For GitHub, the workflow also accepts an `openai_model` input and repository variables `OPENAI_MODEL` and `OPENAI_PASS_SCORE_THRESHOLD`. API keys belong in secrets.
+
+Run `npm test` for offline regression checks. Tests use mocked AI responses and do not call the real API.
+
+## Generation settings
+
 - Check `premium` in the `Siz3r Model Tests` manual-run form to select Premium before every try-on. Unchecked (the default) preserves the site's quality default. Locally, use `TEST_PREMIUM=true`. Premium is selected before Advanced settings, and the test fails before generation if the Premium button is missing, disabled, or its selection cannot be confirmed.
 - Check `turbo` in the manual-run form to select Turbo before every try-on, or set `TEST_TURBO=true` locally. Leave `premium` unchecked: enabling both modes is rejected before the run starts. Unchecked Turbo preserves the site's current mode. The test confirms Turbo selection before generating and records `turbo_requested`, `turbo_enabled`, and the selected quality mode in results.
 - `Siz3r Model Tests` should run with `ANALYZE_SOURCE_DIR=test_results_upper,test_results_lower,test_results_full` and `ANALYSIS_REPORT_MODE=gallery` so `outputs/index.html` is just the generation gallery
 - The `run_keys` field accepts `upper`, `lower`, and `full`. Leave it blank to run all three, or provide a comma-separated subset such as `upper,lower`.
 - In the `Siz3r Model Tests` manual-run form, select `generation_profile=advanced_segmentation_free_30` to enable Advanced mode, select `segmentation_free`, and set `steps` to `30` before every try-on. Leave it as `default` to preserve the existing site defaults.
 - Check `flat` in the manual-run form to enable Flat before every try-on, with either generation profile. Unchecked (the default) explicitly disables Flat. Locally, use `TEST_FLAT=true`. The test verifies the checkbox state and fails before generating if it cannot confirm it; results record `flat_requested` and `flat_enabled`.
-- To run the `fashn` branch, select it under **Run workflow → Use workflow from**, or use `gh workflow run selenium.yml --ref fashn -F flat=true`. The branch picker cannot be configured in the workflow YAML. Changing the repository default branch also affects the rest of GitHub, not just Actions.
-- `Analyze with LLM` should run with `ANALYZE_SOURCE_DIR=test_results/test_results_upper,test_results/test_results_lower,test_results/test_results_full`, `ANALYSIS_REPORT_MODE=review`, and `OPENAI_API_KEY` for AI judgments
+- On GitHub, select the remote `openAi` branch under **Run workflow > Use workflow from**, or use `gh workflow run selenium.yml --ref openAi -F flat=true`. The local `fashn` branch tracks `origin/openAi`.
 
 ## Results structure
 
@@ -89,42 +153,4 @@ There is no merged `test_results/` copy in the artifact, so each test folder is 
   "timestamp": "2026-01-22 14:45:00",
   "test_results_folder": "./test_results"
 }
-```
-
-## GitHub Actions example
-
-Create a dedicated workflow in `.github/workflows/analyze-results.yml`:
-
-```yaml
-name: Analyze Test Results with LLM
-
-on:
-  repository_dispatch:
-    types: [test-results-ready]
-
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Download artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: siz3r-test-results
-        path: test_results/
-
-    - name: Run LLM analysis
-      env:
-        ANALYZE_SOURCE_DIR: test_results/test_results_upper,test_results/test_results_lower,test_results/test_results_full
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      run: |
-        npm ci
-        node analyze_quality.js
-
-    - name: Upload HTML report
-      uses: actions/upload-artifact@v3
-      with:
-        name: llm-analysis-report
-        path: outputs/index.html
 ```
