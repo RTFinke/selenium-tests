@@ -18,6 +18,18 @@ function parseRunIds(value = "") {
   }))];
 }
 
+function parseRunUrl(value, repo) {
+  const invalid = "Paste a GitHub generation run link, such as https://github.com/owner/repo/actions/runs/123456789.";
+  let url;
+  try { url = new URL(String(value || "").trim()); } catch { throw new Error(invalid); }
+  const match = url.pathname.match(/^\/([^/]+)\/([^/]+)\/actions\/runs\/(\d+)(?:\/(?:job|attempts)\/\d+)?\/?$/);
+  if (url.protocol !== "https:" || url.hostname !== "github.com" || url.port || url.username || url.password || !match) throw new Error(invalid);
+  if (repo && `${match[1]}/${match[2]}`.toLowerCase() !== `${repo.owner}/${repo.repo}`.toLowerCase()) {
+    throw new Error("Use a generation run link from this repository.");
+  }
+  return parseRunIds(match[3])[0];
+}
+
 function artifactDetails(artifact) {
   if (artifact.expired) return null;
   if (artifact.name === "siz3r-test-results") return { ...artifact, categories: null, profile: null };
@@ -69,7 +81,7 @@ async function selectArtifacts(runs, artifactsForRun, options = {}) {
       });
       for (const category of categories) needed.delete(category);
     }
-    if (["triggered", "run_ids"].includes(mode) && selected.length === before) throw new Error(`Run ${run.id} has no unexpired generation artifact matching the requested categories/profile.`);
+    if (["triggered", "run_ids"].includes(mode) && selected.length === before) throw new Error(`Run ${run.id} has no available generation results. Its artifact may have expired.`);
     if (mode === "latest_run" && selected.length > before) break;
     if (mode === "latest_per_category" && !needed.size) break;
   }
@@ -95,31 +107,14 @@ function extractArchive(zipPath, destination) {
 }
 
 async function downloadArtifacts({ github, context, core, workingDirectory = process.cwd(), unpack = extractArchive }) {
-  const repo = context.repo, input = process.env;
+  const repo = context.repo;
   const triggered = context.eventName === "workflow_run";
-  const ids = triggered ? [context.payload.workflow_run.id] : parseRunIds(input.ANALYSIS_RUN_IDS);
-  const branch = input.ANALYSIS_SOURCE_BRANCH?.trim() || (ids.length ? "" : context.ref.replace(/^refs\/heads\//, ""));
-  const categories = triggered ? [...CATEGORIES] : parseCategories(input.ANALYSIS_RUN_KEYS || "upper,lower,full");
-  const runs = [];
-  if (ids.length) {
-    for (const run_id of ids) {
-      const { data } = await github.rest.actions.getWorkflowRun({ ...repo, run_id });
-      if (data.path?.split("@")[0] !== ".github/workflows/selenium.yml") throw new Error(`Run ${run_id} is not a Siz3r generation workflow.`);
-      if (data.head_repository?.full_name && data.head_repository.full_name !== `${repo.owner}/${repo.repo}`) throw new Error(`Run ${run_id} is from another repository.`);
-      runs.push(data);
-    }
-  } else {
-    for (let page = 1; page <= 5; page++) {
-      const { data } = await github.rest.actions.listWorkflowRuns({ ...repo, workflow_id: "selenium.yml", branch, status: "success", per_page: 100, page });
-      runs.push(...data.workflow_runs);
-      if (data.workflow_runs.length < 100) break;
-    }
-  }
-  const selected = await selectArtifacts(runs, run_id => github.paginate(github.rest.actions.listWorkflowRunArtifacts, { ...repo, run_id, per_page: 100 }), {
-    mode: triggered ? "triggered" : ids.length ? "run_ids" : input.ANALYSIS_SELECTION || "latest_per_category",
-    categories: categories.join(","), branch: triggered ? "" : branch,
-    profile: triggered ? "any" : input.ANALYSIS_GENERATION_PROFILE || "any",
-    quality: triggered ? "any" : input.ANALYSIS_QUALITY_MODE || "any",
+  const run_id = triggered ? context.payload.workflow_run.id : parseRunUrl(process.env.ANALYSIS_RUN_URL, repo);
+  const { data: run } = await github.rest.actions.getWorkflowRun({ ...repo, run_id });
+  if (run.path?.split("@")[0] !== ".github/workflows/selenium.yml") throw new Error("This is not a Siz3r generation run. Paste a link from Siz3r Model Tests.");
+  if (run.head_repository?.full_name && run.head_repository.full_name.toLowerCase() !== `${repo.owner}/${repo.repo}`.toLowerCase()) throw new Error(`Run ${run_id} is from another repository.`);
+  const selected = await selectArtifacts([run], id => github.paginate(github.rest.actions.listWorkflowRunArtifacts, { ...repo, run_id: id, per_page: 100 }), {
+    mode: triggered ? "triggered" : "run_ids",
   });
   const root = path.resolve(workingDirectory, "test_results"), temporary = process.env.RUNNER_TEMP || root;
   fs.mkdirSync(root, { recursive: true });
@@ -143,4 +138,4 @@ async function downloadArtifacts({ github, context, core, workingDirectory = pro
   return selected;
 }
 
-module.exports = { parseCategories, parseRunIds, artifactDetails, runQuality, selectArtifacts, validateArchiveEntries, downloadArtifacts };
+module.exports = { parseCategories, parseRunIds, parseRunUrl, artifactDetails, runQuality, selectArtifacts, validateArchiveEntries, downloadArtifacts };

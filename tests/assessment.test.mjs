@@ -13,7 +13,7 @@ import {
 } from "../lib/assessment.js";
 
 const require = createRequire(import.meta.url);
-const { selectArtifacts, parseRunIds, artifactDetails, validateArchiveEntries, downloadArtifacts } = require("../.github/scripts/analysis-artifacts.cjs");
+const { selectArtifacts, parseRunIds, parseRunUrl, artifactDetails, validateArchiveEntries, downloadArtifacts } = require("../.github/scripts/analysis-artifacts.cjs");
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "siz3r-assessment-"));
 const png = await sharp({ create: { width: 16, height: 16, channels: 3, background: "#778899" } }).png().toBuffer();
@@ -285,35 +285,46 @@ function coreStub() {
   return { variables, summary, info() {}, exportVariable(key, value) { variables[key] = value; } };
 }
 
-test("download orchestration keeps separate generations and exports the actual source root", async () => {
+test("one pasted link downloads that exact run without searching newer runs", async () => {
   const root = path.join(temporary, "download");
-  const artifacts = { 13: [artifact(113, "full")], 12: [artifact(112, "lower")], 11: [artifact(111, "upper")] };
-  const runs = [run(11), run(12), run(13)];
   const core = coreStub();
   const github = {
     rest: { actions: {
-      async listWorkflowRuns(options) { assert.equal(options.branch, "openAi"); return { data: { workflow_runs: runs } }; },
+      async getWorkflowRun({ run_id }) {
+        assert.equal(run_id, 11);
+        return { data: { ...run(11, "older-generation-branch"), path: ".github/workflows/selenium.yml", head_repository: { full_name: "example/repo" } } };
+      },
+      async listWorkflowRuns() { throw new Error("A linked assessment must not search for the latest run."); },
       listWorkflowRunArtifacts() {},
-      async downloadArtifact({ artifact_id }) { return { data: Buffer.from(String(artifact_id)) }; },
+      async downloadArtifact({ artifact_id }) { assert.equal(artifact_id, 111); return { data: Buffer.from("test archive") }; },
     } },
-    async paginate(_method, { run_id }) { return artifacts[run_id]; },
+    async paginate(_method, { run_id }) { assert.equal(run_id, 11); return [artifact(111, "upper")]; },
   };
   await withAnalyzer({}, async module => {
-    const previous = process.env.ANALYSIS_SELECTION;
-    process.env.ANALYSIS_SELECTION = "latest_per_category";
+    const previous = process.env.ANALYSIS_RUN_URL;
+    process.env.ANALYSIS_RUN_URL = "https://github.com/example/repo/actions/runs/11";
     try {
-      const selected = await downloadArtifacts({ github, core, context: { eventName: "workflow_dispatch", ref: "refs/heads/openAi", repo: { owner: "example", repo: "repo" } }, workingDirectory: root,
-        unpack(zip, destination) {
-          const id = Number(fs.readFileSync(zip, "utf8"));
-          makeCase(destination, { category: { 113: "full", 112: "lower", 111: "upper" }[id] });
-        },
+      const selected = await downloadArtifacts({ github, core, context: { eventName: "workflow_dispatch", ref: "refs/heads/main", repo: { owner: "example", repo: "repo" } }, workingDirectory: root,
+        unpack(_zip, destination) { makeCase(destination, { category: "upper" }); },
       });
-      assert.equal(selected.length, 3);
+      assert.equal(selected.length, 1); assert.equal(selected[0].run_id, 11);
       assert.equal(core.variables.ANALYZE_SOURCE_DIR, path.join(root, "test_results"));
       const entries = module.collectSourceEntries([core.variables.ANALYZE_SOURCE_DIR]).entries;
-      assert.equal(entries.length, 3); assert.equal(new Set(entries.map(entry => entry.sourceRun.run_id)).size, 3);
-    } finally { if (previous === undefined) delete process.env.ANALYSIS_SELECTION; else process.env.ANALYSIS_SELECTION = previous; }
+      assert.equal(entries.length, 1); assert.equal(entries[0].sourceRun.run_id, 11);
+      assert.equal(entries[0].sourceRun.branch, "older-generation-branch");
+    } finally { if (previous === undefined) delete process.env.ANALYSIS_RUN_URL; else process.env.ANALYSIS_RUN_URL = previous; }
   });
+});
+
+test("run links accept normal copied URLs and reject missing or unrelated links", () => {
+  const repo = { owner: "example", repo: "repo" };
+  for (const suffix of ["", "/", "?check_suite_focus=true", "#artifacts", "/job/55", "/attempts/2"]) {
+    assert.equal(parseRunUrl("https://github.com/example/repo/actions/runs/11" + suffix, repo), 11);
+  }
+  for (const link of ["", "11", "https://example.com/example/repo/actions/runs/11", "https://github.com/example/repo/actions", "https://github.com/example/repo/actions/runs/11,https://github.com/example/repo/actions/runs/12"]) {
+    assert.throws(() => parseRunUrl(link, repo), /Paste a GitHub generation run link/);
+  }
+  assert.throws(() => parseRunUrl("https://github.com/other/repo/actions/runs/11", repo), /from this repository/);
 });
 
 test("automatic download is pinned to the triggering run across branches", async () => {
@@ -338,7 +349,8 @@ test("assessment workflow is valid YAML and includes all runtime dependencies", 
   assert.equal(workflow.errors.length, 0);
   const config = workflow.toJS();
   assert.equal(config.permissions.actions, "read");
-  assert.equal(config.on.workflow_dispatch.inputs.selection.default, "latest_per_category");
+  assert.deepEqual(Object.keys(config.on.workflow_dispatch.inputs), ["run_url"]);
+  assert.equal(config.on.workflow_dispatch.inputs.run_url.required, true);
   assert(config.jobs.analyze.steps.some(step => step.if === "always()"));
   assert(fs.existsSync(path.join(repo, ".github/scripts/analysis-artifacts.cjs")));
 });

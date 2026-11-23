@@ -1,40 +1,13 @@
 name: Analyze with LLM
-run-name: "Assess: ${{ inputs.run_ids || inputs.selection || 'triggering run' }} | branch=${{ inputs.source_branch || github.event.workflow_run.head_branch || github.ref_name }}"
+run-name: "Judge generation: ${{ inputs.run_url || github.event.workflow_run.html_url }}"
 
 on:
   workflow_dispatch:
     inputs:
-      selection:
-        description: Which generations to assess when run_ids is blank
-        type: choice
-        default: latest_per_category
-        options: [latest_per_category, latest_run]
-      source_branch:
-        description: Generation branch. Blank uses the selected workflow branch; explicit run IDs may span branches.
+      run_url:
+        description: Paste the link to the generation run you want to judge
+        required: true
         type: string
-        default: ""
-      run_ids:
-        description: Optional comma-separated generation run IDs or run URLs. Overrides selection.
-        type: string
-        default: ""
-      run_keys:
-        description: Categories to assess (upper,lower,full or a subset)
-        type: string
-        default: upper,lower,full
-      generation_profile:
-        description: Filter generation profiles
-        type: choice
-        default: any
-        options: [any, default, advanced_segmentation_free_30]
-      quality_mode:
-        description: Filter generation quality (use run_ids for older runs without quality in their title)
-        type: choice
-        default: any
-        options: [any, standard, premium, turbo]
-      openai_model:
-        description: Vision model supporting Structured Outputs
-        type: string
-        default: gpt-4.1
   workflow_run:
     workflows: ["Siz3r Model Tests"]
     types: [completed]
@@ -74,15 +47,10 @@ jobs:
       - name: Check assessment code
         run: npm test
 
-      - name: Select and download generation results
+      - name: Download the selected generation
         uses: actions/github-script@v7
         env:
-          ANALYSIS_SELECTION: ${{ inputs.selection || 'latest_per_category' }}
-          ANALYSIS_SOURCE_BRANCH: ${{ inputs.source_branch }}
-          ANALYSIS_RUN_IDS: ${{ inputs.run_ids }}
-          ANALYSIS_RUN_KEYS: ${{ inputs.run_keys || 'upper,lower,full' }}
-          ANALYSIS_GENERATION_PROFILE: ${{ inputs.generation_profile || 'any' }}
-          ANALYSIS_QUALITY_MODE: ${{ inputs.quality_mode || 'any' }}
+          ANALYSIS_RUN_URL: ${{ inputs.run_url }}
         with:
           script: |
             const { downloadArtifacts } = require('./.github/scripts/analysis-artifacts.cjs');
@@ -92,7 +60,7 @@ jobs:
         env:
           ANALYSIS_REPORT_MODE: review
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: ${{ inputs.openai_model || vars.OPENAI_MODEL || 'gpt-4.1' }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4.1' }}
           OPENAI_CONCURRENCY: "1"
           OPENAI_DELAY_MS: "750"
           OPENAI_MIN_RETRY_DELAY_MS: "1000"

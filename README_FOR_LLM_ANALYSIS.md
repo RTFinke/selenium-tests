@@ -27,18 +27,16 @@ Outputs:
 
 Keep the source images alongside the report when sharing it. Download and unpack the whole GitHub artifact, then open `outputs/index.html`.
 
-## Assessing three separate generation runs on GitHub
+## Judge a generation on GitHub
 
-Open **Actions > Analyze with LLM > Run workflow** and select a branch containing these fixes.
+1. Open the **Siz3r Model Tests** generation run you want to judge and copy its URL.
+2. Open **Actions > Analyze with LLM > Run workflow**, using a branch with the updated workflow.
+3. Paste the link into the only input, **`run_url`**.
+4. Click **Run workflow**.
 
-- Keep `selection=latest_per_category` to collect the latest **upper**, **lower**, and **full** runs into one report. A blank `source_branch` uses the selected workflow branch. The current local `fashn` branch tracks remote `openAi`; use the remote name on GitHub.
-- Set `run_keys` to a subset such as `upper,lower` to request fewer categories.
-- Use `quality_mode` and `generation_profile` to restrict selection, for example to Standard generations only. `any` accepts the latest matching run for each category; actual settings appear in the report.
-- Paste generation **run IDs or run URLs**, separated by commas, into `run_ids` for precise selection. IDs override `selection`; a blank `source_branch` permits IDs from different branches. Each run must contain a matching artifact.
-- Use `selection=latest_run` to assess only the newest matching run, including whichever requested categories it contains.
-- Old `siz3r-test-results` artifacts remain supported by exact run IDs or `latest_run`; their names do not identify categories for `latest_per_category` selection.
+That link selects the exact generation, including its branch and available upper/lower/full results. No category, quality, or profile choices are needed. An empty or invalid link produces a clear error; the workflow never falls back to a newer run.
 
-The workflow downloads each artifact into its own run/artifact directory and records the run ID, branch, commit, and selected categories. If the newest run covers all categories, an older category is not assessed twice. Missing or expired requested categories produce explicit errors. The workflow summary lists the selected source runs.
+The selected generation must have completed and its result artifact must still be available. Both current artifact names and the older `siz3r-test-results` name work. The report records the source run, branch, commit, and generation settings.
 
 Download the `llm-quality-analysis` artifact and unpack everything. Keep `test_results/` alongside `outputs/` so image links work.
 
@@ -80,7 +78,7 @@ Assessment errors make the command fail after saving the diagnostic report. Ordi
 - `ANALYSIS_OUTPUT_DIR`: report directory; default `outputs`.
 - `ANALYSIS_REPORT_MODE`: `gallery`, `review` (default), or `comparison`.
 
-For GitHub, the workflow also accepts an `openai_model` input and repository variables `OPENAI_MODEL` and `OPENAI_PASS_SCORE_THRESHOLD`. API keys belong in secrets.
+For GitHub, set repository variables `OPENAI_MODEL` and `OPENAI_PASS_SCORE_THRESHOLD` to change the evaluator defaults. API keys belong in secrets. These settings do not appear in the run form.
 
 Run `npm test` for offline regression checks. Tests use mocked AI responses and do not call the real API.
 
