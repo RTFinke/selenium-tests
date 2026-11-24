@@ -1,5 +1,5 @@
 name: Analyze with LLM
-run-name: "Judge generation: ${{ inputs.run_url || github.event.workflow_run.html_url }}"
+run-name: "Judge generation: ${{ inputs.run_url }}"
 
 on:
   workflow_dispatch:
@@ -8,9 +8,6 @@ on:
         description: Paste the link to the generation run you want to judge
         required: true
         type: string
-  workflow_run:
-    workflows: ["Siz3r Model Tests"]
-    types: [completed]
 
 permissions:
   contents: read
@@ -18,15 +15,10 @@ permissions:
 
 jobs:
   analyze:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_repository.full_name == github.repository)
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      # Automatic workflow_run jobs use this evaluator from the default branch.
-      # Generation artifacts are pinned to the triggering run below.
       - uses: actions/checkout@v4
 
       - name: Setup Node.js

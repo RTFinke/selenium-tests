@@ -40,7 +40,7 @@ The selected generation must have completed and its result artifact must still b
 
 Download the `llm-quality-analysis` artifact and unpack everything. Keep `test_results/` alongside `outputs/` so image links work.
 
-Automatic assessment judges the exact triggering generation run. Automatic `workflow_run` execution uses the default branch: merge the updated workflow, `.github/scripts/analysis-artifacts.cjs`, `analyze_quality.js`, `lib/assessment.js`, `package.json`, `package-lock.json`, and `tests/assessment.test.mjs` into `main` to replace its old local-LLM assessment. Manual runs can use the updated branch before that merge.
+Judgments run only when you start **Analyze with LLM** manually. Finishing a model test does not start an assessment. Apply the manual-only workflow to the default branch (`main`) as well, since GitHub uses that branch's workflow to decide whether completed model tests should start another workflow. Manual runs can use an updated branch containing the evaluator and its dependencies.
 
 The maintained workflow is `.github/workflows/analyze-with-llm.yml`.
 

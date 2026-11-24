@@ -323,7 +323,7 @@ test("branch, quality, profile and expiration filters cannot silently select ano
 test("latest run, exact IDs and legacy names remain supported", async () => {
   const selected = await selectArtifacts([run(2), run(1)], () => [artifact(20, "upper")], { mode: "latest_run" });
   assert.equal(selected.length, 1); assert.equal(selected[0].run_id, 2);
-  const legacy = await selectArtifacts([run(1)], () => [{ id: 10, name: "siz3r-test-results" }], { mode: "triggered" });
+  const legacy = await selectArtifacts([run(1)], () => [{ id: 10, name: "siz3r-test-results" }], { mode: "run_ids" });
   assert.equal(legacy[0].artifact_name, "siz3r-test-results");
   assert.deepEqual(parseRunIds("123,https://github.com/example/repo/actions/runs/456"), [123, 456]);
   assert.throws(() => parseRunIds("not-a-run"));
@@ -384,21 +384,21 @@ test("run links accept normal copied URLs and reject missing or unrelated links"
   assert.throws(() => parseRunUrl("https://github.com/other/repo/actions/runs/11", repo), /from this repository/);
 });
 
-test("automatic download is pinned to the triggering run across branches", async () => {
+test("completed model tests and other automatic events cannot start a judgment", async () => {
   const core = coreStub();
+  let requests = 0;
   const github = {
     rest: { actions: {
-      async getWorkflowRun({ run_id }) { assert.equal(run_id, 77); return { data: { ...run(77), path: ".github/workflows/selenium.yml", head_repository: { full_name: "example/repo" } } }; },
-      listWorkflowRunArtifacts() {},
-      async downloadArtifact() { return { data: Buffer.from("test archive") }; },
+      async getWorkflowRun() { requests++; throw new Error("Automatic events must not fetch results."); },
     } },
-    async paginate(_method, { run_id }) { assert.equal(run_id, 77); return [artifact(770, "upper")]; },
   };
-  const selected = await downloadArtifacts({ github, core,
-    context: { eventName: "workflow_run", ref: "refs/heads/main", repo: { owner: "example", repo: "repo" }, payload: { workflow_run: { id: 77 } } },
-    workingDirectory: path.join(temporary, "triggered"), unpack() {},
-  });
-  assert.equal(selected[0].run_id, 77); assert.equal(selected[0].branch, "openAi");
+  for (const eventName of ["workflow_run", "push", "repository_dispatch"]) {
+    await assert.rejects(downloadArtifacts({ github, core,
+      context: { eventName, ref: "refs/heads/main", repo: { owner: "example", repo: "repo" }, payload: { workflow_run: { id: 77 } } },
+      workingDirectory: path.join(temporary, "automatic-event"), unpack() {},
+    }), /must be started manually/);
+  }
+  assert.equal(requests, 0);
 });
 
 test("assessment workflow is valid YAML and includes all runtime dependencies", () => {
@@ -406,6 +406,8 @@ test("assessment workflow is valid YAML and includes all runtime dependencies", 
   assert.equal(workflow.errors.length, 0);
   const config = workflow.toJS();
   assert.equal(config.permissions.actions, "read");
+  assert.deepEqual(Object.keys(config.on), ["workflow_dispatch"]);
+  assert.equal(config.jobs.analyze.if, "github.event_name == 'workflow_dispatch'");
   assert.deepEqual(Object.keys(config.on.workflow_dispatch.inputs), ["run_url"]);
   assert.equal(config.on.workflow_dispatch.inputs.run_url.required, true);
   assert(config.jobs.analyze.steps.some(step => step.if === "always()"));

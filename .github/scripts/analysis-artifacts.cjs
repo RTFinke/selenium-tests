@@ -49,12 +49,12 @@ function runQuality(run) {
 async function selectArtifacts(runs, artifactsForRun, options = {}) {
   const requested = parseCategories(options.categories);
   const mode = options.mode || "latest_per_category";
-  if (!["latest_per_category", "latest_run", "run_ids", "triggered"].includes(mode)) throw new Error("Invalid selection mode.");
+  if (!["latest_per_category", "latest_run", "run_ids"].includes(mode)) throw new Error("Invalid selection mode.");
   const needed = new Set(requested);
   const selected = [];
   for (const run of [...runs].sort((a, b) => Number(b.id) - Number(a.id))) {
     if (run.status !== "completed") {
-      if (["triggered", "run_ids"].includes(mode)) throw new Error(`Run ${run.id} has not completed.`);
+      if (mode === "run_ids") throw new Error(`Run ${run.id} has not completed.`);
       continue;
     }
     if (options.branch && run.head_branch !== options.branch) {
@@ -81,7 +81,7 @@ async function selectArtifacts(runs, artifactsForRun, options = {}) {
       });
       for (const category of categories) needed.delete(category);
     }
-    if (["triggered", "run_ids"].includes(mode) && selected.length === before) throw new Error(`Run ${run.id} has no available generation results. Its artifact may have expired.`);
+    if (mode === "run_ids" && selected.length === before) throw new Error(`Run ${run.id} has no available generation results. Its artifact may have expired.`);
     if (mode === "latest_run" && selected.length > before) break;
     if (mode === "latest_per_category" && !needed.size) break;
   }
@@ -107,14 +107,16 @@ function extractArchive(zipPath, destination) {
 }
 
 async function downloadArtifacts({ github, context, core, workingDirectory = process.cwd(), unpack = extractArchive }) {
+  if (context.eventName !== "workflow_dispatch") {
+    throw new Error("Judgments must be started manually. Use Actions > Analyze with LLM > Run workflow and paste a generation run link.");
+  }
   const repo = context.repo;
-  const triggered = context.eventName === "workflow_run";
-  const run_id = triggered ? context.payload.workflow_run.id : parseRunUrl(process.env.ANALYSIS_RUN_URL, repo);
+  const run_id = parseRunUrl(process.env.ANALYSIS_RUN_URL, repo);
   const { data: run } = await github.rest.actions.getWorkflowRun({ ...repo, run_id });
   if (run.path?.split("@")[0] !== ".github/workflows/selenium.yml") throw new Error("This is not a Siz3r generation run. Paste a link from Siz3r Model Tests.");
   if (run.head_repository?.full_name && run.head_repository.full_name.toLowerCase() !== `${repo.owner}/${repo.repo}`.toLowerCase()) throw new Error(`Run ${run_id} is from another repository.`);
   const selected = await selectArtifacts([run], id => github.paginate(github.rest.actions.listWorkflowRunArtifacts, { ...repo, run_id: id, per_page: 100 }), {
-    mode: triggered ? "triggered" : "run_ids",
+    mode: "run_ids",
   });
   const root = path.resolve(workingDirectory, "test_results"), temporary = process.env.RUNNER_TEMP || root;
   fs.mkdirSync(root, { recursive: true });
