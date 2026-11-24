@@ -106,6 +106,22 @@ test("secondary audit preserves major defects regardless of clean notes", () => 
   assert.equal(result.labels.artifact_error, "MAJOR"); assert.equal(result.successful, "NO");
 });
 
+test("major integrity findings stay first when earlier issues and notes fill the report limits", () => {
+  const original = clean();
+  original.labels.garment_structure_error = "MAJOR";
+  original.critical_issues = Array.from({ length: 6 }, (_, index) => `Earlier garment issue ${index + 1}.`);
+  original.notes = "Earlier garment notes. ".repeat(30);
+  const rating = validateAndNormalizeRating(original).rating;
+  const bodyFinding = "Both exposed upper arms are visibly narrower than in PERSON.";
+  const result = applyArtifactAuditToRating(rating, {
+    artifact_present: "YES", artifact_severity: "MAJOR", artifact_reasons: [bodyFinding], notes: bodyFinding,
+  });
+  assert.equal(result.critical_issues.length, 6);
+  assert.equal(result.critical_issues[0], bodyFinding);
+  assert(result.notes.startsWith(bodyFinding));
+  assert(result.notes.length <= 350);
+});
+
 test("Retry-After seconds, dates, milliseconds and compound resets are honored", () => {
   assert.equal(parseRetryAfterMs({ headers: { "retry-after": "30" } }), 30000);
   assert.equal(parseRetryAfterMs({ headers: { "retry-after-ms": "250" } }), 250);
@@ -179,10 +195,43 @@ test("passing cases include full context, structured output and a second audit",
     assert.equal(result.exitCode, 0); assert.equal(result.summary.successful, 1); assert.equal(result.summary.generation_failed, 1); assert.equal(requests.length, 2);
     assert(requests.every(request => request.response_format.type === "json_schema" && request.response_format.json_schema.strict));
     assert(requests.every(request => request.messages[0].content.filter(part => part.type === "image_url").length === 3));
+    assert(requests.every(request => request.messages[0].content.filter(part => part.type === "image_url").every(part => part.image_url.detail === "high")));
     assert(requests.every(request => request.messages[0].content.some(part => part.type === "text" && part.text.includes("Transfer mode: FULL") && part.text.includes("turbo"))));
+    assert.equal(requests[0].messages[0].content[0].text, fs.readFileSync(path.join(repo, "prompts/tryon-judgment.txt"), "utf8").trim());
+    assert.equal(requests[1].messages[0].content[0].text, fs.readFileSync(path.join(repo, "prompts/tryon-integrity-audit.txt"), "utf8").trim());
+    assert.equal(result.report.prompts.judgment.file, "prompts/tryon-judgment.txt");
+    assert.match(result.report.prompts.integrity_audit.sha256, /^[a-f0-9]{64}$/);
     const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
     assert.match(html, /Quality: turbo/); assert.match(html, /Steps: 30/); assert.match(html, /Generation timed out/);
     assert.equal(result.report.results.find(record => record.rating).metadata.flat_enabled, true);
+  });
+});
+
+test("the default integrity check catches arm damage even when clothing details already failed", async () => {
+  const root = path.join(temporary, "body-check-on-failure"); makeCase(root, { category: "full" });
+  // Reproduce Test #3's old 55% labels: the primary review missed the arms.
+  const previous = clean();
+  previous.labels.garment_structure_error = "MINOR";
+  previous.labels.construction_alignment_error = "MINOR";
+  previous.labels.fit_error = "MINOR";
+  previous.minor_issues = ["Dress pockets are missing", "Hemline shape is slightly off"];
+  const bodyFinding = "Both exposed upper arms are visibly narrower than in PERSON.";
+  await withAnalyzer({ ANALYZE_SOURCE_DIR: root, ANALYZE_ENABLE_ARTIFACT_AUDIT: "" }, async module => {
+    let calls = 0;
+    globalThis.fetch = async (_url, options) => {
+      calls++;
+      const request = JSON.parse(options.body);
+      return response(request.response_format.json_schema.name === "tryon_artifact_audit"
+        ? { artifact_present: "YES", artifact_severity: "MAJOR", artifact_reasons: [bodyFinding], notes: bodyFinding }
+        : previous);
+    };
+    const result = await module.main();
+    const record = result.report.results[0];
+    assert.equal(calls, 2); assert.equal(result.exitCode, 0);
+    assert.equal(record.artifact_audit_status, "completed");
+    assert.equal(record.rating.labels.artifact_error, "MAJOR");
+    assert.equal(record.rating.critical_issues[0], bodyFinding);
+    assert(record.rating.notes.startsWith(bodyFinding));
   });
 });
 
@@ -196,6 +245,29 @@ test("failed artifact audit never leaves a successful score", async () => {
     assert.equal(result.report.results[0].rating, null); assert.match(result.report.results[0].artifact_audit_error, /401/);
     const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
     assert.match(html, /artifact audit failed/); assert(!html.includes("Score: 100"));
+  });
+});
+
+test("a major integrity finding cannot retain contradictory body-preservation claims", async () => {
+  const root = path.join(temporary, "conflicting-body-claims"); makeCase(root);
+  const primary = clean();
+  primary.positives = ["Person's face and body proportions are well preserved."];
+  primary.notes = "Body proportions are well preserved.";
+  const bodyFinding = "Both exposed upper arms are visibly narrower than in PERSON.";
+  await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async (module, output) => {
+    let calls = 0;
+    globalThis.fetch = async () => response(++calls === 1 ? primary : {
+      artifact_present: "YES", artifact_severity: "MAJOR", artifact_reasons: [bodyFinding], notes: bodyFinding,
+    });
+    const result = await module.main();
+    const record = result.report.results[0];
+    assert.equal(calls, 2); assert.equal(record.rating.successful, "NO");
+    assert.equal(record.rating.notes, bodyFinding); assert.deepEqual(record.rating.positives, []);
+    assert.deepEqual(record.primary_rating.positives, primary.positives);
+    assert.equal(record.primary_rating.notes, primary.notes);
+    const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
+    assert(!html.includes("Body proportions are well preserved."));
+    assert.match(html, /Earlier positive claims are withheld/);
   });
 });
 

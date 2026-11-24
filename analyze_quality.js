@@ -2,6 +2,7 @@ import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 import {
   LABEL_KEYS, envNumber, fileToDataUrl, parseRetryAfterMs,
   RATING_RESPONSE_FORMAT, AUDIT_RESPONSE_FORMAT,
@@ -19,7 +20,7 @@ const MAX_RETRIES = envNumber(process.env, "OPENAI_MAX_RETRIES", 3, { min: 1 });
 const CONCURRENCY = envNumber(process.env, "OPENAI_CONCURRENCY", 2, { min: 1 });
 const MIN_RETRY_DELAY_MS = envNumber(process.env, "OPENAI_MIN_RETRY_DELAY_MS", 1000, { min: 1 });
 const RATE_LIMIT_JITTER_MS = envNumber(process.env, "OPENAI_RATE_LIMIT_JITTER_MS", 250, { min: 0 });
-const ENABLE_ARTIFACT_AUDIT = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_ENABLE_ARTIFACT_AUDIT || "").trim());
+const ENABLE_ARTIFACT_AUDIT = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_ENABLE_ARTIFACT_AUDIT || "true").trim());
 const REPORT_MODE = String(process.env.ANALYSIS_REPORT_MODE || "review").trim().toLowerCase();
 const GALLERY_ONLY_MODE = REPORT_MODE === "gallery";
 const COMPARISON_ONLY_MODE = REPORT_MODE === "comparison";
@@ -30,209 +31,12 @@ const SCORE_POLICY = {
 const OUTPUTS_DIR = path.resolve(process.env.ANALYSIS_OUTPUT_DIR || "outputs");
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"]);
 
-const PROMPT = `You are a common-sense QA evaluator for virtual try-on transfer quality.
-Your job is to judge whether the clothing from garment.png was transferred well onto the person from model.png, creating result.png.
-You should think like a careful human reviewer, not a rigid rule parser.
-
-The main question is:
-Does result.png look like the same person from model.png wearing the same garment from garment.png, without obvious damage or nonsense being introduced?
-
-Image roles are fixed by order:
-1) TARGET_GARMENT = garment.png. This is the source garment that should be transferred.
-2) PERSON = model.png. This is the original person before try-on.
-3) GENERATED_RESULT = result.png. This is the final try-on result and the image you judge.
-
-If only two images are provided, they are:
-1) TARGET_GARMENT
-2) GENERATED_RESULT
-
-Core judgment principles:
-- Focus on the transferred garment first.
-- Also check whether the person from PERSON was damaged during generation.
-- The result should still look like the same person from PERSON.
-- The garment in GENERATED_RESULT should still look like the same garment from TARGET_GARMENT.
-- Use common sense. If the result looks good and believable to a normal shopper, that matters.
-- Do not fail tiny issues that most people would never notice.
-- Do not ignore obvious failures just because the garment is roughly recognizable.
-
-What matters most:
-
-1) Garment transfer fidelity
-- Compare TARGET_GARMENT with the clothing worn in GENERATED_RESULT.
-- Focus on garment type, neckline, sleeve type, sleeve length, silhouette, length, looseness, and overall structure.
-- Focus on visible structural details such as buttons, zippers, plackets, pockets, stripes, seams, panels, trims, cuffs, ribbing, and closures.
-- If TARGET_GARMENT itself shows a visible inner collar, mock neck, knit insert, zipper guard, lining, or underlayer at the neck, treat that visible neck element as part of the target appearance.
-- A similar neck insert or visible underlayer in GENERATED_RESULT is acceptable when it matches or plausibly corresponds to what is visible in TARGET_GARMENT.
-- Placement of details matters.
-- Missing visible details that are clearly present in TARGET_GARMENT are errors.
-- Added details that are not in TARGET_GARMENT are errors.
-- If a visible key element is fully missing, that is usually a MAJOR issue.
-- If the garment has a print or stripes, the result should preserve them well enough to still read as the same garment.
-- Minor distortion from pose, body shape, or drape is acceptable.
-- Normal on-body drape is acceptable. Do not over-penalize small changes caused by pose, gravity, body shape, lighting, or resolution.
-
-2) Person and non-target preservation
-- Compare PERSON with GENERATED_RESULT.
-- The person should remain intact: no damaged face, hair, neck, hands, skin, legs, or body shape.
-- Clothing and items that are not the transferred garment should remain intact unless naturally covered by the transferred garment.
-- If other clothing, shoes, or accessories from PERSON are recolored, changed, erased, warped, merged, or replaced without good reason, that is an error.
-- If PERSON originally had a turtleneck, high collar, scarf-like neck coverage, or other garment covering the neck, GENERATED_RESULT may legitimately reveal or synthesize neck skin or upper chest that was hidden before.
-- A newly visible or newly synthesized neck area is acceptable if it looks anatomically natural, smoothly integrated, and consistent in skin tone, lighting, and shading.
-- Do NOT treat a clean, natural-looking exposed neck as leftover turtleneck damage just because that area was hidden in PERSON.
-- Only treat the neck area as artifact or damage if there are clear remnants of the old neck covering, or if the generated neck looks malformed, implausible, mismatched, or corrupted.
-- If the transferred garment is a top, bottoms from PERSON should usually remain the same unless naturally covered.
-- If PERSON originally wears a dress, skirt, tunic, romper, pinafore, or another outfit with a lower portion visible below the transferred upper-body garment, that lower portion may remain visible in GENERATED_RESULT.
-- For top or outerwear transfers, it can be correct for GENERATED_RESULT to look like PERSON put a hoodie, jacket, cardigan, sweater, or similar upper-body layer on over the existing outfit.
-- Do NOT require the original dress or skirt to be fully replaced or hidden when the transferred garment is only an upper-body item and the result reads as a natural layered outfit.
-- Do NOT mistake the preserved lower part of an original dress for an invented skirt or extra lower-body garment if it looks coherent, intentional, and consistent with PERSON.
-- Only flag that preserved lower portion as damage if it is clearly recolored, corrupted, detached, implausibly reshaped, or appears to be a truly new invented garment not supported by PERSON.
-- Only if TARGET_GARMENT visibly appears tucked into bottoms in garment.png, GENERATED_RESULT may also reveal or synthesize the upper part of the bottoms that was hidden in PERSON.
-- A newly visible waistband, top of pants, top of skirt, or top of shorts caused by tucking is acceptable if it looks plausible, consistent with the rest of the bottoms, and visually fitting.
-- If garment.png does not visibly show the top tucked into bottoms, do NOT excuse a changed waistband or top-of-bottom area as a tuck effect.
-- Because that upper-bottom area may have been hidden in PERSON, do NOT require an exact reconstruction of the original waistband or top edge.
-- Elastic waistbands or gathered shorts/pants may sit a bit higher and show stronger bunching or gathers after tucking; that alone is not damage.
-- Small differences in the top seam, waistband shape, gathers, folds, or upper-bottom contour are acceptable if the result still looks natural and coherent overall.
-- Only treat that newly generated upper-bottom area as damage if it looks malformed, mismatched, corrupted, or like an invented extra layer.
-- If the transferred garment is longer and naturally covers some underlying clothing, that is fine.
-
-3) No unreasonable additions
-- Do not allow random added layers, extra collars, ghost garments, leftover old clothing fragments, or invented details that are not supported by either TARGET_GARMENT or PERSON.
-- Small plausible generation variation is acceptable.
-- Clearly invented structure is not acceptable.
-
-4) Artifact check
-- Look for neck damage, merged hair, leftover collars or hoods, warped boundaries, ghosting, broken body parts, and damaged non-target clothing.
-- Before calling a neck-area leftover, compare the neck region to TARGET_GARMENT and do not mistake a target-supported inner collar, knit insert, or neck underlayer for old clothing.
-- Artifacts that clearly damage the person, the garment, or other visible clothing are MAJOR issues.
-- Use MINOR only when the artifact is clearly noticeable but still limited in scope.
-- Tiny edge noise, slight boundary wobble, mild blur, or very small leftover traces that a normal shopper would likely ignore should be NONE, not MINOR.
-- Smaller warping or mild resolution loss can be MINOR if it is noticeable enough to reduce trust.
-
-Category focus:
-- The supplied transfer mode defines which clothing is meant to change.
-- UPPER: transfer the upper garment; preserve lower clothing unless naturally covered.
-- LOWER: transfer pants, shorts, or skirt; preserve the upper clothing unless naturally occluded.
-- FULL: transfer the full dress, jumpsuit, suit, or multi-piece outfit shown in TARGET_GARMENT. Replacing both upper and lower clothing is expected; do not call those replacements collateral damage.
-- For FULL multi-piece references, compare every intended garment, not just the top. Use garment_category="outfit" for multi-piece outfits.
-- If TARGET_GARMENT is a top or outerwear, judge only that transferred top garment for garment fidelity.
-- If TARGET_GARMENT is pants, judge only the transferred pants for garment fidelity.
-- Ignore other clothing for identity matching unless that other clothing was damaged by the generation.
-- Clothing that is hidden by natural overlap or occlusion does not count as missing.
-
-Common-sense pass/fail standard:
-- A pass means the try-on looks like a good transfer of TARGET_GARMENT onto PERSON, and GENERATED_RESULT would not make a normal shopper or merchant immediately distrust it.
-- A fail means the garment identity is clearly wrong, important details are missing, the person is damaged, other clothing is wrongly changed, or obvious artifacts break trust.
-
-Label assignment, choose ONE per category:
-- garment_structure_error: NONE | MINOR | MAJOR
-- construction_alignment_error: NONE | MINOR | MAJOR
-- fit_error: NONE | MINOR | MAJOR
-- artifact_error: NONE | MINOR | MAJOR
-
-Scoring and pass/fail are calculated by the application from your severity labels.
-Do not calculate scores or make the final pass/fail decision yourself.
-
-Output requirements:
-Return ONLY valid JSON, no markdown and no commentary, exactly in this schema:
-{
-  "garment_type": string,
-  "garment_category": "top" | "pants" | "dress" | "skirt" | "outerwear" | "outfit" | "other",
-  "intended_fit": "tight" | "regular" | "loose" | "oversized" | null,
-  "silhouette_preserved": "YES" | "PARTIAL" | "NO",
-  "critical_issues": [string],
-  "minor_issues": [string],
-  "positives": [string],
-  "notes": string,
-  "labels": {
-    "garment_structure_error": "NONE" | "MINOR" | "MAJOR",
-    "construction_alignment_error": "NONE" | "MINOR" | "MAJOR",
-    "fit_error": "NONE" | "MINOR" | "MAJOR",
-    "artifact_error": "NONE" | "MINOR" | "MAJOR"
-  }
-}
-Use null for intended_fit if the visible evidence is insufficient.
-Every critical issue must correspond to at least one MAJOR label.
-Garment structure includes silhouette and length preservation.
-
-Hard limits:
-- critical_issues: max 6 items
-- minor_issues: max 6 items
-- positives: max 6 items
-- notes: max 350 characters, no repetition
-- If you start repeating, stop and output the JSON immediately.
-- Return JSON only.
-- Begin with "{" and end with "}".
-- No trailing text after the final "}".
-
-Constraints:
-- Be strict about visible garment design and detail.
-- Be tolerant of small color and texture variation.
-- Do not invent details that are not visible.
-- Judge only visible evidence.`.trim();
-
-const ARTIFACT_AUDIT_PROMPT = `You are a careful integrity auditor for virtual try-on images.
-Your ONLY job is to detect obvious or materially important failures in GENERATED_RESULT that a general garment evaluator might overlook.
-
-You may receive:
-1) MODEL_ORIGINAL - the original person before try-on
-2) TARGET_GARMENT - the intended garment reference
-3) GENERATED_RESULT - the final try-on image to audit
-
-Use the supplied transfer mode. For LOWER transfers, upper clothing is non-target. For FULL transfers, both upper and lower target garments may change; only damage outside the target outfit counts as collateral damage.
-
-Focus especially on:
-- neck and shoulder leftovers from the original clothing: old collars, hoods, padded neck shapes, scarf-like wraps, masks, or fragments that clearly do not belong to TARGET_GARMENT
-- non-target clothing damage: especially bottoms, skirts, pants, shorts, leggings, shoes, or socks that were recolored, changed, warped, erased, or partially replaced even though the try-on was only supposed to change another garment
-- added extra lower-body garments or layers, such as invented shorts, skirts, leggings, or overlays that were not present in MODEL_ORIGINAL and are not part of TARGET_GARMENT
-- preserved lower portions of an original dress, skirt, tunic, romper, or similar garment showing below a transferred top or outerwear are acceptable when the result reads as a natural layered outfit; do not treat that as an extra garment by default
-- obvious merged boundaries, ghost remnants, or corrupted clothing/body regions
-- If TARGET_GARMENT itself shows a visible inner collar, knit neck insert, mock neck, or neck underlayer, a similar visible neck element in GENERATED_RESULT can be correct and should not be treated as leftover clothing
-- BUT if MODEL_ORIGINAL had a turtleneck, high collar, or other neck coverage, a newly visible or newly synthesized neck can be acceptable and should be judged for natural appearance rather than treated as automatic leftover clothing
-- BUT only if TARGET_GARMENT visibly appears tucked into bottoms in garment.png, a newly visible or newly synthesized waistband or upper-bottom area can be acceptable and should be judged for plausibility rather than treated as automatic damage
-
-Rules:
-- Only set artifact_present to "YES" when the artifact is clear enough that a normal reviewer would notice it and care
-- Do not flag tiny, ambiguous, or low-impact irregularities such as slight edge roughness, tiny neck shading oddities, mild blur, or small leftover traces that do not materially hurt trust
-- Use artifact_severity = "MINOR" only for localized, noticeable issues that do not materially damage the person, the transferred garment, or non-target clothing
-- If a large or obvious leftover-clothing artifact is clearly visible without reasonable doubt, artifact_severity must be "MAJOR"
-- If visible non-target bottoms are recolored, changed, replaced, or corrupted relative to MODEL_ORIGINAL, artifact_severity should usually be "MAJOR", except for a plausible newly visible upper-bottom area caused by a tucked-in target garment
-- If a new lower-body garment or extra layer appears in GENERATED_RESULT that was not present in MODEL_ORIGINAL and is not the target garment, artifact_severity should usually be "MAJOR"
-- If the neck or shoulder area clearly contains remnants of the original outfit that are not part of TARGET_GARMENT, artifact_severity should usually be "MAJOR"
-- Before flagging a neck remnant, first check whether TARGET_GARMENT already includes a visible inner neck layer or collar detail; if it does, a matching neck element in GENERATED_RESULT is expected, not an artifact
-- Do NOT call a visible neck insert, mock neck, knit collar, or inner layer a leftover artifact when that same type of neck detail is present in TARGET_GARMENT
-- If MODEL_ORIGINAL hid the neck with a turtleneck, high collar, scarf, or similar coverage, do NOT treat a clean generated neck as a leftover artifact by itself
-- In those neck-covered cases, judge the newly visible neck by whether it looks natural in anatomy, skin tone, edge blending, and lighting; flag it only if it looks like actual leftover clothing or clearly unnatural synthetic anatomy
-- If something could plausibly be normal shadow, fold, drape, or natural occlusion, do NOT call it MAJOR
-- Never return a perfect clean result if a clear artifact or collateral damage exists
-- Do NOT treat the original garment disappearing inside the replaced target area as damage; that replacement is expected
-- When MODEL_ORIGINAL is available, non-target garments such as bottoms and shoes should remain the same in GENERATED_RESULT unless naturally covered by the target garment
-- If MODEL_ORIGINAL wears a dress, skirt, tunic, romper, or similar lower garment and TARGET_GARMENT is a top or outerwear item, do NOT require that original lower garment to disappear; a visible lower portion can be correct
-- Do NOT call the visible lower part of an original dress a "new skirt" or "extra lower-body garment" when it simply remains visible beneath a newly added hoodie, jacket, cardigan, sweater, or other upper-body layer and still looks coherent
-- Only when TARGET_GARMENT visibly appears tucked into bottoms in garment.png, do NOT treat a newly visible or synthesized waistband, top of pants, top of skirt, or top of shorts as damage by itself
-- In tucked-in cases, judge that upper-bottom area by whether it looks plausible and consistent with the visible bottoms; do NOT require an exact reconstruction of the hidden original upper-bottom area
-- Elastic waistbands or gathered shorts/pants may appear higher, tighter, or more bunched after tucking; do NOT call that warped or detached unless there is a clear floating gap, broken outline, double layer, or impossible geometry
-- Minor differences in waistband curve, top edge shape, folds, gathers, or upper-bottom contour should usually be NONE or at most MINOR if the area still looks natural overall
-- Flag the tucked upper-bottom area only if it is clearly malformed, detached, impossible-looking, badly blended, or appears like an extra garment
-- If garment.png does not visibly show a tucked-in presentation, do NOT use tucking as a justification for changed upper-bottom structure
-- Do NOT compare bottoms or shoes in GENERATED_RESULT to styled non-target items in TARGET_GARMENT
-- If the bottom garment in GENERATED_RESULT is changed, replaced, recolored, warped, erased, or partially lost relative to MODEL_ORIGINAL, that counts as damage to non-target clothing, except for a plausible newly visible or synthesized upper-bottom area caused by a tucked-in target garment
-
-Return ONLY valid JSON in this exact schema:
-{
-  "artifact_present": "YES" | "NO",
-  "artifact_severity": "NONE" | "MINOR" | "MAJOR",
-  "artifact_reasons": [string],
-  "notes": string
-}
-
-Hard limits:
-- artifact_reasons: max 4 items
-- notes: max 240 characters
-- If artifact_present is "NO", artifact_severity must be "NONE"
-- If artifact_present is "YES", artifact_severity must be "MINOR" or "MAJOR"
-Begin with "{" and end with "}".
-No trailing text after the final "}".`.trim();
-
+const PROMPT = fs.readFileSync(new URL("./prompts/tryon-judgment.txt", import.meta.url), "utf8").trim();
+const ARTIFACT_AUDIT_PROMPT = fs.readFileSync(new URL("./prompts/tryon-integrity-audit.txt", import.meta.url), "utf8").trim();
+const PROMPT_VERSIONS = {
+  judgment: { file: "prompts/tryon-judgment.txt", sha256: createHash("sha256").update(PROMPT).digest("hex") },
+  integrity_audit: { file: "prompts/tryon-integrity-audit.txt", sha256: createHash("sha256").update(ARTIFACT_AUDIT_PROMPT).digest("hex") },
+};
 
 let globalCooldownUntil = 0;
 let nextRequestAt = 0;
@@ -516,16 +320,16 @@ async function runArtifactAudit(garmentUrl, modelUrl, resultUrl, garmentCategory
 
   if (modelUrl) {
     content.push({ type: "text", text: "IMAGE 1: MODEL_ORIGINAL" });
-    content.push({ type: "image_url", image_url: { url: modelUrl } });
+    content.push({ type: "image_url", image_url: { url: modelUrl, detail: "high" } });
     content.push({ type: "text", text: "IMAGE 2: TARGET_GARMENT" });
-    content.push({ type: "image_url", image_url: { url: garmentUrl } });
+    content.push({ type: "image_url", image_url: { url: garmentUrl, detail: "high" } });
     content.push({ type: "text", text: "IMAGE 3: GENERATED_RESULT" });
-    content.push({ type: "image_url", image_url: { url: resultUrl } });
+    content.push({ type: "image_url", image_url: { url: resultUrl, detail: "high" } });
   } else {
     content.push({ type: "text", text: "IMAGE 1: TARGET_GARMENT" });
-    content.push({ type: "image_url", image_url: { url: garmentUrl } });
+    content.push({ type: "image_url", image_url: { url: garmentUrl, detail: "high" } });
     content.push({ type: "text", text: "IMAGE 2: GENERATED_RESULT" });
-    content.push({ type: "image_url", image_url: { url: resultUrl } });
+    content.push({ type: "image_url", image_url: { url: resultUrl, detail: "high" } });
   }
 
   const payload = {
@@ -572,9 +376,9 @@ async function evaluateFolder(folderName, folderContext) {
     response_format: RATING_RESPONSE_FORMAT,
     messages: [{ role: "user", content: [
       { type: "text", text: PROMPT }, { type: "text", text: contextText },
-      { type: "text", text: "IMAGE 1: TARGET_GARMENT" }, { type: "image_url", image_url: { url: garmentUrl } },
-      { type: "text", text: "IMAGE 2: PERSON" }, { type: "image_url", image_url: { url: modelUrl } },
-      { type: "text", text: "IMAGE 3: GENERATED_RESULT" }, { type: "image_url", image_url: { url: resultUrl } },
+      { type: "text", text: "IMAGE 1: TARGET_GARMENT" }, { type: "image_url", image_url: { url: garmentUrl, detail: "high" } },
+      { type: "text", text: "IMAGE 2: PERSON" }, { type: "image_url", image_url: { url: modelUrl, detail: "high" } },
+      { type: "text", text: "IMAGE 3: GENERATED_RESULT" }, { type: "image_url", image_url: { url: resultUrl, detail: "high" } },
     ] }],
   };
   let validated;
@@ -602,6 +406,7 @@ async function evaluateFolder(folderName, folderContext) {
     );
   }
   let rating = validated.rating;
+  const primaryRating = rating;
   let auditResult = null;
   if (shouldRunArtifactAudit(rating)) {
     try {
@@ -610,7 +415,7 @@ async function evaluateFolder(folderName, folderContext) {
       auditResult = { ok: false, parse_error: error.message };
     }
     if (!auditResult.ok) return {
-      folder: folderName, ok: false, rating: null, preliminary_rating: rating, ...diagnostics,
+      folder: folderName, ok: false, rating: null, preliminary_rating: rating, primary_rating: primaryRating, ...diagnostics,
       error: "Assessment incomplete: artifact audit failed. " + (auditResult.parse_error || "Invalid response"),
       artifact_audit_error: auditResult.parse_error,
       artifact_audit_raw_output: auditResult.raw_output_text ?? null,
@@ -618,7 +423,7 @@ async function evaluateFolder(folderName, folderContext) {
     };
     rating = applyArtifactAuditToRating(rating, auditResult.audit);
   }
-  return { folder: folderName, ok: true, rating, finish_reason: finishReason, ...diagnostics,
+  return { folder: folderName, ok: true, rating, primary_rating: primaryRating, finish_reason: finishReason, ...diagnostics,
     artifact_audit: auditResult?.audit ?? null, artifact_audit_status: auditResult ? "completed" : "not_required" };
 }
 
@@ -662,6 +467,7 @@ function createPerFolderPayload(folderName, folderContext, record) {
     metadata: summarizeMetadata(folderContext.metadata),
     source_run: folderContext.sourceRun ?? null,
     preliminary_rating: record.preliminary_rating ?? null,
+    primary_rating: record.primary_rating ?? null,
     assessment_attempts: record.assessment_attempts ?? 0,
     assessment_validation_errors: record.assessment_validation_errors ?? [],
     metadata_error: folderContext.metadataError ?? null,
@@ -880,6 +686,7 @@ function createReviewEntry(payload, bundle) {
     critical_issues: rating?.critical_issues ?? [],
     minor_issues: rating?.minor_issues ?? [],
     positives: rating?.positives ?? [],
+    major_audit: payload.artifact_audit?.artifact_severity === "MAJOR",
     source_folder: payload.source_folder,
     files: bundle.files,
   };
@@ -936,7 +743,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
             </section>
             <section>
               <h3>Positives</h3>
-              ${renderHtmlList(entry.positives, "None")}
+              ${renderHtmlList(entry.positives, entry.major_audit ? "Earlier positive claims are withheld after a major integrity finding." : "None")}
             </section>
           </div>`;
 
@@ -1417,7 +1224,7 @@ async function main() {
   writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDirs, sourceLayout);
   const report = {
     schema_version: 2, generated_at: new Date().toISOString(), report_mode: REPORT_MODE,
-    evaluator_model: MODEL, scoring_policy: SCORE_POLICY, summary,
+    evaluator_model: MODEL, prompts: PROMPT_VERSIONS, scoring_policy: SCORE_POLICY, summary,
     results: evaluations.map(item => item.payload),
   };
   fs.writeFileSync(path.join(reviewRoot, "analysis.json"), JSON.stringify(report, null, 2));
@@ -1428,7 +1235,7 @@ async function main() {
   return { exitCode: summary.errors || noJudgments ? 1 : 0, summary, report };
 }
 
-export { main, collectSourceEntries, collectFolderAssets, resolveSourceDirs, renderImageCard, evaluateFolder, buildReviewHtml };
+export { main, collectSourceEntries, collectFolderAssets, resolveSourceDirs, renderImageCard, evaluateFolder, createReviewEntry, buildReviewHtml };
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().then(result => { process.exitCode = result.exitCode; }).catch(error => {

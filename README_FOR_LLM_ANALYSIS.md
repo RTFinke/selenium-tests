@@ -12,6 +12,17 @@ For a new setup, copy `.env.example` to `.env` and replace the placeholder. Exis
 
 On GitHub, open **Settings > Secrets and variables > Actions > Repository secrets** and create or update **`OPENAI_API_KEY`**. GitHub Actions reads this secret directly. Updating the local `.env` does not update the GitHub secret.
 
+## Editing the judgment prompts
+
+- `prompts/tryon-judgment.txt`: the main assessment instructions.
+- `prompts/tryon-integrity-audit.txt`: the independent person/body and artifact check.
+
+Edit these plain-text files to change the judging instructions. `analyze_quality.js` loads them directly; `analysis.json` records their filenames and content hashes so reports from different prompt revisions can be identified. Deploy the `prompts/` directory along with the evaluator.
+
+The prompts first compare the original person's visible body proportions, explicitly including both upper arms and forearms. Clearly altered arms/body are MAJOR artifacts even when the generated anatomy looks realistic. Small or uncertain pocket, seam, hem-fold, and texture differences should not outweigh these findings. Different image sizes, pose, perspective, and actual clothing coverage must be accounted for.
+
+These instructions do not change the fixed scoring penalties in `lib/assessment.js`. Existing reports keep their original judgments; use a new manual assessment to evaluate a changed prompt.
+
 ## Local assessment
 
 Use Node.js 22 or newer, run `npm ci`, then `npm run analyze`.
@@ -57,7 +68,11 @@ The application starts at 100 and subtracts these fixed penalties:
 | Fit | 10 | 30 |
 | Artifacts / collateral damage | 5 | 40 |
 
-Passing requires at least 80% by default, at most two MINOR labels, no MAJOR labels, and no critical issues. Free-text keywords never override structured labels. Passing candidates receive a second artifact audit. If that audit fails, the assessment is incomplete and has no final score.
+Passing requires at least 80% by default, at most two MINOR labels, no MAJOR labels, and no critical issues. Free-text keywords never override structured labels. Every valid assessment receives an independent body/artifact audit by default, including quality failures, so failing on garment details does not bypass the body check. A major audit finding is placed first in the critical issues and notes. If the audit fails, the assessment is incomplete and has no final score.
+
+When a major integrity audit contradicts the main review, its notes replace the main review's notes and the earlier positive claims are withheld from the consolidated verdict. The original main assessment remains available as `primary_rating` in `analysis.json` for review. Conflicting model opinions should be checked against the images; the combined score does not establish that every model claim is correct.
+
+The default is two AI requests per judged case, plus one correction request if the main reply contains inconsistent severity. Set `ANALYZE_ENABLE_ARTIFACT_AUDIT=false` locally to audit passing candidates only. The workflow uses the full default check. Image requests explicitly use high detail for visual comparison.
 
 If the AI lists a critical issue but assigns only NONE/MINOR labels, it is asked once to correct its assessment using the same images. This adds one assessment request for the affected case. The application does not choose which severity is correct. A second inconsistent reply remains an assessment error; both the original reply and correction attempt are recorded in `analysis.json`.
 
@@ -75,7 +90,7 @@ Assessment errors make the command fail after saving the diagnostic report. Ordi
 - `OPENAI_DELAY_MS`: minimum spacing between API requests; default `750`.
 - `OPENAI_TIMEOUT_MS`: timeout per request; default `180000`.
 - `OPENAI_MAX_RETRIES`: total attempts per request; default `3`.
-- `ANALYZE_ENABLE_ARTIFACT_AUDIT=true`: run the second audit on failing candidates too; passing candidates always receive it.
+- `ANALYZE_ENABLE_ARTIFACT_AUDIT`: default `true`; audit both passing and failing judgments. `false` audits passing candidates only.
 - `ANALYZE_SOURCE_DIR`: optional input root or list of roots.
 - `ANALYSIS_OUTPUT_DIR`: report directory; default `outputs`.
 - `ANALYSIS_REPORT_MODE`: `gallery`, `review` (default), or `comparison`.
