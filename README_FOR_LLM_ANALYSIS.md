@@ -36,6 +36,20 @@ Outputs:
 - `outputs/index.html`: pictures, generation settings, scores, explanations, and failures.
 - `outputs/analysis.json`: judgments, source-run information, and diagnostic errors.
 
+The HTML review groups results by garment filename and intended transfer mode, with all models for one garment together before the next. A clothing overview links to each group and shows model counts, pass/fail counts, average scores, and errors. Average scores use completed judgments only.
+
+At the top, **Most common reported problems** groups the existing critical/minor findings into problem types and ranks them by the number of affected results. Each type counts once per evaluated result even if several findings describe it. Results with several different problem types contribute to each relevant count. Generation failures, incomplete assessments, notes, and positive statements do not inflate these counts. Unknown problem descriptions remain visible as separate types. No additional AI requests are needed for this summary, and it does not alter scores.
+
+`analysis.json` also includes `summary.by_garment` and `summary.common_problems`. Deploy `lib/review-summary.js` with the evaluator.
+
+To rebuild the layout of an existing report without judging the images again:
+
+```sh
+npm run report -- "path/to/unpacked-report/outputs/analysis.json" "outputs/grouped-review"
+```
+
+This reuses the saved judgments and original model/threshold information. It makes no AI calls and does not change any scores. The rebuilt HTML links to the original source images, so keep the unpacked report available.
+
 Keep the source images alongside the report when sharing it. Download and unpack the whole GitHub artifact, then open `outputs/index.html`.
 
 ## Judge a generation on GitHub

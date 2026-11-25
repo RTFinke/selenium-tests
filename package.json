@@ -6,6 +6,7 @@
   "scripts": {
     "analyze": "node analyze_quality.js",
     "start": "node analyze_quality.js",
+    "report": "node scripts/render-review.mjs",
     "test": "node --test --experimental-test-isolation=none tests/assessment.test.mjs"
   },
   "engines": {

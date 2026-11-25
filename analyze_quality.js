@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
+import { groupByGarment, summarizeProblems, summarizeGarments } from "./lib/review-summary.js";
 import {
   LABEL_KEYS, envNumber, fileToDataUrl, parseRetryAfterMs,
   RATING_RESPONSE_FORMAT, AUDIT_RESPONSE_FORMAT,
@@ -592,7 +593,7 @@ function renderImageCard(label, relativePath, options = {}) {
         </div>
       </div>
       <div class="image-frame">
-        <img src="${escapeHtml(safeSrc)}" alt="${safeLabel}" decoding="async">
+        <img src="${escapeHtml(safeSrc)}" alt="${safeLabel}" loading="lazy" decoding="async">
       </div>
     </div>
   `;
@@ -636,14 +637,6 @@ function inferGarmentRunType(entry) {
   return fallbackMatch ? fallbackMatch[1].toLowerCase() : "unknown";
 }
 
-function renderGenerationTitle(entry) {
-  const garmentFilename = normalizeString(entry.garment_filename);
-  const garmentName = garmentFilename
-    ? path.parse(garmentFilename).name
-    : normalizeString(entry.test_id) || normalizeString(entry.folder) || "Unknown garment";
-  return `${garmentName} || Garment type: ${inferGarmentRunType(entry)}`;
-}
-
 function renderGalleryBoard(entry) {
   return `
     <div class="images images-gallery">
@@ -669,6 +662,7 @@ function createReviewEntry(payload, bundle) {
     test_number: payload.metadata?.test_number ?? null,
     test_id: payload.metadata?.test_id ?? payload.folder,
     gender: payload.metadata?.gender ?? null,
+    model_filename: payload.metadata?.model_filename ?? null,
     garment_filename: payload.metadata?.garment_filename ?? null,
     garment_run_key: payload.metadata?.garment_run_key ?? null,
     garment_mode_requested: payload.metadata?.garment_mode_requested ?? null,
@@ -692,11 +686,43 @@ function createReviewEntry(payload, bundle) {
   };
 }
 
+function renderProblemHighlights({ evaluated_results: total, problems }) {
+  const heading = `<div class="section-heading"><h2>Most common reported problems</h2><p>${total} evaluated results. Each result counts once per problem type; one result can have several types. These are grouped AI findings, not new judgments.</p></div>`;
+  if (!problems.length) return `<section class="report-section">${heading}<p class="muted">${total ? "No problems reported in the evaluated results." : "No completed AI judgments to summarize."}</p></section>`;
+  const highlights = problems.slice(0, 6).map(problem => `
+    <article class="problem-card">
+      <h3 title="${escapeHtml(problem.label)}">${escapeHtml(problem.label.length > 120 ? problem.label.slice(0, 117) + "…" : problem.label)}</h3>
+      <div class="problem-count"><strong>${problem.count}</strong><span>of ${total} results · ${problem.percent}%</span></div>
+      <div class="problem-bar" aria-hidden="true"><span style="width:${problem.percent}%"></span></div>
+      <p><span class="critical-count">${problem.critical_count} critical</span> · ${problem.minor_count} minor · ${problem.garment_count} garments</p>
+      <details><summary>Example findings</summary>${renderHtmlList(problem.examples, "None")}</details>
+    </article>
+  `).join("\n");
+  const remaining = problems.length > 6 ? `<details class="all-problems"><summary>All ${problems.length} reported problem types</summary><ul>${problems.map(problem => `<li><strong>${escapeHtml(problem.label)}</strong>: ${problem.count} results (${problem.critical_count} critical, ${problem.minor_count} minor)</li>`).join("")}</ul></details>` : "";
+  return `<section class="report-section">${heading}<div class="problem-grid">${highlights}</div>${remaining}</section>`;
+}
+
+function renderGarmentOverview(groups, galleryOnly) {
+  const rows = groups.map(group => `
+    <tr>
+      <td><a href="#${group.id}">${escapeHtml(group.name)}</a><br><span class="muted">${escapeHtml(group.run_mode)}</span></td>
+      <td>${group.stats.model_count}</td><td>${group.stats.total}</td>
+      ${galleryOnly ? `<td>${group.stats.generation_failed}</td>` : `<td>${group.stats.passed} / ${group.stats.failed}</td><td>${group.stats.average_score === null ? "—" : group.stats.average_score + "%"}</td><td>${group.stats.generation_failed + group.stats.errors}</td>`}
+    </tr>
+  `).join("\n");
+  return `<section class="report-section"><div class="section-heading"><h2>Clothing overview</h2><p>Select a garment to see all of its models together.</p></div>
+    <div class="table-scroll"><table class="garment-table"><thead><tr><th>Garment</th><th>Models</th><th>Results</th>${galleryOnly ? "<th>Generation failures</th>" : "<th>AI pass / fail</th><th>Average score</th><th>Generation / assessment errors</th>"}</tr></thead><tbody>${rows}</tbody></table></div>
+  </section>`;
+}
+
 function buildReviewHtml(reviewEntries, summary, meta) {
   const isGalleryOnly = meta.reportMode === "gallery";
+  const evaluatorModel = meta.evaluatorModel ?? MODEL;
+  const scoringPolicy = meta.scoringPolicy ?? SCORE_POLICY;
   const reportTitle = isGalleryOnly ? "Try-On Gallery Report" : "Try-On Review Report";
-  const cards = reviewEntries
-    .map((entry) => {
+  const garmentGroups = groupByGarment(reviewEntries);
+  const problemSummary = summarizeProblems(reviewEntries);
+  const renderCard = (entry) => {
       const score = entry.quality_percent ?? (entry.evaluation_mode === "generation_failed" || entry.evaluation_mode === "comparison_only" ? "—" : "ERR");
       const aiStatus = ["generation_failed", "comparison_only"].includes(entry.evaluation_mode) ? "SKIPPED" : entry.ai_successful || "ERROR";
       const scoreClass =
@@ -752,7 +778,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
           <div class="card-top">
             <div class="card-heading">
               <div class="card-kicker">${isGalleryOnly ? "Result Sheet" : "Review Entry"}</div>
-              <h2>${escapeHtml(renderGenerationTitle(entry))}</h2>
+              <h3>${escapeHtml(entry.model_filename ? path.parse(entry.model_filename).name : entry.test_id || entry.folder || "Unknown model")}</h3>
               ${renderMetaChips(entry)}
             </div>
             ${isGalleryOnly ? galleryBadges : galleryBadges + reviewBadges}
@@ -769,8 +795,19 @@ function buildReviewHtml(reviewEntries, summary, meta) {
           ${detailSections}
         </article>
       `;
-    })
-    .join("\n");
+    };
+  const cards = garmentGroups.map((group, index) => `
+    <section class="garment-group" id="${group.id}">
+      <header class="garment-header">
+        <p class="card-kicker">Garment ${index + 1} of ${garmentGroups.length} · ${escapeHtml(group.run_mode)}</p>
+        <h2>${escapeHtml(group.name)}</h2>
+        <p class="muted">${group.stats.model_count} models · ${group.stats.total} results${isGalleryOnly ? "" : ` · ${group.stats.passed} pass · ${group.stats.failed} fail · average ${group.stats.average_score === null ? "—" : group.stats.average_score + "%"}`}${group.stats.generation_failed ? ` · ${group.stats.generation_failed} generation failures` : ""}${group.stats.errors ? ` · ${group.stats.errors} assessment errors` : ""}</p>
+      </header>
+      <div class="cards">${group.entries.map(renderCard).join("\n")}</div>
+    </section>
+  `).join("\n");
+  const problemHighlights = isGalleryOnly ? "" : renderProblemHighlights(problemSummary);
+  const garmentOverview = renderGarmentOverview(garmentGroups, isGalleryOnly);
 
   return `<!doctype html>
 <html lang="en">
@@ -813,6 +850,9 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       padding: 28px 18px 40px;
     }
     h1, h2, h3 { margin: 0; }
+    .report-heading { margin-bottom: 24px; }
+    .report-heading h1 { font-size: clamp(1.8rem, 3vw, 2.6rem); }
+    .report-heading p { color: var(--muted); margin-bottom: 0; }
     .summary {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -841,6 +881,34 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       display: grid;
       gap: 20px;
     }
+    .report-section { margin: 28px 0; }
+    .section-heading { margin-bottom: 16px; }
+    .section-heading h2 { font-size: 1.4rem; }
+    .section-heading p { margin-bottom: 0; color: var(--muted); line-height: 1.5; }
+    .problem-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .problem-card { padding: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; }
+    .problem-card h3 { font-size: 1rem; min-height: 2.5em; line-height: 1.3; }
+    .problem-count { display: flex; align-items: baseline; gap: 8px; margin: 12px 0 8px; }
+    .problem-count strong { font-size: 2rem; }
+    .problem-count span, .problem-card p, .problem-card details { color: var(--muted); font-size: .88rem; line-height: 1.45; }
+    .problem-bar { height: 5px; border-radius: 999px; background: var(--line); overflow: hidden; }
+    .problem-bar span { display: block; height: 100%; background: var(--accent); }
+    .critical-count { color: #ff9b9b; }
+    .problem-card details { margin-top: 12px; }
+    details summary { cursor: pointer; }
+    details ul { padding-left: 20px; line-height: 1.5; }
+    .all-problems { margin-top: 16px; color: var(--muted); }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; }
+    .garment-table { border-collapse: collapse; width: 100%; min-width: 620px; background: var(--panel); }
+    .garment-table th, .garment-table td { padding: 13px 16px; border-bottom: 1px solid var(--line); text-align: left; }
+    .garment-table th { color: var(--muted); font-size: .8rem; }
+    .garment-table tbody tr:last-child td { border-bottom: 0; }
+    .garment-table td:not(:first-child) { white-space: nowrap; }
+    .garment-groups { display: grid; gap: 36px; margin-top: 36px; }
+    .garment-group { scroll-margin-top: 20px; }
+    .garment-header { padding: 20px 0 16px; border-top: 2px solid var(--accent); }
+    .garment-header h2 { font-size: clamp(1.6rem, 3vw, 2.1rem); overflow-wrap: anywhere; }
+    .garment-header p { margin: 8px 0; }
     .card {
       background: rgba(20, 27, 36, 0.97);
       border: 1px solid var(--line);
@@ -869,8 +937,8 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       text-transform: uppercase;
       color: var(--accent);
     }
-    .card h2 {
-      font-size: clamp(1.5rem, 3vw, 2.15rem);
+    .card h3 {
+      font-size: clamp(1.2rem, 2.5vw, 1.65rem);
       line-height: 1.08;
       word-break: break-word;
     }
@@ -1039,6 +1107,13 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       .summary {
         display: none;
       }
+      .report-heading, .report-section { break-inside: avoid; }
+      .problem-card, .garment-table { background: white; color: #1d1a16; }
+      .problem-card h3, .problem-card p, .problem-count span, .garment-table th, .garment-header .muted { color: #44382b; }
+      .table-scroll { overflow: visible; }
+      .garment-table { min-width: 0; font-size: 9pt; }
+      .garment-table th, .garment-table td { padding: 2mm; }
+      .garment-header { break-after: avoid; }
       .cards {
         gap: 0;
       }
@@ -1108,6 +1183,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       .card-top { flex-direction: column; }
       .badges { justify-content: start; }
       .images { grid-template-columns: 1fr; }
+      .problem-grid { grid-template-columns: 1fr; }
       .image-card img { height: 320px; }
       .card-gallery .image-card img { height: 360px; }
     }
@@ -1115,7 +1191,9 @@ function buildReviewHtml(reviewEntries, summary, meta) {
 </head>
 <body>
   <main>
+    <header class="report-heading"><h1>${escapeHtml(reportTitle)}</h1><p>Results grouped by clothing, with all models together.</p></header>
     <section class="summary">
+      <div class="summary-card"><strong>${garmentGroups.length}</strong><span>Garments</span></div>
       ${isGalleryOnly
         ? `
       <div class="summary-card"><strong>${escapeHtml(summary.total)}</strong><span>Total results</span></div>
@@ -1131,11 +1209,13 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       <div class="summary-card"><strong>${escapeHtml(summary.generation_failed)}</strong><span>Generation failures (skipped)</span></div>`}
     </section>
 
-    <p class="muted">${escapeHtml(meta.generatedAt)}${isGalleryOnly ? " · Generation gallery" : COMPARISON_ONLY_MODE ? " · Comparison only: AI not run" : ` · Evaluator: ${escapeHtml(MODEL)} · Pass: ${escapeHtml(SCORE_POLICY.passScore)}% · Maximum minor labels: ${escapeHtml(SCORE_POLICY.maxMinorLabels)}`}</p>
+    ${problemHighlights}
+    ${garmentOverview}
+    <p class="muted">${escapeHtml(meta.generatedAt)}${isGalleryOnly ? " · Generation gallery" : meta.reportMode === "comparison" ? " · Comparison only: AI not run" : ` · Evaluator: ${escapeHtml(evaluatorModel)} · Pass: ${escapeHtml(scoringPolicy.passScore)}% · Maximum minor labels: ${escapeHtml(scoringPolicy.maxMinorLabels)}`}</p>
     ${summary.source_errors?.length ? `<section><h2>Source errors</h2>${renderHtmlList(summary.source_errors, "")}</section>` : ""}
-    <section class="cards">
+    <div class="garment-groups">
       ${cards}
-    </section>
+    </div>
   </main>
 </body>
 </html>`;
@@ -1221,6 +1301,11 @@ async function main() {
     }
     reviewEntries.push(createReviewEntry(payload, bundle));
   }
+  const grouped = groupByGarment(reviewEntries);
+  const problems = summarizeProblems(reviewEntries);
+  summary.by_garment = summarizeGarments(grouped);
+  summary.common_problems = problems.problems;
+  summary.evaluated_for_problem_summary = problems.evaluated_results;
   writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDirs, sourceLayout);
   const report = {
     schema_version: 2, generated_at: new Date().toISOString(), report_mode: REPORT_MODE,

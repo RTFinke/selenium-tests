@@ -7,6 +7,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 import YAML from "yaml";
+import { groupByGarment, summarizeProblems } from "../lib/review-summary.js";
 import {
   validateAndNormalizeRating, applyArtifactAuditToRating, parseRetryAfterMs,
   validateArtifactAudit, envNumber, fileToDataUrl,
@@ -365,6 +366,119 @@ test("image URLs encode filename fragments and query characters", async () => {
   await withAnalyzer({}, async module => {
     const html = module.renderImageCard("Garment", "../test #1/garment?name.png");
     assert.match(html, /test%20%231\/garment%3Fname.png/);
+  });
+});
+
+function reportEntry(garment, model, overrides = {}) {
+  return {
+    folder: `${garment}-${model}`, source_folder: `${garment}/${model}`,
+    garment_filename: garment, garment_run_key: "full", model_filename: model,
+    evaluation_ok: true, evaluation_mode: "llm", selenium_status: "success",
+    ai_successful: "YES", quality_percent: 100, critical_issues: [], minor_issues: [], positives: [],
+    files: {}, ...overrides,
+  };
+}
+
+test("clothing groups keep all models together and average only completed judgments including zero", () => {
+  const groups = groupByGarment([
+    reportEntry("Blue dress.jpg", "Model 2.png", { quality_percent: 80, garment_category: "dress" }),
+    reportEntry("Red coat.jpg", "Model 1.png"),
+    reportEntry("Blue dress.jpg", "Model 1.png", { quality_percent: 0, ai_successful: "NO", garment_category: "outfit" }),
+    reportEntry("Blue dress.jpg", "Model 3.png", { evaluation_mode: "generation_failed", selenium_status: "failed", ai_successful: null, quality_percent: null }),
+    reportEntry("Blue dress.jpg", "Model 4.png", { evaluation_ok: false, ai_successful: null, quality_percent: null }),
+  ]);
+  assert.deepEqual(groups.map(group => group.name), ["Blue dress", "Red coat"]);
+  assert.deepEqual(groups[0].entries.map(entry => entry.model_filename), ["Model 1.png", "Model 2.png", "Model 3.png", "Model 4.png"]);
+  assert.deepEqual(groups[0].stats, { total: 4, model_count: 4, evaluated: 2, passed: 1, failed: 1, generation_failed: 1, errors: 1, skipped: 0, average_score: 40 });
+});
+
+test("missing garment names do not merge unrelated cases and intended transfer modes stay distinct", () => {
+  const groups = groupByGarment([
+    reportEntry(null, "Model 1.png", { source_folder: "case-one" }),
+    reportEntry(null, "Model 2.png", { source_folder: "case-two" }),
+    reportEntry("Coat.jpg", "Model 1.png", { garment_run_key: "upper" }),
+    reportEntry("Coat.jpg", "Model 2.png", { garment_run_key: "full" }),
+  ]);
+  assert.equal(groups.length, 4);
+});
+
+test("common problems count cases once per theme and exclude failures, errors, notes and positives", () => {
+  const summary = summarizeProblems([
+    reportEntry("Blue dress.jpg", "Model 1.png", { critical_issues: ["arms slimmed", "upper arm thickness changed"], minor_issues: ["forearm shape changed", "Pocket details missing"] }),
+    reportEntry("Red coat.jpg", "Model 2.png", { minor_issues: ["Arms slightly narrowed"], notes: "Face changed", positives: ["No background damage"] }),
+    reportEntry("Clean shirt.jpg", "Model 3.png"),
+    reportEntry("Blue dress.jpg", "Model 4.png", { evaluation_ok: false, ai_successful: null, critical_issues: ["Arms changed"] }),
+    reportEntry("Blue dress.jpg", "Model 5.png", { evaluation_mode: "generation_failed", ai_successful: null, critical_issues: ["Arms changed"] }),
+  ]);
+  assert.equal(summary.evaluated_results, 3);
+  assert.equal(summary.problems.length, 2);
+  assert.equal(summary.problems[0].key, "arms");
+  assert.equal(summary.problems[0].count, 2); assert.equal(summary.problems[0].critical_count, 1);
+  assert.equal(summary.problems[0].minor_count, 1); assert.equal(summary.problems[0].garment_count, 2);
+  assert.equal(summary.problems[0].percent, 67);
+});
+
+test("problem summary preserves unrecognized findings and distinguishes clothing details from body changes", () => {
+  const summary = summarizeProblems([
+    reportEntry("Dress.jpg", "Model 1.png", { minor_issues: ["Waist seam detail is missing", "Missing garment patch/logo"] }),
+    reportEntry("Pants.jpg", "Model 2.png", { critical_issues: ["Original wide-leg, full-length silhouette is lost"] }),
+    reportEntry("Shirt.jpg", "Model 3.png", { critical_issues: ["Shoulder width reduced", "Unexplained duplicate bag"] }),
+  ]);
+  assert.equal(summary.problems.find(problem => problem.key === "construction").count, 1);
+  assert(summary.problems.some(problem => problem.key === "shape_length"));
+  assert(summary.problems.some(problem => problem.key === "body_proportions"));
+  assert(summary.problems.some(problem => problem.label === "Unexplained duplicate bag"));
+  assert(!summary.problems.some(problem => problem.key === "legs" || problem.key === "garment_identity"));
+});
+
+test("rendered report puts problem highlights first and completes each garment before the next", async () => {
+  await withAnalyzer({}, async module => {
+    const entries = [
+      reportEntry("Blue dress.jpg", "Model 2.png", { critical_issues: ["Arms slimmed"] }),
+      reportEntry("Red coat.jpg", "Model 1.png", { minor_issues: ["<script>alert(1)</script>"] }),
+      reportEntry("Blue dress.jpg", "Model 1.png", { critical_issues: ["Forearm shape changed"] }),
+    ];
+    const html = module.buildReviewHtml(entries, { total: 3, successful: 3, failed: 0, errors: 0, generation_failed: 0 }, { reportMode: "review", generatedAt: "2026-11-25" });
+    assert(html.indexOf("Most common reported problems") < html.indexOf("Clothing overview"));
+    const first = html.indexOf('class="garment-group" id="garment-1"');
+    const second = html.indexOf('class="garment-group" id="garment-2"');
+    assert(first > 0 && second > first);
+    const blueGroup = html.slice(first, second);
+    assert(blueGroup.indexOf("Model 1</h3>") < blueGroup.indexOf("Model 2</h3>"));
+    assert(!html.includes("<script>alert(1)</script>"));
+    assert(html.includes("&lt;script&gt;alert(1)&lt;/script&gt;"));
+    assert(html.includes('href="#garment-1"'));
+    assert(html.includes("2</strong><span>of 3 results"));
+  });
+});
+
+test("saved reviews can be regrouped offline without changing judgments and retain their original evaluator settings", async () => {
+  const root = path.join(temporary, "saved-review");
+  const caseDirectory = makeCase(root, { name: "test_1_upper" });
+  const inputDirectory = path.join(root, "outputs"); fs.mkdirSync(inputDirectory, { recursive: true });
+  const relative = file => path.relative(root, file).replaceAll("\\", "/").replace("/test_1_upper/", "/test_1_upper /");
+  const source = {
+    generated_at: "2026-11-25", report_mode: "review", evaluator_model: "saved-evaluator", scoring_policy: { passScore: 75, maxMinorLabels: 2 },
+    summary: { total: 1, successful: 1, failed: 0, errors: 0, generation_failed: 0 },
+    results: [{
+      folder: "test_1_upper", source_folder: relative(caseDirectory), evaluation_mode: "llm", ok: true,
+      metadata: { garment_filename: "Saved coat.jpg", model_filename: "Saved model.png", garment_run_key: "upper", status: "success" },
+      rating: { ...clean(), quality_percent: 80, successful: "YES", notes: "Keep this exact saved judgment." },
+      files: Object.fromEntries(["model", "garment", "result"].map(role => [role, { relative_path: relative(path.join(caseDirectory, role, `${role}.png`)) }])),
+    }],
+  };
+  const input = path.join(inputDirectory, "analysis.json"); fs.writeFileSync(input, JSON.stringify(source));
+  await withAnalyzer({}, async () => {
+    const { renderSavedReview } = await import("../scripts/render-review.mjs");
+    const output = path.join(temporary, "regrouped-review");
+    const result = renderSavedReview(input, output);
+    assert.equal(result.missing_assets, 0); assert.equal(result.garments, 1);
+    assert.deepEqual(result.report.results, source.results);
+    assert.deepEqual(JSON.parse(fs.readFileSync(input, "utf8")), source);
+    assert.equal(result.report.summary.by_garment[0].average_score, 80);
+    const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
+    assert.match(html, /saved-evaluator/); assert.match(html, /Pass: 75%/);
+    assert.match(html, /Keep this exact saved judgment/);
   });
 });
 
