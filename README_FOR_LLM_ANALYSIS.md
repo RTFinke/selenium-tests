@@ -33,14 +33,16 @@ Set `ANALYZE_SOURCE_DIR` to one artifact root, one test folder, or a comma-, sem
 
 Outputs:
 
-- `outputs/index.html`: pictures, generation settings, scores, explanations, and failures.
+- `outputs/index.html`: a portable review with embedded pictures, generation settings, scores, explanations, and failures.
 - `outputs/analysis.json`: judgments, source-run information, and diagnostic errors.
 
 The HTML review groups results by garment filename and intended transfer mode, with all models for one garment together before the next. A clothing overview links to each group and shows model counts, pass/fail counts, average scores, and errors. Average scores use completed judgments only.
 
 At the top, **Most common reported problems** groups the existing critical/minor findings into problem types and ranks them by the number of affected results. Each type counts once per evaluated result even if several findings describe it. Results with several different problem types contribute to each relevant count. Generation failures, incomplete assessments, notes, and positive statements do not inflate these counts. Unknown problem descriptions remain visible as separate types. No additional AI requests are needed for this summary, and it does not alter scores.
 
-`analysis.json` also includes `summary.by_garment` and `summary.common_problems`. Deploy `lib/review-summary.js` with the evaluator.
+`analysis.json` also includes `summary.by_garment` and `summary.common_problems`. Deploy both `lib/review-summary.js` and `lib/review-images.js` with the evaluator.
+
+The AI review stores each unique image once inside the HTML. Display copies use WebP quality 88 and a maximum width/height of 1600 pixels, without enlarging smaller images. This reduces repeated person/garment images and large result PNGs. The original files and the full-resolution images sent to the AI are unchanged. Generation-only galleries continue to reference the original images.
 
 To rebuild the layout of an existing report without judging the images again:
 
@@ -48,9 +50,9 @@ To rebuild the layout of an existing report without judging the images again:
 npm run report -- "path/to/unpacked-report/outputs/analysis.json" "outputs/grouped-review"
 ```
 
-This reuses the saved judgments and original model/threshold information. It makes no AI calls and does not change any scores. The rebuilt HTML links to the original source images, so keep the unpacked report available.
+This reuses the saved judgments and original model/threshold information. It makes no AI calls and does not change any scores. The original unpacked report must be available while rebuilding; afterward, the new HTML contains its own image copies.
 
-Keep the source images alongside the report when sharing it. Download and unpack the whole GitHub artifact, then open `outputs/index.html`.
+Open or share `index.html` on its own. No image folders are needed for an AI review; use a browser with JavaScript enabled. `analysis.json` is also saved locally for diagnostics.
 
 ## Judge a generation on GitHub
 
@@ -63,7 +65,7 @@ That link selects the exact generation, including its branch and available upper
 
 The selected generation must have completed and its result artifact must still be available. Both current artifact names and the older `siz3r-test-results` name work. The report records the source run, branch, commit, and generation settings.
 
-Download the `llm-quality-analysis` artifact and unpack everything. Keep `test_results/` alongside `outputs/` so image links work.
+Download the `llm-quality-analysis` artifact, unzip it, and open `index.html`. The judgment artifact contains only this HTML review. Original source images remain in the selected generation's artifact.
 
 Judgments run only when you start **Analyze with LLM** manually. Finishing a model test does not start an assessment. Apply the manual-only workflow to the default branch (`main`) as well, since GitHub uses that branch's workflow to decide whether completed model tests should start another workflow. Manual runs can use an updated branch containing the evaluator and its dependencies.
 

@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { groupByGarment, summarizeProblems, summarizeGarments } from "./lib/review-summary.js";
+import { embedReviewImages, IMAGE_PLACEHOLDER, renderEmbeddedImages } from "./lib/review-images.js";
 import {
   LABEL_KEYS, envNumber, fileToDataUrl, parseRetryAfterMs,
   RATING_RESPONSE_FORMAT, AUDIT_RESPONSE_FORMAT,
@@ -582,7 +583,11 @@ function renderImageCard(label, relativePath, options = {}) {
     `;
   }
 
-  const safeSrc = relativePath.split("/").map(encodeURIComponent).join("/");
+  const embedded = typeof relativePath === "object";
+  const safeSrc = embedded ? IMAGE_PLACEHOLDER : relativePath.split("/").map(encodeURIComponent).join("/");
+  const embeddedAttributes = embedded
+    ? ` data-review-image="${escapeHtml(relativePath.id)}" width="${relativePath.width}" height="${relativePath.height}"`
+    : "";
   const safeLabel = escapeHtml(label);
   return `
     <div class="image-card image-card-${escapeHtml(variant)}">
@@ -593,7 +598,7 @@ function renderImageCard(label, relativePath, options = {}) {
         </div>
       </div>
       <div class="image-frame">
-        <img src="${escapeHtml(safeSrc)}" alt="${safeLabel}" loading="lazy" decoding="async">
+        <img src="${escapeHtml(safeSrc)}"${embeddedAttributes} alt="${safeLabel}" loading="lazy" decoding="async">
       </div>
     </div>
   `;
@@ -1217,21 +1222,25 @@ function buildReviewHtml(reviewEntries, summary, meta) {
       ${cards}
     </div>
   </main>
+  ${renderEmbeddedImages(meta.images)}
 </body>
 </html>`;
 }
 
-function writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDirs, sourceLayout) {
+async function writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDirs, sourceLayout) {
   const generatedAt = new Date().toISOString();
   const sourceDirLabel = sourceDirs
     .map((dir) => projectRelative(dir) || dir)
     .join(", ");
 
-  const html = buildReviewHtml(reviewEntries, summary, {
+  const embedded = GALLERY_ONLY_MODE ? { entries: reviewEntries, warnings: [] } : await embedReviewImages(reviewEntries, reviewRoot);
+  for (const warning of embedded.warnings) console.warn(warning);
+  const html = buildReviewHtml(embedded.entries, summary, {
     generatedAt,
     sourceDir: sourceDirLabel,
     sourceLayout,
     reportMode: REPORT_MODE,
+    images: embedded.images,
   });
   fs.writeFileSync(path.join(reviewRoot, "index.html"), html, "utf8");
 }
@@ -1306,13 +1315,13 @@ async function main() {
   summary.by_garment = summarizeGarments(grouped);
   summary.common_problems = problems.problems;
   summary.evaluated_for_problem_summary = problems.evaluated_results;
-  writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDirs, sourceLayout);
   const report = {
     schema_version: 2, generated_at: new Date().toISOString(), report_mode: REPORT_MODE,
     evaluator_model: MODEL, prompts: PROMPT_VERSIONS, scoring_policy: SCORE_POLICY, summary,
     results: evaluations.map(item => item.payload),
   };
   fs.writeFileSync(path.join(reviewRoot, "analysis.json"), JSON.stringify(report, null, 2));
+  await writeReviewIndex(reviewRoot, reviewEntries, summary, sourceDirs, sourceLayout);
   console.log("AI pass: " + summary.successful + "; AI fail: " + summary.failed + "; generation failures: " + summary.generation_failed + "; assessment errors: " + summary.errors);
   console.log("Review report: " + path.join(reviewRoot, "index.html"));
   const noJudgments = !GALLERY_ONLY_MODE && !COMPARISON_ONLY_MODE && summary.successful + summary.failed === 0;

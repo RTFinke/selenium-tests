@@ -61,13 +61,11 @@ jobs:
           OPENAI_MAX_MINOR_LABELS_FOR_PASS: "2"
         run: npm run analyze
 
-      - name: Upload report and source images
+      - name: Upload compact HTML review
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: llm-quality-analysis
           if-no-files-found: warn
           retention-days: 30
-          path: |
-            outputs/
-            test_results/
+          path: outputs/index.html

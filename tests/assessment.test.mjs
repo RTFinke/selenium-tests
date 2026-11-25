@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 import YAML from "yaml";
 import { groupByGarment, summarizeProblems } from "../lib/review-summary.js";
+import { embedReviewImages } from "../lib/review-images.js";
 import {
   validateAndNormalizeRating, applyArtifactAuditToRating, parseRetryAfterMs,
   validateArtifactAudit, envNumber, fileToDataUrl,
@@ -162,6 +163,7 @@ test("gallery handles real failed generations without needing an API key", async
     const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
     assert.match(html, /Generation: FAILED/); assert.equal((html.match(/<img src=/g) || []).length, 3);
     assert.match(html, /Generation timed out/);
+    assert(!html.includes("data-review-image=")); // Generation galleries retain their original images.
   });
 });
 
@@ -197,6 +199,7 @@ test("passing cases include full context, structured output and a second audit",
     assert(requests.every(request => request.response_format.type === "json_schema" && request.response_format.json_schema.strict));
     assert(requests.every(request => request.messages[0].content.filter(part => part.type === "image_url").length === 3));
     assert(requests.every(request => request.messages[0].content.filter(part => part.type === "image_url").every(part => part.image_url.detail === "high")));
+    assert(requests.every(request => request.messages[0].content.filter(part => part.type === "image_url").every(part => part.image_url.url === `data:image/png;base64,${png.toString("base64")}`)));
     assert(requests.every(request => request.messages[0].content.some(part => part.type === "text" && part.text.includes("Transfer mode: FULL") && part.text.includes("turbo"))));
     assert.equal(requests[0].messages[0].content[0].text, fs.readFileSync(path.join(repo, "prompts/tryon-judgment.txt"), "utf8").trim());
     assert.equal(requests[1].messages[0].content[0].text, fs.readFileSync(path.join(repo, "prompts/tryon-integrity-audit.txt"), "utf8").trim());
@@ -204,6 +207,8 @@ test("passing cases include full context, structured output and a second audit",
     assert.match(result.report.prompts.integrity_audit.sha256, /^[a-f0-9]{64}$/);
     const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
     assert.match(html, /Quality: turbo/); assert.match(html, /Steps: 30/); assert.match(html, /Generation timed out/);
+    assert.equal((html.match(/data-review-image=/g) || []).length, 3);
+    assert.equal(Object.keys(JSON.parse(html.match(/id="review-images" type="application\/json">(.*?)<\/script>/s)[1])).length, 1);
     assert.equal(result.report.results.find(record => record.rating).metadata.flat_enabled, true);
   });
 });
@@ -369,6 +374,40 @@ test("image URLs encode filename fragments and query characters", async () => {
   });
 });
 
+test("portable reviews resize and deduplicate display images without modifying source images or entries", async () => {
+  const root = path.join(temporary, "portable-images"); fs.mkdirSync(root);
+  const original = await sharp({ create: { width: 2400, height: 1200, channels: 3, background: "#6699cc" } }).png().toBuffer();
+  fs.writeFileSync(path.join(root, "large.png"), original);
+  fs.writeFileSync(path.join(root, "duplicate.png"), original);
+  fs.writeFileSync(path.join(root, "small.png"), png);
+  const entries = [1, 2].map(() => ({ files: { model: "large.png", garment: "duplicate.png", result: "small.png" } }));
+  const before = structuredClone(entries);
+  const embedded = await embedReviewImages(entries, root);
+  assert.deepEqual(embedded.warnings, []);
+  assert.deepEqual(entries, before);
+  assert.equal(Object.keys(embedded.images).length, 2);
+  assert.equal(embedded.entries[0].files.model.id, embedded.entries[1].files.garment.id);
+  const model = embedded.entries[0].files.model;
+  const small = embedded.entries[0].files.result;
+  const preview = Buffer.from(embedded.images[model.id].split(",")[1], "base64");
+  const info = await sharp(preview).metadata();
+  assert.equal(info.format, "webp"); assert.equal(info.width, 1600); assert.equal(info.height, 800);
+  assert.equal(small.width, 16); assert.equal(small.height, 16);
+  assert(preview.length < original.length);
+  assert.deepEqual(fs.readFileSync(path.join(root, "large.png")), original);
+});
+
+test("unreadable review images leave a usable report and explain the missing preview", async () => {
+  const root = path.join(temporary, "unreadable-images"); fs.mkdirSync(root);
+  fs.writeFileSync(path.join(root, "broken.png"), "not an image");
+  fs.writeFileSync(path.join(root, "good.png"), png);
+  const embedded = await embedReviewImages([{ files: { model: "broken.png", garment: "good.png", result: null } }], root);
+  assert.equal(embedded.entries[0].files.model, null);
+  assert.equal(embedded.entries[0].files.result, null);
+  assert.equal(Object.keys(embedded.images).length, 1);
+  assert.equal(embedded.warnings.length, 1); assert.match(embedded.warnings[0], /broken.png/);
+});
+
 function reportEntry(garment, model, overrides = {}) {
   return {
     folder: `${garment}-${model}`, source_folder: `${garment}/${model}`,
@@ -471,7 +510,7 @@ test("saved reviews can be regrouped offline without changing judgments and reta
   await withAnalyzer({}, async () => {
     const { renderSavedReview } = await import("../scripts/render-review.mjs");
     const output = path.join(temporary, "regrouped-review");
-    const result = renderSavedReview(input, output);
+    const result = await renderSavedReview(input, output);
     assert.equal(result.missing_assets, 0); assert.equal(result.garments, 1);
     assert.deepEqual(result.report.results, source.results);
     assert.deepEqual(JSON.parse(fs.readFileSync(input, "utf8")), source);
@@ -479,6 +518,12 @@ test("saved reviews can be regrouped offline without changing judgments and reta
     const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
     assert.match(html, /saved-evaluator/); assert.match(html, /Pass: 75%/);
     assert.match(html, /Keep this exact saved judgment/);
+    const sources = [...html.matchAll(/<img src="([^"]+)"/g)].map(match => match[1]);
+    assert.equal(sources.length, 3); assert(sources.every(source => source.startsWith("data:image/")));
+    assert.equal((html.match(/data-review-image=/g) || []).length, 3);
+    const images = JSON.parse(html.match(/id="review-images" type="application\/json">(.*?)<\/script>/s)[1]);
+    assert.equal(Object.keys(images).length, 1);
+    assert(Object.values(images).every(source => source.startsWith("data:image/webp;base64,")));
   });
 });
 
@@ -597,6 +642,8 @@ test("assessment workflow is valid YAML and includes all runtime dependencies", 
   assert.deepEqual(Object.keys(config.on.workflow_dispatch.inputs), ["run_url"]);
   assert.equal(config.on.workflow_dispatch.inputs.run_url.required, true);
   assert(config.jobs.analyze.steps.some(step => step.if === "always()"));
+  const upload = config.jobs.analyze.steps.find(step => step.uses?.startsWith("actions/upload-artifact@"));
+  assert.equal(upload.with.path, "outputs/index.html");
   assert(fs.existsSync(path.join(repo, ".github/scripts/analysis-artifacts.cjs")));
 });
 
