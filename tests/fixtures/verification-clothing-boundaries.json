@@ -1,0 +1,99 @@
+{
+  "description": "Text-only saved verification replies: garment boundary artifacts must not be confused with hidden body-shape claims.",
+  "cases": [
+    {
+      "test_number": 90,
+      "verification": {
+        "garment_type": "burgundy textured sweater",
+        "garment_category": "top",
+        "intended_fit": "loose",
+        "silhouette_preserved": "YES",
+        "coverage": {
+          "garment_design": "Sweater identity, color, texture, and loose silhouette are clearly transferred. Ribbed cuffs and hem are visible. Neckline is slightly misaligned but overall design is preserved.",
+          "fit_and_drape": "Sweater drapes loosely as intended, with plausible sleeve volume and body fit. Some minor blending at the left wrist, but overall fit is consistent with the target garment.",
+          "person_integrity": "Face, hair, and pose are preserved. No evidence of body shape distortion; arms and hands are intact, though left wrist shows minor artifact.",
+          "scene_and_other_items": "Skirt and shoes from original are retained and undisturbed. No ghosting or remnants of the original top. Scene boundaries are clean."
+        },
+        "findings": [
+          {
+            "category": "construction_alignment_error",
+            "subject": "GARMENT",
+            "severity": "MINOR",
+            "confidence": "CONFIRMED",
+            "comparison_basis": "VISIBLE_GARMENT",
+            "original_observation": "Sweater neckline in target garment is centered and sits at the base of the neck.",
+            "result_observation": "Sweater neckline in try-on is slightly misaligned, sitting unevenly on the model's neck/shoulder area.",
+            "clothing_or_pose_explanation_ruled_out": true,
+            "description": "Sweater neckline is slightly misaligned with the model's neck and shoulders, causing a minor construction inaccuracy."
+          },
+          {
+            "category": "artifact_error",
+            "subject": "GARMENT",
+            "severity": "MINOR",
+            "confidence": "CONFIRMED",
+            "comparison_basis": "VISIBLE_GARMENT",
+            "original_observation": "Left wrist and hand are cleanly visible in the original image.",
+            "result_observation": "Minor blending artifact at the left wrist where the sweater meets the hand.",
+            "clothing_or_pose_explanation_ruled_out": true,
+            "description": "Minor blending artifact at the left wrist where the sweater meets the hand."
+          }
+        ],
+        "positives": [
+          "Sweater color, texture, and loose fit are well transferred",
+          "Major silhouette and sleeve volume are preserved",
+          "Non-target skirt and shoes are retained and undisturbed",
+          "Person's face, hair, and pose are preserved"
+        ],
+        "notes": "The burgundy sweater is convincingly transferred with correct loose fit, color, and silhouette. Minor neckline misalignment and a blending artifact at the left wrist are present but do not affect garment identity or person integrity. Non-target items and person are well preserved.",
+        "rejected_claims": []
+      }
+    },
+    {
+      "test_number": 119,
+      "verification": {
+        "garment_type": "black hooded zip-up jacket",
+        "garment_category": "outerwear",
+        "intended_fit": "regular",
+        "silhouette_preserved": "YES",
+        "coverage": {
+          "garment_design": "Jacket identity, silhouette, and length match the target; hood, zipper, and general shape are present. Drawstrings and logo are less distinct than in the reference.",
+          "fit_and_drape": "Fit appears regular and plausible for the person's body and pose. Jacket volume and drape are consistent with a real garment.",
+          "person_integrity": "Face, hands, and pose are preserved. No visible anatomical or identity errors. No evidence of body shape distortion; wrists and hands are visible for comparison.",
+          "scene_and_other_items": "Background, pants, shoes, and non-target items are unchanged and undisturbed. No ghosting or remnants of the original shirt."
+        },
+        "findings": [
+          {
+            "category": "construction_alignment_error",
+            "subject": "GARMENT",
+            "severity": "MINOR",
+            "confidence": "CONFIRMED",
+            "comparison_basis": "VISIBLE_GARMENT",
+            "original_observation": "Drawstrings and logo are clearly visible and distinct on the target garment.",
+            "result_observation": "Drawstrings and logo are faint or indistinct on the generated result.",
+            "clothing_or_pose_explanation_ruled_out": true,
+            "description": "Minor loss of clarity in jacket drawstrings and logo compared to the reference garment."
+          },
+          {
+            "category": "artifact_error",
+            "subject": "GARMENT",
+            "severity": "MINOR",
+            "confidence": "CONFIRMED",
+            "comparison_basis": "VISIBLE_GARMENT",
+            "original_observation": "Wrist area of the original model is clean and well defined.",
+            "result_observation": "Slight blending or smudging at the left wrist area of the jacket.",
+            "clothing_or_pose_explanation_ruled_out": true,
+            "description": "Slight blending artifact at the left wrist area of the jacket."
+          }
+        ],
+        "positives": [
+          "Jacket silhouette, length, and fit are well preserved",
+          "Hood and zipper placement are accurate",
+          "Person's identity, pose, and anatomy are well maintained",
+          "Non-target items and background are undisturbed"
+        ],
+        "notes": "The black hooded jacket is convincingly transferred with accurate silhouette, fit, and major design elements. Minor loss of detail in drawstrings and logo, and slight blending at the wrist, but no major garment or person integrity issues. Lower clothing and scene are preserved.",
+        "rejected_claims": []
+      }
+    }
+  ]
+}

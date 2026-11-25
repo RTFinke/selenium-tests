@@ -10,8 +10,8 @@ import YAML from "yaml";
 import { groupByGarment, summarizeProblems } from "../lib/review-summary.js";
 import { embedReviewImages } from "../lib/review-images.js";
 import {
-  validateAndNormalizeRating, applyArtifactAuditToRating, parseRetryAfterMs,
-  validateArtifactAudit, envNumber, fileToDataUrl,
+  validateAndNormalizeRating, validateAssessmentVerification, parseRetryAfterMs,
+  envNumber, fileToDataUrl,
 } from "../lib/assessment.js";
 
 const require = createRequire(import.meta.url);
@@ -25,7 +25,34 @@ const clean = () => ({
   critical_issues: [], minor_issues: [], positives: ["Garment preserved."], notes: "Looks coherent.",
   labels: { garment_structure_error: "NONE", construction_alignment_error: "NONE", fit_error: "NONE", artifact_error: "NONE" },
 });
-const cleanAudit = () => ({ artifact_present: "NO", artifact_severity: "NONE", artifact_reasons: [], notes: "Clean." });
+const finding = (overrides = {}) => ({
+  category: "artifact_error", subject: "BODY_SHAPE", severity: "MAJOR", confidence: "CONFIRMED",
+  comparison_basis: "COMPARABLE_EXPOSED_SKIN",
+  original_observation: "Exposed upper arm is broad between the same elbow and sleeve landmarks.",
+  result_observation: "The same exposed upper arm is substantially narrower relative to the unchanged head.",
+  clothing_or_pose_explanation_ruled_out: true,
+  description: "The exposed upper arm is visibly slimmed.", ...overrides,
+});
+const verification = (rating = clean(), overrides = {}) => ({
+  garment_type: rating.garment_type, garment_category: rating.garment_category,
+  intended_fit: rating.intended_fit, silhouette_preserved: rating.silhouette_preserved,
+  coverage: {
+    garment_design: "Target garment type, silhouette and visible design compared.",
+    fit_and_drape: "Placement and natural fabric drape compared.",
+    person_integrity: "Comparable identity and exposed anatomy checked; covered anatomy is not assessable.",
+    scene_and_other_items: "Non-target items, boundaries and scene checked.",
+  },
+  findings: Object.entries(rating.labels).filter(([, severity]) => severity !== "NONE").flatMap(([category, severity]) => {
+    const issues = severity === "MAJOR" ? rating.critical_issues : rating.minor_issues;
+    return (issues.length ? issues : [`Confirmed ${category} difference.`]).map(description => finding({
+      category, severity, description, subject: category === "artifact_error" ? "SCENE_OR_BOUNDARY" : "GARMENT",
+      comparison_basis: category === "artifact_error" ? "VISIBLE_OTHER" : "VISIBLE_GARMENT",
+      original_observation: "The relevant reference feature is clearly visible.",
+      result_observation: "The corresponding result feature visibly differs.",
+    }));
+  }),
+  positives: rating.positives, notes: rating.notes, rejected_claims: [], ...overrides,
+});
 const response = (value, finish_reason = "stop") => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(value) }, finish_reason }] }), { status: 200 });
 
 function makeCase(root, { category = "upper", name = `test_${++serial}_${category}`, failed = false, missingModel = false, flat = false } = {}) {
@@ -99,29 +126,137 @@ test("incomplete or contradictory model judgments are rejected", () => {
   assert.equal(validateAndNormalizeRating(rating).ok, false);
   const contradictory = clean(); contradictory.critical_issues.push("A serious problem.");
   assert.equal(validateAndNormalizeRating(contradictory).ok, false);
-  assert.equal(validateArtifactAudit({ ...cleanAudit(), artifact_severity: "MAJOR" }).ok, false);
+  const incomplete = verification(); delete incomplete.coverage.person_integrity;
+  assert.equal(validateAssessmentVerification(incomplete).ok, false);
 });
 
-test("secondary audit preserves major defects regardless of clean notes", () => {
-  const rating = validateAndNormalizeRating(clean()).rating;
-  const result = applyArtifactAuditToRating(rating, { artifact_present: "YES", artifact_severity: "MAJOR", artifact_reasons: ["Detached waistband with a floating gap."], notes: "The rest looks trustworthy." });
-  assert.equal(result.labels.artifact_error, "MAJOR"); assert.equal(result.successful, "NO");
+test("loose sleeves and covered chest contours cannot establish body reshaping", () => {
+  for (const description of ["Sweater sleeves make arms appear thicker.", "Padded jacket chest appears broader."]) {
+    const result = validateAssessmentVerification(verification(clean(), { findings: [finding({
+      description, comparison_basis: "VISIBLE_GARMENT", clothing_or_pose_explanation_ruled_out: false,
+    })] }));
+    assert.equal(result.ok, true);
+    assert.equal(result.rating.labels.artifact_error, "NONE");
+    assert.equal(result.rating.quality_percent, 100); assert.equal(result.rating.successful, "YES");
+    assert.deepEqual(result.rating.critical_issues, []);
+    assert.equal(result.excluded_findings.length, 1);
+  }
 });
 
-test("major integrity findings stay first when earlier issues and notes fill the report limits", () => {
-  const original = clean();
-  original.labels.garment_structure_error = "MAJOR";
-  original.critical_issues = Array.from({ length: 6 }, (_, index) => `Earlier garment issue ${index + 1}.`);
-  original.notes = "Earlier garment notes. ".repeat(30);
-  const rating = validateAndNormalizeRating(original).rating;
-  const bodyFinding = "Both exposed upper arms are visibly narrower than in PERSON.";
-  const result = applyArtifactAuditToRating(rating, {
-    artifact_present: "YES", artifact_severity: "MAJOR", artifact_reasons: [bodyFinding], notes: bodyFinding,
+test("uncertain, hidden or unexplained anatomy comparisons do not receive body penalties", () => {
+  for (const unsupported of [
+    { confidence: "UNCERTAIN" },
+    { comparison_basis: "NOT_COMPARABLE" },
+    { clothing_or_pose_explanation_ruled_out: false },
+    { original_observation: "" },
+    { result_observation: "" },
+  ]) {
+    const result = validateAssessmentVerification(verification(clean(), { findings: [finding(unsupported)] }));
+    assert.equal(result.ok, true);
+    assert.equal(result.rating.labels.artifact_error, "NONE");
+    assert.equal(result.excluded_findings.length, 1);
+    assert.equal(result.rating.successful, "YES");
+  }
+});
+
+test("confirmed comparable exposed anatomy and real anatomical landmarks still establish major damage", () => {
+  for (const comparison_basis of ["COMPARABLE_EXPOSED_SKIN", "COMPARABLE_ANATOMICAL_LANDMARKS"]) {
+    const result = validateAssessmentVerification(verification(clean(), { findings: [finding({ comparison_basis })] }));
+    assert.equal(result.ok, true);
+    assert.equal(result.rating.labels.artifact_error, "MAJOR");
+    assert.equal(result.rating.quality_percent, 60); assert.equal(result.rating.successful, "NO");
+    assert.deepEqual(result.rating.critical_issues, ["The exposed upper arm is visibly slimmed."]);
+    assert.equal(result.excluded_findings.length, 0);
+  }
+});
+
+test("verification retains garment defects when rejecting a clothing-only body claim", () => {
+  const wrongPrint = finding({ category: "garment_structure_error", subject: "GARMENT", comparison_basis: "VISIBLE_GARMENT", description: "The target's large striped print is replaced with a plain surface." });
+  const result = validateAssessmentVerification(verification(clean(), { findings: [
+    finding({ comparison_basis: "VISIBLE_GARMENT", description: "Loose sleeve outline appears thicker." }), wrongPrint,
+  ] }));
+  assert.equal(result.ok, true);
+  assert.equal(result.rating.labels.artifact_error, "NONE");
+  assert.equal(result.rating.labels.garment_structure_error, "MAJOR");
+  assert.equal(result.rating.quality_percent, 40); assert.equal(result.rating.successful, "NO");
+  assert.deepEqual(result.rating.critical_issues, [wrongPrint.description]);
+});
+
+test("malformed hands and damaged non-target items are actionable without a body-size inference", () => {
+  for (const [subject, description] of [
+    ["IDENTITY_OR_ANATOMY", "Generated hand has fused fingers and an extra thumb."],
+    ["NON_TARGET_ITEM", "The original shoes are erased despite remaining outside the transferred top."],
+    ["SCENE_OR_BOUNDARY", "The generated sleeve merges visibly into the background wall."],
+  ]) {
+    const result = validateAssessmentVerification(verification(clean(), { findings: [finding({ subject, description, comparison_basis: "VISIBLE_OTHER", clothing_or_pose_explanation_ruled_out: false })] }));
+    assert.equal(result.ok, true);
+    assert.equal(result.rating.labels.artifact_error, "MAJOR");
+    assert.equal(result.rating.successful, "NO");
+    assert.deepEqual(result.rating.critical_issues, [description]);
+  }
+});
+
+test("body findings cannot evade evidence checks through a garment scoring category", () => {
+  const result = validateAssessmentVerification(verification(clean(), { findings: [finding({ category: "fit_error" })] }));
+  assert.equal(result.ok, false);
+});
+
+test("visible garment blending can receive an artifact penalty while fabric contours cannot establish body damage", () => {
+  const boundary = finding({
+    subject: "GARMENT", category: "artifact_error", severity: "MINOR", comparison_basis: "VISIBLE_GARMENT",
+    original_observation: "The original wrist is cleanly separated from the clothing cuff.",
+    result_observation: "The sweater cuff visibly smears into the hand at the wrist.",
+    description: "Visible blending at the sweater cuff and hand boundary.",
   });
-  assert.equal(result.critical_issues.length, 6);
-  assert.equal(result.critical_issues[0], bodyFinding);
-  assert(result.notes.startsWith(bodyFinding));
-  assert(result.notes.length <= 350);
+  const bodyWidth = finding({ comparison_basis: "VISIBLE_GARMENT", description: "Loose sleeves make the covered arms appear thicker." });
+  const result = validateAssessmentVerification(verification(clean(), { findings: [boundary, bodyWidth] }));
+  assert.equal(result.ok, true);
+  assert.equal(result.rating.labels.artifact_error, "MINOR");
+  assert.equal(result.rating.quality_percent, 95); assert.equal(result.rating.successful, "YES");
+  assert.deepEqual(result.rating.critical_issues, []);
+  assert.deepEqual(result.rating.minor_issues, [boundary.description]);
+  assert.equal(result.excluded_findings.length, 1);
+  assert.equal(result.excluded_findings[0].subject, "BODY_SHAPE");
+});
+
+test("saved sweater and jacket verification replies retain minor boundary artifacts without inventing body changes", () => {
+  const fixture = JSON.parse(fs.readFileSync(path.join(repo, "tests/fixtures/verification-clothing-boundaries.json"), "utf8"));
+  assert.deepEqual(fixture.cases.map(item => item.test_number), [90, 119]);
+  for (const item of fixture.cases) {
+    const result = validateAssessmentVerification(item.verification);
+    assert.equal(result.ok, true);
+    assert.equal(result.rating.labels.artifact_error, "MINOR");
+    assert.equal(result.rating.labels.construction_alignment_error, "MINOR");
+    assert.equal(result.rating.quality_percent, 80); assert.equal(result.rating.successful, "YES");
+    assert.deepEqual(result.rating.critical_issues, []);
+    assert.equal(result.rating.minor_issues.length, 2);
+    assert(result.accepted_findings.every(finding => finding.subject !== "BODY_SHAPE"));
+    assert.equal(result.excluded_findings.length, 0);
+  }
+});
+
+test("an evidence basis cannot score a different subject merely by having a confirmed severity", () => {
+  for (const [subject, category, comparison_basis] of [
+    ["GARMENT", "garment_structure_error", "COMPARABLE_EXPOSED_SKIN"],
+    ["BODY_SHAPE", "artifact_error", "VISIBLE_OTHER"],
+    ["IDENTITY_OR_ANATOMY", "artifact_error", "VISIBLE_GARMENT"],
+    ["NON_TARGET_ITEM", "artifact_error", "VISIBLE_GARMENT"],
+    ["SCENE_OR_BOUNDARY", "artifact_error", "VISIBLE_GARMENT"],
+  ]) {
+    const result = validateAssessmentVerification(verification(clean(), { findings: [finding({ subject, category, comparison_basis })] }));
+    assert.equal(result.ok, true);
+    assert.equal(result.excluded_findings.length, 1);
+    assert.equal(result.rating.labels[category], "NONE");
+    assert.equal(result.rating.quality_percent, 100);
+    assert.deepEqual(result.rating.critical_issues, []);
+  }
+});
+
+test("verification requires nonempty coverage for clothing, fit, person and scene", () => {
+  for (const area of ["garment_design", "fit_and_drape", "person_integrity", "scene_and_other_items"]) {
+    const incomplete = verification(); incomplete.coverage[area] = "  ";
+    assert.equal(validateAssessmentVerification(incomplete).ok, false);
+  }
 });
 
 test("Retry-After seconds, dates, milliseconds and compound resets are honored", () => {
@@ -186,13 +321,14 @@ test("all failed API requests produce a failed process result and redact the key
   });
 });
 
-test("passing cases include full context, structured output and a second audit", async () => {
+test("passing cases include full context, structured output and balanced verification", async () => {
   const root = path.join(temporary, "success"); makeCase(root, { category: "full" }); makeCase(root, { category: "full", failed: true });
   await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async (module, output) => {
     const requests = [];
     globalThis.fetch = async (_url, options) => {
       const request = JSON.parse(options.body); requests.push(request);
-      return response(request.response_format.json_schema.name === "tryon_artifact_audit" ? cleanAudit() : { ...clean(), garment_category: "outfit" });
+      const primary = { ...clean(), garment_category: "outfit" };
+      return response(request.response_format.json_schema.name === "tryon_assessment_verification" ? verification(primary) : primary);
     };
     const result = await module.main();
     assert.equal(result.exitCode, 0); assert.equal(result.summary.successful, 1); assert.equal(result.summary.generation_failed, 1); assert.equal(requests.length, 2);
@@ -203,6 +339,7 @@ test("passing cases include full context, structured output and a second audit",
     assert(requests.every(request => request.messages[0].content.some(part => part.type === "text" && part.text.includes("Transfer mode: FULL") && part.text.includes("turbo"))));
     assert.equal(requests[0].messages[0].content[0].text, fs.readFileSync(path.join(repo, "prompts/tryon-judgment.txt"), "utf8").trim());
     assert.equal(requests[1].messages[0].content[0].text, fs.readFileSync(path.join(repo, "prompts/tryon-integrity-audit.txt"), "utf8").trim());
+    assert(requests[1].messages[0].content.some(part => part.type === "text" && /"garment_category"\s*:\s*"outfit"/.test(part.text)));
     assert.equal(result.report.prompts.judgment.file, "prompts/tryon-judgment.txt");
     assert.match(result.report.prompts.integrity_audit.sha256, /^[a-f0-9]{64}$/);
     const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
@@ -213,7 +350,7 @@ test("passing cases include full context, structured output and a second audit",
   });
 });
 
-test("the default integrity check catches arm damage even when clothing details already failed", async () => {
+test("the default verification catches exposed arm damage even when clothing details already failed", async () => {
   const root = path.join(temporary, "body-check-on-failure"); makeCase(root, { category: "full" });
   // Reproduce Test #3's old 55% labels: the primary review missed the arms.
   const previous = clean();
@@ -227,34 +364,34 @@ test("the default integrity check catches arm damage even when clothing details 
     globalThis.fetch = async (_url, options) => {
       calls++;
       const request = JSON.parse(options.body);
-      return response(request.response_format.json_schema.name === "tryon_artifact_audit"
-        ? { artifact_present: "YES", artifact_severity: "MAJOR", artifact_reasons: [bodyFinding], notes: bodyFinding }
+      return response(request.response_format.json_schema.name === "tryon_assessment_verification"
+        ? verification(previous, { findings: [finding({ description: bodyFinding }), ...verification(previous).findings], notes: bodyFinding })
         : previous);
     };
     const result = await module.main();
     const record = result.report.results[0];
     assert.equal(calls, 2); assert.equal(result.exitCode, 0);
-    assert.equal(record.artifact_audit_status, "completed");
+    assert.equal(record.verification_status, "completed");
     assert.equal(record.rating.labels.artifact_error, "MAJOR");
     assert.equal(record.rating.critical_issues[0], bodyFinding);
     assert(record.rating.notes.startsWith(bodyFinding));
   });
 });
 
-test("failed artifact audit never leaves a successful score", async () => {
+test("failed verification never leaves a successful score", async () => {
   const root = path.join(temporary, "audit-failure"); makeCase(root);
   await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async (module, output) => {
     let calls = 0;
-    globalThis.fetch = async () => ++calls === 1 ? response(clean()) : new Response("Audit unavailable", { status: 401 });
+    globalThis.fetch = async () => ++calls === 1 ? response(clean()) : new Response("Verification unavailable", { status: 401 });
     const result = await module.main();
     assert.equal(result.exitCode, 1); assert.equal(result.summary.successful, 0);
-    assert.equal(result.report.results[0].rating, null); assert.match(result.report.results[0].artifact_audit_error, /401/);
+    assert.equal(result.report.results[0].rating, null); assert.match(result.report.results[0].verification_error, /401/);
     const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
-    assert.match(html, /artifact audit failed/); assert(!html.includes("Score: 100"));
+    assert.match(html, /verification failed/); assert(!html.includes("Score: 100"));
   });
 });
 
-test("a major integrity finding cannot retain contradictory body-preservation claims", async () => {
+test("confirmed body damage replaces contradictory prose while retaining valid garment strengths", async () => {
   const root = path.join(temporary, "conflicting-body-claims"); makeCase(root);
   const primary = clean();
   primary.positives = ["Person's face and body proportions are well preserved."];
@@ -262,24 +399,141 @@ test("a major integrity finding cannot retain contradictory body-preservation cl
   const bodyFinding = "Both exposed upper arms are visibly narrower than in PERSON.";
   await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async (module, output) => {
     let calls = 0;
-    globalThis.fetch = async () => response(++calls === 1 ? primary : {
-      artifact_present: "YES", artifact_severity: "MAJOR", artifact_reasons: [bodyFinding], notes: bodyFinding,
-    });
+    const finalReview = verification(primary, { findings: [finding({ description: bodyFinding })], notes: bodyFinding, positives: ["The target vest's quilting and zipper are preserved."] });
+    globalThis.fetch = async () => response(++calls === 1 ? primary : finalReview);
     const result = await module.main();
     const record = result.report.results[0];
     assert.equal(calls, 2); assert.equal(record.rating.successful, "NO");
-    assert.equal(record.rating.notes, bodyFinding); assert.deepEqual(record.rating.positives, []);
+    assert.equal(record.rating.notes, bodyFinding); assert.deepEqual(record.rating.positives, finalReview.positives);
     assert.deepEqual(record.primary_rating.positives, primary.positives);
     assert.equal(record.primary_rating.notes, primary.notes);
     const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
     assert(!html.includes("Body proportions are well preserved."));
-    assert.match(html, /Earlier positive claims are withheld/);
+    assert.match(html, /quilting and zipper are preserved/);
+    assert(!html.includes("Earlier positive claims are withheld"));
+  });
+});
+
+test("verification can retract a first-pass sleeve-body false positive without preserving its penalty or prose", async () => {
+  const root = path.join(temporary, "rejected-sleeve-claim"); makeCase(root);
+  const primary = clean();
+  primary.labels.artifact_error = "MAJOR";
+  primary.critical_issues = ["The upper arms became thicker inside the sweater sleeves."];
+  primary.notes = primary.critical_issues[0];
+  const finalReview = verification(clean(), {
+    notes: "Loose sleeves account for the wider contour; covered upper-arm shape cannot be assessed. The target sweater is preserved.",
+    rejected_claims: ["The claimed upper-arm enlargement is unsupported because only the clothing outline is visible."],
+  });
+  await withAnalyzer({ ANALYZE_SOURCE_DIR: root, ANALYZE_ENABLE_ARTIFACT_AUDIT: "true" }, async (module, output) => {
+    let calls = 0;
+    globalThis.fetch = async () => response(++calls === 1 ? primary : finalReview);
+    const result = await module.main();
+    const record = result.report.results[0];
+    assert.equal(calls, 2); assert.equal(result.exitCode, 0);
+    assert.equal(record.verification_status, "completed");
+    assert.equal(record.primary_rating.labels.artifact_error, "MAJOR");
+    assert.equal(record.rating.labels.artifact_error, "NONE");
+    assert.equal(record.rating.successful, "YES"); assert.equal(record.rating.quality_percent, 100);
+    assert.deepEqual(record.rating.critical_issues, []);
+    assert.deepEqual(record.verification.rejected_claims, finalReview.rejected_claims);
+    assert(!fs.readFileSync(path.join(output, "index.html"), "utf8").includes(primary.notes));
+  });
+});
+
+test("balanced verification finds a missed major garment defect even when the first pass says the person is preserved", async () => {
+  const root = path.join(temporary, "missed-garment-defect"); makeCase(root);
+  const wrongGarment = finding({
+    category: "garment_structure_error", subject: "GARMENT", comparison_basis: "VISIBLE_GARMENT",
+    original_observation: "The target is a jacket with a large contrasting check pattern.",
+    result_observation: "The result is a plain jacket with the check pattern entirely missing.",
+    description: "The target jacket's defining check pattern is missing.",
+  });
+  const finalReview = verification(clean(), { findings: [wrongGarment], notes: wrongGarment.description });
+  await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async module => {
+    let calls = 0;
+    globalThis.fetch = async () => response(++calls === 1 ? clean() : finalReview);
+    const result = await module.main();
+    const record = result.report.results[0];
+    assert.equal(calls, 2); assert.equal(result.exitCode, 0);
+    assert.equal(record.rating.labels.artifact_error, "NONE");
+    assert.equal(record.rating.labels.garment_structure_error, "MAJOR");
+    assert.equal(record.rating.successful, "NO"); assert.equal(record.rating.quality_percent, 40);
+    assert.deepEqual(record.rating.critical_issues, [wrongGarment.description]);
+  });
+});
+
+test("an incomplete verification cannot silently reuse a passing first assessment", async () => {
+  const root = path.join(temporary, "incomplete-verification"); makeCase(root);
+  await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async module => {
+    const incomplete = verification(); delete incomplete.coverage.scene_and_other_items;
+    let calls = 0; globalThis.fetch = async () => response(++calls === 1 ? clean() : incomplete);
+    const result = await module.main();
+    const record = result.report.results[0];
+    assert.equal(calls, 2); assert.equal(result.exitCode, 1);
+    assert.equal(record.rating, null); assert.match(record.verification_error, /scene_and_other_items/);
+    assert.equal(record.primary_rating.successful, "YES");
+  });
+});
+
+test("unsupported free-form verifier accusations remain diagnostic and cannot contradict a clean scored verdict", async () => {
+  const root = path.join(temporary, "unsupported-verifier-prose"); makeCase(root);
+  const accusation = "Both arms and the covered chest were substantially reshaped by the generation.";
+  const finalReview = verification(clean(), { findings: [], notes: accusation });
+  await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async (module, output) => {
+    let calls = 0; globalThis.fetch = async () => response(++calls === 1 ? clean() : finalReview);
+    const result = await module.main();
+    const record = result.report.results[0];
+    assert.equal(calls, 2); assert.equal(result.exitCode, 0);
+    assert.equal(record.rating.successful, "YES"); assert.equal(record.rating.quality_percent, 100);
+    assert.deepEqual(record.rating.critical_issues, []); assert.deepEqual(record.rating.minor_issues, []);
+    assert.match(record.rating.notes, /No confirmed actionable defects/);
+    assert(!record.rating.notes.includes(accusation));
+    assert.equal(record.verification.notes, accusation);
+    assert(!fs.readFileSync(path.join(output, "index.html"), "utf8").includes(accusation));
+  });
+});
+
+test("review evidence is escaped and separate from scored findings while legacy entries remain compatible", async () => {
+  const root = path.join(temporary, "review-evidence"); makeCase(root);
+  const coverage = 'Covered <script>alert("coverage")</script> & not comparable.';
+  const rejected = 'Rejected <img src=x onerror="alert(1)"> sleeve-width claim.';
+  const unsupported = 'Unsupported <svg onload="alert(2)"> covered chest-width claim.';
+  const scoredIssue = "The target's contrasting cuff stripe is visibly shortened.";
+  const finalReview = verification();
+  finalReview.coverage.person_integrity = coverage;
+  finalReview.rejected_claims = [rejected];
+  finalReview.findings = [
+    finding({ description: unsupported, comparison_basis: "VISIBLE_GARMENT" }),
+    finding({ category: "construction_alignment_error", subject: "GARMENT", severity: "MINOR", comparison_basis: "VISIBLE_GARMENT", description: scoredIssue }),
+  ];
+  await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async (module, output) => {
+    let calls = 0; globalThis.fetch = async () => response(++calls === 1 ? clean() : finalReview);
+    const result = await module.main();
+    const record = result.report.results[0];
+    assert.equal(result.exitCode, 0); assert.equal(calls, 2);
+    assert.deepEqual(record.rating.critical_issues, []);
+    assert.deepEqual(record.rating.minor_issues, [scoredIssue]);
+    assert.equal(record.rating.quality_percent, 85);
+    assert.equal(record.excluded_findings.length, 1);
+    const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
+    const details = html.match(/<details class="review-evidence">[\s\S]*?<\/details>/);
+    assert(details); assert.match(details[0], /Review evidence and limitations/);
+    assert.match(details[0], /&lt;script&gt;alert\(&quot;coverage&quot;\)&lt;\/script&gt; &amp; not comparable/);
+    assert.match(details[0], /Rejected &lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/);
+    assert.match(details[0], /Unsupported &lt;svg onload=&quot;alert\(2\)&quot;&gt;/);
+    assert(!html.includes(coverage)); assert(!html.includes(rejected)); assert(!html.includes(unsupported));
+    const scoredHtml = html.replace(details[0], "");
+    assert(!scoredHtml.includes("coverage&quot;"));
+    assert(!scoredHtml.includes("sleeve-width claim")); assert(!scoredHtml.includes("covered chest-width claim"));
+    const legacyHtml = module.buildReviewHtml([reportEntry("Legacy coat.jpg", "Legacy model.png")],
+      { total: 1, successful: 1, failed: 0, errors: 0, generation_failed: 0 }, { reportMode: "review", generatedAt: "2026-11-25" });
+    assert(!legacyHtml.includes('class="review-evidence"'));
   });
 });
 
 const contradictoryGlitter = JSON.parse(fs.readFileSync(path.join(repo, "tests/fixtures/contradictory-glitter-assessment.json"), "utf8"));
 
-test("archived inconsistent glitter judgment is corrected once before audit", async () => {
+test("archived inconsistent glitter judgment is corrected once before verification", async () => {
   const root = path.join(temporary, "corrected-glitter"); makeCase(root, { category: "full" });
   await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async module => {
     const corrected = structuredClone(contradictoryGlitter);
@@ -294,14 +548,14 @@ test("archived inconsistent glitter judgment is corrected once before audit", as
         assert.match(request.messages[2].content, /same images/);
         return response(corrected);
       }
-      return response(cleanAudit());
+      return response(verification(corrected));
     };
     const result = await module.main();
     assert.equal(result.exitCode, 0); assert.equal(result.summary.errors, 0); assert.equal(requests.length, 3);
     const record = result.report.results[0];
     assert.equal(record.assessment_attempts, 2); assert.equal(record.assessment_validation_errors.length, 1);
     assert.equal(record.assessment_validation_errors[0].code, "INCONSISTENT_SEVERITY");
-    assert.equal(record.rating.quality_percent, 80); assert.equal(record.artifact_audit_status, "completed");
+    assert.equal(record.rating.quality_percent, 80); assert.equal(record.verification_status, "completed");
     assert(record.rating.minor_issues.includes(contradictoryGlitter.critical_issues[0]));
   });
 });
@@ -351,7 +605,7 @@ test("rate-limited main requests retry before completing both checks", async () 
     let calls = 0;
     globalThis.fetch = async (_url, options) => {
       if (++calls === 1) return new Response("Rate limit", { status: 429, headers: { "retry-after": "0" } });
-      return response(JSON.parse(options.body).response_format.json_schema.name === "tryon_artifact_audit" ? cleanAudit() : clean());
+      return response(JSON.parse(options.body).response_format.json_schema.name === "tryon_assessment_verification" ? verification() : clean());
     };
     assert.equal((await module.main()).exitCode, 0); assert.equal(calls, 3);
   });

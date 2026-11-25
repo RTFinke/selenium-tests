@@ -15,11 +15,13 @@ On GitHub, open **Settings > Secrets and variables > Actions > Repository secret
 ## Editing the judgment prompts
 
 - `prompts/tryon-judgment.txt`: the main assessment instructions.
-- `prompts/tryon-integrity-audit.txt`: the independent person/body and artifact check.
+- `prompts/tryon-integrity-audit.txt`: the second-pass verification of the whole assessment, including unsupported claims and missed defects.
 
 Edit these plain-text files to change the judging instructions. `analyze_quality.js` loads them directly; `analysis.json` records their filenames and content hashes so reports from different prompt revisions can be identified. Deploy the `prompts/` directory along with the evaluator.
 
-The prompts first compare the original person's visible body proportions, explicitly including both upper arms and forearms. Clearly altered arms/body are MAJOR artifacts even when the generated anatomy looks realistic. Small or uncertain pocket, seam, hem-fold, and texture differences should not outweigh these findings. Different image sizes, pose, perspective, and actual clothing coverage must be accounted for.
+Both prompts cover garment design, fit/drape, person integrity, and scene/non-target items. Body reshaping requires comparable exposed skin or actual anatomical landmarks visible in both images, after allowing for image scale, pose, perspective, and coverage. Loose sleeves, padded shoulders, and chest drape cannot establish hidden body size. Hidden or ambiguous anatomy remains unassessed; clear changes in visible anatomy still matter even when the result looks realistic.
+
+The second pass checks the original images and treats the first assessment as proposed claims. It can reject an unsupported body accusation, retain a real garment defect, and add an overlooked problem elsewhere. Its structured evidence records what was observed in the reference and result, the comparison basis, certainty, and whether an ordinary clothing/pose explanation was ruled out. This reduces dependence on repeated body-region reminders in the prompt; it does not guarantee that every visual judgment is correct.
 
 These instructions do not change the fixed scoring penalties in `lib/assessment.js`. Existing reports keep their original judgments; use a new manual assessment to evaluate a changed prompt.
 
@@ -73,7 +75,7 @@ The maintained workflow is `.github/workflows/analyze-with-llm.yml`.
 
 ## Judgment and failure handling
 
-The API receives all three images and the intended upper/lower/full transfer mode. Full-outfit transfers may replace both upper and lower clothing. Structured responses supply category, fit, silhouette, explanations, and four severity labels.
+The API receives all three images and the intended upper/lower/full transfer mode. Full-outfit transfers may replace both upper and lower clothing. The first pass proposes an assessment with four severity labels. The second pass verifies the whole result and returns structured findings, observations for all four review areas, rejected preliminary claims, and a coherent final explanation. It can correct both overly harsh and overly lenient assessments.
 
 The application starts at 100 and subtracts these fixed penalties:
 
@@ -84,11 +86,13 @@ The application starts at 100 and subtracts these fixed penalties:
 | Fit | 10 | 30 |
 | Artifacts / collateral damage | 5 | 40 |
 
-Passing requires at least 80% by default, at most two MINOR labels, no MAJOR labels, and no critical issues. Free-text keywords never override structured labels. Every valid assessment receives an independent body/artifact audit by default, including quality failures, so failing on garment details does not bypass the body check. A major audit finding is placed first in the critical issues and notes. If the audit fails, the assessment is incomplete and has no final score.
+Passing requires at least 80% by default, at most two MINOR labels, no MAJOR labels, and no critical issues. By default every valid assessment receives the second verification pass, including initial quality failures. The application derives the final labels and issue lists from supported, confirmed verification findings; it does not combine the harshest claims from both passes. Uncertain findings and comparisons without suitable evidence do not create penalties. Free-text keywords never create or remove defects.
 
-When a major integrity audit contradicts the main review, its notes replace the main review's notes and the earlier positive claims are withheld from the consolidated verdict. The original main assessment remains available as `primary_rating` in `analysis.json` for review. Conflicting model opinions should be checked against the images; the combined score does not establish that every model claim is correct.
+For a body-shape finding, the evidence must identify comparable exposed skin or actual anatomical landmarks and rule out a clothing/pose explanation. Fabric outlines cannot satisfy that evidence requirement. Other defects, such as malformed anatomy or a damaged boundary, can rely on directly visible damage without inferring concealed body proportions. Non-body garment defects remain eligible for their usual penalties, even when a body accusation is rejected.
 
-The default is two AI requests per judged case, plus one correction request if the main reply contains inconsistent severity. Set `ANALYZE_ENABLE_ARTIFACT_AUDIT=false` locally to audit passing candidates only. The workflow uses the full default check. Image requests explicitly use high detail for visual comparison.
+The final verdict notes are built from the same accepted findings as the score. Specific supported positives come from verification, so valid garment strengths need not disappear when another area fails. Each HTML entry has a collapsible **Review evidence and limitations** section with the four comparison areas, evidence for scored issues, and excluded claims. New `analysis.json` reports use schema version 3 and retain `primary_rating`, raw verification notes, and evidence for diagnostics. Existing reports keep their original judgments. If verification fails, the assessment is incomplete and has no final score. Conflicting or uncertain visual claims should still be checked against the images; offline code tests do not establish visual accuracy.
+
+The default remains two AI requests per judged case, plus one correction request if the main reply contains inconsistent severity. For compatibility, the existing `ANALYZE_ENABLE_ARTIFACT_AUDIT=false` setting now limits whole-assessment verification to passing candidates; initially failing assessments then retain the primary verdict. Leave the default enabled for consistent verification of both passes and failures. The workflow uses this default. Image requests explicitly use high detail for visual comparison.
 
 If the AI lists a critical issue but assigns only NONE/MINOR labels, it is asked once to correct its assessment using the same images. This adds one assessment request for the affected case. The application does not choose which severity is correct. A second inconsistent reply remains an assessment error; both the original reply and correction attempt are recorded in `analysis.json`.
 
@@ -106,7 +110,7 @@ Assessment errors make the command fail after saving the diagnostic report. Ordi
 - `OPENAI_DELAY_MS`: minimum spacing between API requests; default `750`.
 - `OPENAI_TIMEOUT_MS`: timeout per request; default `180000`.
 - `OPENAI_MAX_RETRIES`: total attempts per request; default `3`.
-- `ANALYZE_ENABLE_ARTIFACT_AUDIT`: default `true`; audit both passing and failing judgments. `false` audits passing candidates only.
+- `ANALYZE_ENABLE_ARTIFACT_AUDIT`: legacy setting name; default `true` verifies the whole assessment for both passing and failing candidates. `false` verifies passing candidates only and retains primary verdicts for initial failures.
 - `ANALYZE_SOURCE_DIR`: optional input root or list of roots.
 - `ANALYSIS_OUTPUT_DIR`: report directory; default `outputs`.
 - `ANALYSIS_REPORT_MODE`: `gallery`, `review` (default), or `comparison`.

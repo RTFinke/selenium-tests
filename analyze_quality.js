@@ -7,9 +7,8 @@ import { groupByGarment, summarizeProblems, summarizeGarments } from "./lib/revi
 import { embedReviewImages, IMAGE_PLACEHOLDER, renderEmbeddedImages } from "./lib/review-images.js";
 import {
   LABEL_KEYS, envNumber, fileToDataUrl, parseRetryAfterMs,
-  RATING_RESPONSE_FORMAT, AUDIT_RESPONSE_FORMAT,
-  validateAndNormalizeRating as normalizeRating, validateArtifactAudit,
-  applyArtifactAuditToRating as applyAudit,
+  RATING_RESPONSE_FORMAT, VERIFICATION_RESPONSE_FORMAT,
+  validateAndNormalizeRating as normalizeRating, validateAssessmentVerification,
 } from "./lib/assessment.js";
 
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || "").trim();
@@ -22,7 +21,8 @@ const MAX_RETRIES = envNumber(process.env, "OPENAI_MAX_RETRIES", 3, { min: 1 });
 const CONCURRENCY = envNumber(process.env, "OPENAI_CONCURRENCY", 2, { min: 1 });
 const MIN_RETRY_DELAY_MS = envNumber(process.env, "OPENAI_MIN_RETRY_DELAY_MS", 1000, { min: 1 });
 const RATE_LIMIT_JITTER_MS = envNumber(process.env, "OPENAI_RATE_LIMIT_JITTER_MS", 250, { min: 0 });
-const ENABLE_ARTIFACT_AUDIT = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_ENABLE_ARTIFACT_AUDIT || "true").trim());
+// Retain the existing environment setting while replacing the one-way audit.
+const ENABLE_VERIFICATION = /^(1|true|yes)$/i.test(String(process.env.ANALYZE_ENABLE_ARTIFACT_AUDIT || "true").trim());
 const REPORT_MODE = String(process.env.ANALYSIS_REPORT_MODE || "review").trim().toLowerCase();
 const GALLERY_ONLY_MODE = REPORT_MODE === "gallery";
 const COMPARISON_ONLY_MODE = REPORT_MODE === "comparison";
@@ -199,12 +199,8 @@ function validateAndNormalizeRating(raw) {
   return normalizeRating(raw, SCORE_POLICY);
 }
 
-function applyArtifactAuditToRating(rating, audit) {
-  return applyAudit(rating, audit, SCORE_POLICY);
-}
-
-function shouldRunArtifactAudit(rating) {
-  return ENABLE_ARTIFACT_AUDIT || rating.successful === "YES";
+function shouldRunAssessmentVerification(rating) {
+  return ENABLE_VERIFICATION || rating.successful === "YES";
 }
 
 function requestContext(context) {
@@ -313,12 +309,8 @@ async function postChatCompletions(payload) {
   throw lastErr;
 }
 
-async function runArtifactAudit(garmentUrl, modelUrl, resultUrl, garmentCategory, contextText) {
+async function runAssessmentVerification(garmentUrl, modelUrl, resultUrl, primaryRating, contextText) {
   const content = [{ type: "text", text: ARTIFACT_AUDIT_PROMPT }, { type: "text", text: contextText }];
-
-  if (garmentCategory) {
-    content.push({ type: "text", text: `Predicted target garment category: ${garmentCategory}` });
-  }
 
   if (modelUrl) {
     content.push({ type: "text", text: "IMAGE 1: MODEL_ORIGINAL" });
@@ -334,14 +326,17 @@ async function runArtifactAudit(garmentUrl, modelUrl, resultUrl, garmentCategory
     content.push({ type: "image_url", image_url: { url: resultUrl, detail: "high" } });
   }
 
+  const proposed = Object.fromEntries(Object.keys(RATING_RESPONSE_FORMAT.json_schema.schema.properties).map(key => [key, primaryRating[key]]));
+  content.push({ type: "text", text: "PROPOSED ASSESSMENT (unverified claims; check each against the images and inspect for missed defects):\n" + JSON.stringify(proposed) });
+
   const payload = {
     model: MODEL,
     temperature: 0,
-    max_completion_tokens: 800,
+    max_completion_tokens: 4000,
     top_p: 1,
     presence_penalty: 0,
     n: 1,
-    response_format: AUDIT_RESPONSE_FORMAT,
+    response_format: VERIFICATION_RESPONSE_FORMAT,
     messages: [
       {
         role: "user",
@@ -354,13 +349,16 @@ async function runArtifactAudit(garmentUrl, modelUrl, resultUrl, garmentCategory
   const raw = extractAssistantText(resp);
   const parsed = safeJsonParse(raw);
   const stopped = resp?.choices?.[0]?.finish_reason === "stop";
-  const validated = parsed.ok && stopped ? validateArtifactAudit(parsed.json) : null;
+  const validated = parsed.ok && stopped ? validateAssessmentVerification(parsed.json, SCORE_POLICY) : null;
 
   return {
     ok: Boolean(parsed.ok && validated?.ok),
-    audit: validated?.ok ? validated.audit : null,
+    rating: validated?.rating ?? null,
+    verification: validated?.verification ?? null,
+    accepted_findings: validated?.accepted_findings ?? [],
+    excluded_findings: validated?.excluded_findings ?? [],
     raw_output_text: parsed.ok && validated?.ok ? null : raw,
-    parse_error: !stopped ? `Artifact audit did not finish: ${resp?.choices?.[0]?.finish_reason ?? "missing response"}` : parsed.ok ? validated?.error ?? null : parsed.error,
+    parse_error: !stopped ? `Assessment verification did not finish: ${resp?.choices?.[0]?.finish_reason ?? "missing response"}` : parsed.ok ? validated?.error ?? null : parsed.error,
     finish_reason: resp?.choices?.[0]?.finish_reason ?? null,
   };
 }
@@ -409,24 +407,27 @@ async function evaluateFolder(folderName, folderContext) {
   }
   let rating = validated.rating;
   const primaryRating = rating;
-  let auditResult = null;
-  if (shouldRunArtifactAudit(rating)) {
+  let verificationResult = null;
+  if (shouldRunAssessmentVerification(rating)) {
     try {
-      auditResult = await runArtifactAudit(garmentUrl, modelUrl, resultUrl, rating.garment_category, contextText);
+      verificationResult = await runAssessmentVerification(garmentUrl, modelUrl, resultUrl, rating, contextText);
     } catch (error) {
-      auditResult = { ok: false, parse_error: error.message };
+      verificationResult = { ok: false, parse_error: error.message };
     }
-    if (!auditResult.ok) return {
+    if (!verificationResult.ok) return {
       folder: folderName, ok: false, rating: null, preliminary_rating: rating, primary_rating: primaryRating, ...diagnostics,
-      error: "Assessment incomplete: artifact audit failed. " + (auditResult.parse_error || "Invalid response"),
-      artifact_audit_error: auditResult.parse_error,
-      artifact_audit_raw_output: auditResult.raw_output_text ?? null,
-      artifact_audit_finish_reason: auditResult.finish_reason ?? null,
+      error: "Assessment incomplete: verification failed. " + (verificationResult.parse_error || "Invalid response"),
+      verification_status: "failed",
+      verification_error: verificationResult.parse_error,
+      verification_raw_output: verificationResult.raw_output_text ?? null,
+      verification_finish_reason: verificationResult.finish_reason ?? null,
     };
-    rating = applyArtifactAuditToRating(rating, auditResult.audit);
+    rating = verificationResult.rating;
   }
   return { folder: folderName, ok: true, rating, primary_rating: primaryRating, finish_reason: finishReason, ...diagnostics,
-    artifact_audit: auditResult?.audit ?? null, artifact_audit_status: auditResult ? "completed" : "not_required" };
+    verification: verificationResult?.verification ?? null,
+    accepted_findings: verificationResult?.accepted_findings ?? [], excluded_findings: verificationResult?.excluded_findings ?? [],
+    verification_status: verificationResult ? "completed" : "not_required" };
 }
 
 async function mapWithConcurrency(items, limit, worker) {
@@ -488,11 +489,13 @@ function createPerFolderPayload(folderName, folderContext, record) {
     parse_error: record.parse_error ?? null,
     raw_output_text: record.raw_output_text ?? null,
     finish_reason: record.finish_reason ?? null,
-    artifact_audit: record.artifact_audit ?? null,
-    artifact_audit_status: record.artifact_audit_status ?? (record.artifact_audit_error ? "failed" : null),
-    artifact_audit_error: record.artifact_audit_error ?? null,
-    artifact_audit_raw_output: record.artifact_audit_raw_output ?? null,
-    artifact_audit_finish_reason: record.artifact_audit_finish_reason ?? null,
+    verification: record.verification ?? null,
+    verification_status: record.verification_status ?? null,
+    verification_error: record.verification_error ?? null,
+    verification_raw_output: record.verification_raw_output ?? null,
+    verification_finish_reason: record.verification_finish_reason ?? null,
+    accepted_findings: record.accepted_findings ?? [],
+    excluded_findings: record.excluded_findings ?? [],
     body: record.body ?? null,
   };
 }
@@ -568,6 +571,20 @@ function renderHtmlList(items, emptyText) {
     return `<p class="muted">${escapeHtml(emptyText)}</p>`;
   }
   return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function renderVerificationDetails(entry) {
+  if (!entry.verification) return "";
+  const coverageLabels = { garment_design: "Garment design", fit_and_drape: "Fit and drape", person_integrity: "Person and anatomy", scene_and_other_items: "Scene and other items" };
+  const coverage = Object.entries(entry.verification.coverage || {}).map(([key, observation]) =>
+    `<p><strong>${escapeHtml(coverageLabels[key] || key)}:</strong> ${escapeHtml(observation)}</p>`).join("");
+  const evidence = (entry.accepted_findings || []).map(finding => `<li><strong>${escapeHtml(finding.description)}</strong><br>Reference: ${escapeHtml(finding.original_observation)}<br>Result: ${escapeHtml(finding.result_observation)}</li>`).join("");
+  const rejected = [...(entry.verification.rejected_claims || []), ...(entry.excluded_findings || []).map(finding => finding.description + " — " + finding.exclusion_reason)];
+  return `<details class="review-evidence"><summary>Review evidence and limitations</summary>
+    ${coverage}
+    ${evidence ? `<h3>Evidence for scored issues</h3><ul>${evidence}</ul>` : ""}
+    ${rejected.length ? `<h3>Claims excluded from scoring</h3>${renderHtmlList(rejected, "None")}` : ""}
+  </details>`;
 }
 
 function renderImageCard(label, relativePath, options = {}) {
@@ -681,11 +698,14 @@ function createReviewEntry(payload, bundle) {
     intended_fit: rating?.intended_fit ?? null,
     silhouette_preserved: rating?.silhouette_preserved ?? null,
     labels: rating?.labels ?? null,
-    notes: rating?.notes ?? ([payload.error, payload.message, payload.parse_error, payload.artifact_audit_error].filter(Boolean).join(" ") || null),
+    notes: rating?.notes ?? ([payload.error, payload.message, payload.parse_error, payload.verification_error, payload.artifact_audit_error].filter(Boolean).join(" ") || null),
     critical_issues: rating?.critical_issues ?? [],
     minor_issues: rating?.minor_issues ?? [],
     positives: rating?.positives ?? [],
     major_audit: payload.artifact_audit?.artifact_severity === "MAJOR",
+    verification: payload.verification ?? null,
+    accepted_findings: payload.accepted_findings ?? [],
+    excluded_findings: payload.excluded_findings ?? [],
     source_folder: payload.source_folder,
     files: bundle.files,
   };
@@ -776,7 +796,8 @@ function buildReviewHtml(reviewEntries, summary, meta) {
               <h3>Positives</h3>
               ${renderHtmlList(entry.positives, entry.major_audit ? "Earlier positive claims are withheld after a major integrity finding." : "None")}
             </section>
-          </div>`;
+          </div>
+          ${renderVerificationDetails(entry)}`;
 
       return `
         <article class="card ${isGalleryOnly ? "card-gallery" : "card-review"}">
@@ -899,6 +920,10 @@ function buildReviewHtml(reviewEntries, summary, meta) {
     .problem-bar { height: 5px; border-radius: 999px; background: var(--line); overflow: hidden; }
     .problem-bar span { display: block; height: 100%; background: var(--accent); }
     .critical-count { color: #ff9b9b; }
+    .review-evidence { margin-top: 20px; color: var(--muted); }
+    .review-evidence summary { cursor: pointer; color: var(--ink); }
+    .review-evidence li { margin-bottom: 12px; }
+    .card-review .details > p:last-child { grid-column: 1 / -1; }
     .problem-card details { margin-top: 12px; }
     details summary { cursor: pointer; }
     details ul { padding-left: 20px; line-height: 1.5; }
@@ -1316,7 +1341,7 @@ async function main() {
   summary.common_problems = problems.problems;
   summary.evaluated_for_problem_summary = problems.evaluated_results;
   const report = {
-    schema_version: 2, generated_at: new Date().toISOString(), report_mode: REPORT_MODE,
+    schema_version: 3, generated_at: new Date().toISOString(), report_mode: REPORT_MODE,
     evaluator_model: MODEL, prompts: PROMPT_VERSIONS, scoring_policy: SCORE_POLICY, summary,
     results: evaluations.map(item => item.payload),
   };
