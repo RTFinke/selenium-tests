@@ -48,6 +48,14 @@ const contourFinding = (overrides = {}) => finding({
     ...overrides.contour_evidence,
   },
 });
+const bodyShapeReview = () => Object.fromEntries(["chest", "waist_and_abdomen", "hips"].map(region => [region, {
+  original_observation: `The saved test reply does not establish readable ${region} contour in the original.`,
+  result_observation: `The saved test reply does not establish comparable ${region} contour in the result.`,
+  original_surface: "UNCLEAR", result_surface: "UNCLEAR",
+  comparison_basis: "NOT_COMPARABLE", conclusion: "NOT_COMPARABLE",
+  explanation: "This offline fixture provides no regional visual comparison; preservation is not inferred.",
+  finding_index: null,
+}]));
 const verification = (rating = clean(), overrides = {}) => ({
   garment_type: rating.garment_type, garment_category: rating.garment_category,
   intended_fit: rating.intended_fit, silhouette_preserved: rating.silhouette_preserved,
@@ -57,6 +65,7 @@ const verification = (rating = clean(), overrides = {}) => ({
     person_integrity: "Comparable identity and exposed anatomy checked; covered anatomy is not assessable.",
     scene_and_other_items: "Non-target items, boundaries and scene checked.",
   },
+  body_shape_review: bodyShapeReview(),
   findings: Object.entries(rating.labels).filter(([, severity]) => severity !== "NONE").flatMap(([category, severity]) => {
     const issues = severity === "MAJOR" ? rating.critical_issues : rating.minor_issues;
     return (issues.length ? issues : [`Confirmed ${category} difference.`]).map(description => finding({
@@ -300,7 +309,9 @@ test("saved sweater and jacket verification replies retain minor boundary artifa
   const fixture = JSON.parse(fs.readFileSync(path.join(repo, "tests/fixtures/verification-clothing-boundaries.json"), "utf8"));
   assert.deepEqual(fixture.cases.map(item => item.test_number), [90, 119]);
   for (const item of fixture.cases) {
-    const result = validateAssessmentVerification(item.verification);
+    // Preserve historical replies; supply explicit limits for the regional
+    // comparisons that their older response format did not record.
+    const result = validateAssessmentVerification({ ...item.verification, body_shape_review: bodyShapeReview() });
     assert.equal(result.ok, true);
     assert.equal(result.rating.labels.artifact_error, "MINOR");
     assert.equal(result.rating.labels.construction_alignment_error, "MINOR");
@@ -334,6 +345,86 @@ test("verification requires nonempty coverage for clothing, fit, person and scen
     const incomplete = verification(); incomplete.coverage[area] = "  ";
     assert.equal(validateAssessmentVerification(incomplete).ok, false);
   }
+});
+
+test("a generic person-preserved assertion cannot replace mandatory regional body comparisons", () => {
+  const missing = verification(); delete missing.body_shape_review;
+  assert.equal(validateAssessmentVerification(missing).ok, false);
+  for (const region of ["chest", "waist_and_abdomen", "hips"]) {
+    const incomplete = verification(); delete incomplete.body_shape_review[region];
+    assert.equal(validateAssessmentVerification(incomplete).ok, false);
+    for (const field of ["original_observation", "result_observation", "explanation"]) {
+      const empty = verification(); empty.body_shape_review[region][field] = " ";
+      assert.equal(validateAssessmentVerification(empty).ok, false);
+    }
+    const hidden = verification(); hidden.body_shape_review[region].conclusion = "NO_MATERIAL_CHANGE";
+    assert.equal(validateAssessmentVerification(hidden).ok, false);
+  }
+  const comparable = verification();
+  comparable.body_shape_review.chest = {
+    original_observation: "The original thin top reveals chest fullness above the waistband.",
+    result_observation: "The result reveals similar fullness and torso transitions relative to head and hips.",
+    original_surface: "BODY_FOLLOWING", result_surface: "BODY_FOLLOWING",
+    comparison_basis: "COMPARABLE_BODY_CONTOUR", conclusion: "NO_MATERIAL_CHANGE",
+    explanation: "Comparable pose and local body-following fabric support the same shape despite different seams.",
+    finding_index: null,
+  };
+  const result = validateAssessmentVerification(comparable);
+  assert.equal(result.ok, true); assert.equal(result.rating.successful, "YES");
+  assert.equal(result.rating.quality_percent, 100);
+  for (const surface of ["LOOSE_OR_STRUCTURED", "UNCLEAR", "INSUFFICIENT_SPACE_FOR_ORIGINAL_BODY"]) {
+    const concealed = structuredClone(comparable); concealed.body_shape_review.chest.result_surface = surface;
+    assert.equal(validateAssessmentVerification(concealed).ok, false);
+  }
+  const concealedOriginal = structuredClone(comparable); concealedOriginal.body_shape_review.chest.original_surface = "LOOSE_OR_STRUCTURED";
+  assert.equal(validateAssessmentVerification(concealedOriginal).ok, false);
+  const clothAsAnatomy = structuredClone(comparable); clothAsAnatomy.body_shape_review.chest.comparison_basis = "COMPARABLE_ANATOMICAL_LANDMARKS";
+  assert.equal(validateAssessmentVerification(clothAsAnatomy).ok, false);
+});
+
+test("confirmed regional flattening must link to a supported major body finding rather than silently pass", () => {
+  const torso = contourFinding();
+  const review = verification(clean(), { findings: [torso] });
+  review.body_shape_review.waist_and_abdomen = {
+    original_observation: torso.original_observation, result_observation: torso.result_observation,
+    original_surface: "BODY_FOLLOWING", result_surface: "BODY_FOLLOWING",
+    comparison_basis: torso.comparison_basis, conclusion: "MATERIAL_CHANGE",
+    explanation: torso.contour_evidence.clothing_explanation_exclusion, finding_index: 0,
+  };
+  const result = validateAssessmentVerification(review);
+  assert.equal(result.ok, true); assert.equal(result.rating.successful, "NO");
+  assert.equal(result.rating.labels.artifact_error, "MAJOR");
+  for (const index of [null, -1, 1, 0.5, "0"]) {
+    const invalid = structuredClone(review); invalid.body_shape_review.waist_and_abdomen.finding_index = index;
+    assert.equal(validateAssessmentVerification(invalid).ok, false, String(index));
+  }
+  for (const overrides of [
+    { severity: "MINOR" }, { confidence: "UNCERTAIN" },
+    { clothing_or_pose_explanation_ruled_out: false },
+    { contour_evidence: { result_surface: "LOOSE_OR_STRUCTURED" } },
+  ]) {
+    const invalid = structuredClone(review); invalid.findings = [contourFinding(overrides)];
+    assert.equal(validateAssessmentVerification(invalid).ok, false, JSON.stringify(overrides));
+  }
+  const wrongBasis = structuredClone(review);
+  wrongBasis.body_shape_review.waist_and_abdomen.comparison_basis = "COMPARABLE_EXPOSED_SKIN";
+  assert.equal(validateAssessmentVerification(wrongBasis).ok, false);
+  const wrongSubject = structuredClone(review);
+  wrongSubject.findings = [finding({ subject: "GARMENT", comparison_basis: "VISIBLE_GARMENT" })];
+  assert.equal(validateAssessmentVerification(wrongSubject).ok, false);
+  const noChange = structuredClone(review);
+  noChange.body_shape_review.waist_and_abdomen.conclusion = "NO_MATERIAL_CHANGE";
+  assert.equal(validateAssessmentVerification(noChange).ok, false);
+  const mismatched = structuredClone(review);
+  mismatched.findings[0].contour_evidence.result_surface = "INSUFFICIENT_SPACE_FOR_ORIGINAL_BODY";
+  assert.equal(validateAssessmentVerification(mismatched).ok, false);
+  mismatched.body_shape_review.waist_and_abdomen.result_surface = "INSUFFICIENT_SPACE_FOR_ORIGINAL_BODY";
+  assert.equal(validateAssessmentVerification(mismatched).ok, true);
+});
+
+test("confirmed material body damage cannot use a minor label even without a regional link", () => {
+  const result = validateAssessmentVerification(verification(clean(), { findings: [finding({ severity: "MINOR" })] }));
+  assert.equal(result.ok, false); assert.match(result.error, /requires MAJOR/);
 });
 
 test("Retry-After seconds, dates, milliseconds and compound resets are honored", () => {
@@ -477,6 +568,42 @@ test("balanced verification can add a missed torso-contour failure while retaini
     assert.deepEqual(record.rating.minor_issues, [cuff.description]);
     const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
     assert.match(html, /lower-abdomen contour/); assert.match(html, /target cuff stripe/);
+  });
+});
+
+test("lost chest and waist curves in a fitted shirt fail an initially passing review with one body penalty", async () => {
+  const root = path.join(temporary, "flattened-shirt"); makeCase(root);
+  const primary = clean();
+  primary.labels.construction_alignment_error = "MINOR"; primary.labels.artifact_error = "MINOR";
+  primary.minor_issues = ["Cuff details are blurred.", "Minor waistband blending."];
+  const torso = contourFinding({
+    original_observation: "The original body-following black top reveals chest fullness and a rounded waist transition above the jeans.",
+    result_observation: "The fitted denim shirt follows a flatter chest and straighter waist at comparable head, hand and hip scale.",
+    description: "Chest and waist curves are materially flattened after try-on.",
+    contour_evidence: { region: "chest and waist", clothing_explanation_exclusion: 'Local body-following fabric reveals the lost fullness; fabric bridging, compression, scale & pose do not explain it. <script>untrusted</script>' },
+  });
+  const cuff = finding({ subject: "GARMENT", category: "construction_alignment_error", comparison_basis: "VISIBLE_GARMENT", severity: "MINOR", description: primary.minor_issues[0] });
+  const finalReview = verification(primary, { findings: [torso, cuff], positives: ["Denim collar and chest pockets match the target."] });
+  for (const region of ["chest", "waist_and_abdomen"]) finalReview.body_shape_review[region] = {
+    original_observation: torso.original_observation, result_observation: torso.result_observation,
+    original_surface: "BODY_FOLLOWING", result_surface: "BODY_FOLLOWING",
+    comparison_basis: "COMPARABLE_BODY_CONTOUR", conclusion: "MATERIAL_CHANGE",
+    explanation: torso.contour_evidence.clothing_explanation_exclusion, finding_index: 0,
+  };
+  await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async (module, output) => {
+    let calls = 0; globalThis.fetch = async () => response(++calls === 1 ? primary : finalReview);
+    const result = await module.main(); const record = result.report.results[0];
+    assert.equal(result.exitCode, 0); assert.equal(calls, 2); assert.equal(result.report.schema_version, 4);
+    assert.equal(record.primary_rating.successful, "YES"); assert.equal(record.primary_rating.quality_percent, 80);
+    assert.equal(record.rating.successful, "NO"); assert.equal(record.rating.quality_percent, 45);
+    assert.equal(record.rating.labels.artifact_error, "MAJOR"); assert.equal(record.rating.labels.fit_error, "NONE");
+    assert.deepEqual(record.rating.critical_issues, [torso.description]);
+    assert.deepEqual(record.verification.body_shape_review, finalReview.body_shape_review);
+    const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
+    assert.match(html, /Body shape comparison/); assert.match(html, /Chest: Material change confirmed/);
+    assert.match(html, /Waist and abdomen: Material change confirmed/); assert.match(html, /Hips: Not comparable/);
+    assert.match(html, /Garment silhouette:/); assert.match(html, /scale &amp; pose/);
+    assert.match(html, /&lt;script&gt;untrusted&lt;\/script&gt;/); assert(!html.includes("<script>untrusted</script>"));
   });
 });
 

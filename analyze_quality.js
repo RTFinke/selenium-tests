@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { groupByGarment, summarizeProblems, summarizeGarments } from "./lib/review-summary.js";
 import { embedReviewImages, IMAGE_PLACEHOLDER, renderEmbeddedImages } from "./lib/review-images.js";
 import {
-  LABEL_KEYS, envNumber, fileToDataUrl, parseRetryAfterMs,
+  LABEL_KEYS, BODY_REVIEW_REGIONS, envNumber, fileToDataUrl, parseRetryAfterMs,
   RATING_RESPONSE_FORMAT, VERIFICATION_RESPONSE_FORMAT,
   validateAndNormalizeRating as normalizeRating, validateAssessmentVerification,
 } from "./lib/assessment.js";
@@ -332,7 +332,7 @@ async function runAssessmentVerification(garmentUrl, modelUrl, resultUrl, primar
   const payload = {
     model: MODEL,
     temperature: 0,
-    max_completion_tokens: 4000,
+    max_completion_tokens: 6000,
     top_p: 1,
     presence_penalty: 0,
     n: 1,
@@ -578,10 +578,14 @@ function renderVerificationDetails(entry) {
   const coverageLabels = { garment_design: "Garment design", fit_and_drape: "Fit and drape", person_integrity: "Person and anatomy", scene_and_other_items: "Scene and other items" };
   const coverage = Object.entries(entry.verification.coverage || {}).map(([key, observation]) =>
     `<p><strong>${escapeHtml(coverageLabels[key] || key)}:</strong> ${escapeHtml(observation)}</p>`).join("");
+  const bodyConclusions = { NO_MATERIAL_CHANGE: "No material change observed", MATERIAL_CHANGE: "Material change confirmed", NOT_COMPARABLE: "Not comparable" };
+  const bodyReview = Object.entries(entry.verification.body_shape_review || {}).map(([region, review]) =>
+    `<li><strong>${escapeHtml(BODY_REVIEW_REGIONS[region] || region)}: ${escapeHtml(bodyConclusions[review.conclusion] || review.conclusion)}</strong><br>Original: ${escapeHtml(review.original_observation)}<br>Result: ${escapeHtml(review.result_observation)}<br>Comparison: ${escapeHtml(review.explanation)}</li>`).join("");
   const evidence = (entry.accepted_findings || []).map(finding => `<li><strong>${escapeHtml(finding.description)}</strong><br>Reference: ${escapeHtml(finding.original_observation)}<br>Result: ${escapeHtml(finding.result_observation)}${finding.contour_evidence ? `<br>Body region: ${escapeHtml(finding.contour_evidence.region)}<br>Landmarks and scale: ${escapeHtml(finding.contour_evidence.landmark_corroboration)}<br>Clothing explanation checked: ${escapeHtml(finding.contour_evidence.clothing_explanation_exclusion)}` : ""}</li>`).join("");
   const rejected = [...(entry.verification.rejected_claims || []), ...(entry.excluded_findings || []).map(finding => finding.description + " — " + finding.exclusion_reason)];
   return `<details class="review-evidence"><summary>Review evidence and limitations</summary>
     ${coverage}
+    ${bodyReview ? `<h3>Body shape comparison</h3><ul>${bodyReview}</ul>` : ""}
     ${evidence ? `<h3>Evidence for scored issues</h3><ul>${evidence}</ul>` : ""}
     ${rejected.length ? `<h3>Claims excluded from scoring</h3>${renderHtmlList(rejected, "None")}` : ""}
   </details>`;
@@ -774,7 +778,7 @@ function buildReviewHtml(reviewEntries, summary, meta) {
             <p><strong>Type:</strong> ${escapeHtml(entry.garment_type || "n/a")}</p>
             <p><strong>Category:</strong> ${escapeHtml(entry.garment_category || "n/a")}</p>
             <p><strong>Fit:</strong> ${escapeHtml(entry.intended_fit || "n/a")}</p>
-            <p><strong>Silhouette:</strong> ${escapeHtml(entry.silhouette_preserved || "n/a")}</p>
+            <p><strong>Garment silhouette:</strong> ${escapeHtml(entry.silhouette_preserved || "n/a")}</p>
             <p><strong>Labels:</strong> ${escapeHtml(
               entry.labels
                 ? `structure ${entry.labels.garment_structure_error}, alignment ${entry.labels.construction_alignment_error}, fit ${entry.labels.fit_error}, artifact ${entry.labels.artifact_error}`
@@ -1341,7 +1345,7 @@ async function main() {
   summary.common_problems = problems.problems;
   summary.evaluated_for_problem_summary = problems.evaluated_results;
   const report = {
-    schema_version: 3, generated_at: new Date().toISOString(), report_mode: REPORT_MODE,
+    schema_version: 4, generated_at: new Date().toISOString(), report_mode: REPORT_MODE,
     evaluator_model: MODEL, prompts: PROMPT_VERSIONS, scoring_policy: SCORE_POLICY, summary,
     results: evaluations.map(item => item.payload),
   };

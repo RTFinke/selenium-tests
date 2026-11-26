@@ -15,8 +15,13 @@ Inspect the images yourself before evaluating the proposed claims. Complete all 
 - scene_and_other_items: boundaries, layering, remnants, non-target clothing/accessories, and the surrounding scene.
 Record a brief observation or visibility limitation for each check in coverage. These are a coverage checklist, not an exhaustive list of possible defects. Do not make any body region an expected finding.
 
+REQUIRED ORIGINAL-VERSUS-RESULT BODY COMPARISON
+Complete body_shape_review for chest, waist_and_abdomen, and hips on EVERY case before settling the verdict, including when the preliminary assessment claims the body is preserved or mentions only garment details. Compare MODEL_ORIGINAL directly with GENERATED_RESULT; do not use the TARGET_GARMENT model as the desired body.
+For each region, record what is readable in the original and result, the comparison basis, and an explanation allowing for scale/pose and the actual local clothing behavior. Check chest fullness, waist-to-chest/hip transitions, rounded versus flattened abdomen, and hip volume. Erased curves or a torso straightened into a column can be a material shape change without uniform slimming or a large outer-width change. A natural-looking result and preserved face/hands do not settle this check.
+Use NO_MATERIAL_CHANGE only when readable comparable surfaces support the same actual shape. Enough room for the body, a plausible clothing outline, and absence of an obvious contradiction do NOT establish preservation of concealed curves. For example, a straight coat concealing chest/waist/hips needs NOT_COMPARABLE for those hidden regions even when its volume is perfectly plausible; a loose top may reveal chest fullness but conceal the waist below. Use NOT_COMPARABLE when coverage, cloth bridging, pose, or resolution prevents comparison, and name the local limitation; absence of exposed skin alone is not such a limitation. Use MATERIAL_CHANGE only when evidence supports a real material change after allowing for clothing effects; add a matching confirmed MAJOR BODY_SHAPE finding and link it with finding_index. Do not leave confirmed flattening only in coverage or notes, or downgrade it to a garment fit detail.
+
 BODY SHAPE: REQUIRE DIRECT OR CORROBORATED CONTOUR EVIDENCE
-For each proposed body-width, size, or shape change:
+For each observed or proposed body-width, size, or shape change:
 1. Identify the SAME region and what can actually be read in each image: comparable exposed skin, actual anatomical landmarks, or the supported covered-body contour described below. Do not automatically exempt a clothed abdomen, waist, chest, or hips.
 2. Separate body contour from fabric volume. Loose sleeves, dropped shoulder seams, padded shoulders, jacket sides, hanging folds, and chest drape alone cannot establish body reshaping. A tighter cut can remove fabric ease without changing the person. The target being tighter or looser is not itself proof of damage or preservation.
 3. Allow for image scale, crop, perspective, pose, and changed coverage. Use stable visible head/joint landmarks rather than raw pixel width or the garment-reference model's body.
@@ -30,11 +35,13 @@ Distinguish BODY_SHAPE from independently visible IDENTITY_OR_ANATOMY defects. C
 COVERED BODY CONTOUR
 Use COMPARABLE_BODY_CONTOUR only for a BODY_SHAPE finding supported by ALL of these checks:
 - The original region is BODY_FOLLOWING: fabric follows the person closely enough to reveal the actual contour. Do not use an original loose, padded, structured, folded, or unclear clothing outline as a measurement of the body.
+- BODY_FOLLOWING is a local visibility judgment, not a garment-type label or a requirement for skin-tight fabric. A fitted woven or denim shirt can follow the chest/waist enough to reveal changed fullness and curves. Examine the local surface and contour transitions; do not automatically reject the whole torso because the new shirt has structure. A region where fabric actually bridges or conceals the body remains unassessable.
 - The same result region is either BODY_FOLLOWING, or meets the narrow INSUFFICIENT_SPACE_FOR_ORIGINAL_BODY condition: after stable scale/pose alignment, the generated boundary materially lies inside the original readable body volume, leaving insufficient room for it. For this exception the target must be soft and unstructured, without plausible shaping/compression or occlusion explaining the difference. An ordinary loose or structured silhouette does not qualify.
 - Corroborating head, hand, waistband, hip, or other stable observations establish comparable scale and pose and support the change. Identify the region and actual original/result difference. Explain the relevant gaps, waistband relationships, or coherent contour change; a single cloth line, new hem height, darker colour, flatter shading, or "looks thinner" is insufficient.
 - Explicitly explain why changing garment cut/ease, drape, padding, compression, pose, or coverage cannot account for the supported change. If that remains plausible, the body comparison is uncertain and must not receive a body penalty.
 
 For example, a body-following original shirt may clearly reveal a rounded abdomen. An oversized result tee may still become implausibly narrow around the waist/abdomen below its boxy chest, contradicting the readable original body volume. Examine the supported volume contradiction rather than automatically dismissing it as loose clothing. Conversely, normal sleeve bulk, padded shoulders, or a fitted garment merely removing fabric ease do not establish body reshaping.
+Another meaningful change is lost curvature: an original body-following top reveals chest fullness and a rounded waist/abdomen transition, while a locally body-following button-up result flattens those regions toward the garment-reference model's straighter torso. Compare the curves with stable head, hand, waistband and hip relationships; do not require exposed abdominal skin or uniform narrowing. Confirm only when the local contour/volume evidence rules out normal fabric bridging, support/compression, perspective and pose; flatter shading alone is insufficient.
 If only garment cinching, cut, or placement is demonstrably wrong, report the supported fit/design defect. Do not count the same narrowing again as body damage. Keep checking all other garment, person, and scene failures independently.
 
 GARMENT, FIT, AND OTHER FAILURES MATTER EQUALLY
@@ -69,6 +76,16 @@ Required fields:
 - intended_fit: tight, regular, loose, oversized, or null.
 - silhouette_preserved: YES, PARTIAL, or NO for the garment's silhouette.
 - coverage: object with garment_design, fit_and_drape, person_integrity, scene_and_other_items; each a brief observation or comparison limitation.
+- body_shape_review: object with chest, waist_and_abdomen, hips; each contains ALL fields:
+  original_observation: concrete contour/fullness observations in MODEL_ORIGINAL, or the local visibility limitation.
+  result_observation: concrete observations of the same region in GENERATED_RESULT, or its local visibility limitation.
+  original_surface: EXPOSED_ANATOMY, BODY_FOLLOWING, LOOSE_OR_STRUCTURED, or UNCLEAR for this local region.
+  result_surface: EXPOSED_ANATOMY, BODY_FOLLOWING, INSUFFICIENT_SPACE_FOR_ORIGINAL_BODY, LOOSE_OR_STRUCTURED, or UNCLEAR. EXPOSED_ANATOMY means the region's actual anatomy is directly visible, not a clothing seam. BODY_FOLLOWING means its local body contour is readable, not just that the garment looks plausible. The insufficient-space option is restricted to the supported volume-contradiction route below.
+  comparison_basis: COMPARABLE_EXPOSED_SKIN, COMPARABLE_ANATOMICAL_LANDMARKS, COMPARABLE_BODY_CONTOUR, or NOT_COMPARABLE.
+  conclusion: NO_MATERIAL_CHANGE, MATERIAL_CHANGE, or NOT_COMPARABLE. NOT_COMPARABLE must use comparison_basis NOT_COMPARABLE; the other conclusions require a comparable basis.
+  NO_MATERIAL_CHANGE requires readable surfaces in BOTH images: EXPOSED_ANATOMY for direct anatomy bases, or BODY_FOLLOWING for COMPARABLE_BODY_CONTOUR. A loose/structured or unclear surface cannot establish unchanged hidden shape. MATERIAL_CHANGE has the same requirements except for the explicit insufficient-space contour route. The surface values must agree with any linked finding's contour_evidence; split findings when different regions need different evidence routes.
+  explanation: brief scale/pose and clothing-effect reasoning supporting the conclusion. Do not substitute "looks natural" or a generic preservation assertion for the comparison.
+  finding_index: zero-based index of the matching confirmed MAJOR BODY_SHAPE finding in findings for MATERIAL_CHANGE; otherwise null. The linked finding must use the same comparison_basis and pass the evidence requirements below. Multiple changed regions may reference the same finding when it actually covers them.
 - findings: array of objects with ALL fields below:
   category: garment_structure_error, construction_alignment_error, fit_error, or artifact_error.
   subject: BODY_SHAPE, IDENTITY_OR_ANATOMY, GARMENT, NON_TARGET_ITEM, or SCENE_OR_BOUNDARY.
