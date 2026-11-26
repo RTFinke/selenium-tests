@@ -578,7 +578,7 @@ function renderVerificationDetails(entry) {
   const coverageLabels = { garment_design: "Garment design", fit_and_drape: "Fit and drape", person_integrity: "Person and anatomy", scene_and_other_items: "Scene and other items" };
   const coverage = Object.entries(entry.verification.coverage || {}).map(([key, observation]) =>
     `<p><strong>${escapeHtml(coverageLabels[key] || key)}:</strong> ${escapeHtml(observation)}</p>`).join("");
-  const evidence = (entry.accepted_findings || []).map(finding => `<li><strong>${escapeHtml(finding.description)}</strong><br>Reference: ${escapeHtml(finding.original_observation)}<br>Result: ${escapeHtml(finding.result_observation)}</li>`).join("");
+  const evidence = (entry.accepted_findings || []).map(finding => `<li><strong>${escapeHtml(finding.description)}</strong><br>Reference: ${escapeHtml(finding.original_observation)}<br>Result: ${escapeHtml(finding.result_observation)}${finding.contour_evidence ? `<br>Body region: ${escapeHtml(finding.contour_evidence.region)}<br>Landmarks and scale: ${escapeHtml(finding.contour_evidence.landmark_corroboration)}<br>Clothing explanation checked: ${escapeHtml(finding.contour_evidence.clothing_explanation_exclusion)}` : ""}</li>`).join("");
   const rejected = [...(entry.verification.rejected_claims || []), ...(entry.excluded_findings || []).map(finding => finding.description + " — " + finding.exclusion_reason)];
   return `<details class="review-evidence"><summary>Review evidence and limitations</summary>
     ${coverage}

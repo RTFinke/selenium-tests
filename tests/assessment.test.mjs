@@ -33,6 +33,21 @@ const finding = (overrides = {}) => ({
   clothing_or_pose_explanation_ruled_out: true,
   description: "The exposed upper arm is visibly slimmed.", ...overrides,
 });
+const contourFinding = (overrides = {}) => finding({
+  comparison_basis: "COMPARABLE_BODY_CONTOUR",
+  original_observation: "The thin original shirt follows a rounded lower abdomen between the same waistband and elbow landmarks.",
+  result_observation: "The corresponding abdomen is materially flatter and narrower while the head, hands and trousers remain aligned.",
+  description: "The readable lower-abdomen contour is substantially flattened and narrowed.",
+  ...overrides,
+  contour_evidence: {
+    region: "lower abdomen and waist",
+    original_surface: "BODY_FOLLOWING", result_surface: "BODY_FOLLOWING",
+    scale_and_pose_comparable: true,
+    landmark_corroboration: "The head size, hand positions and trouser waistband align, while the same waist and abdomen region narrows.",
+    clothing_explanation_exclusion: "Both thin surfaces reveal the local body contour; removed fabric ease, padding, pose and lighting do not explain the material narrowing.",
+    ...overrides.contour_evidence,
+  },
+});
 const verification = (rating = clean(), overrides = {}) => ({
   garment_type: rating.garment_type, garment_category: rating.garment_category,
   intended_fit: rating.intended_fit, silhouette_preserved: rating.silhouette_preserved,
@@ -167,6 +182,68 @@ test("confirmed comparable exposed anatomy and real anatomical landmarks still e
     assert.equal(result.rating.quality_percent, 60); assert.equal(result.rating.successful, "NO");
     assert.deepEqual(result.rating.critical_issues, ["The exposed upper arm is visibly slimmed."]);
     assert.equal(result.excluded_findings.length, 0);
+  }
+});
+
+test("confirmed body-following contour evidence can establish torso damage without exposed abdominal skin", () => {
+  const torso = contourFinding();
+  const result = validateAssessmentVerification(verification(clean(), { findings: [torso] }));
+  assert.equal(result.ok, true);
+  assert.equal(result.rating.labels.artifact_error, "MAJOR");
+  assert.equal(result.rating.quality_percent, 60); assert.equal(result.rating.successful, "NO");
+  assert.deepEqual(result.rating.critical_issues, [torso.description]);
+  assert.equal(result.accepted_findings.length, 1); assert.equal(result.excluded_findings.length, 0);
+});
+
+test("a supported volume contradiction remains assessable when the target garment is oversized", () => {
+  const torso = contourFinding({
+    result_observation: "The generated oversized tee is boxy above the chest but its lower sides sit inside the original readable belly contour at matched scale.",
+    contour_evidence: {
+      result_surface: "INSUFFICIENT_SPACE_FOR_ORIGINAL_BODY",
+      clothing_explanation_exclusion: "A loose soft tee could add room or obscure curvature, but its materially narrower lower outline cannot contain the original abdomen at the same scale; no compression, structured shaping or occlusion explains this.",
+    },
+  });
+  const result = validateAssessmentVerification(verification(clean(), { intended_fit: "oversized", findings: [torso] }));
+  assert.equal(result.ok, true);
+  assert.equal(result.rating.labels.artifact_error, "MAJOR");
+  assert.equal(result.rating.quality_percent, 60); assert.equal(result.rating.successful, "NO");
+  assert.deepEqual(result.rating.critical_issues, [torso.description]);
+});
+
+test("loose, padded or unreadable outlines and unsupported contour comparisons cannot establish body damage", () => {
+  for (const unsupported of [
+    { contour_evidence: { original_surface: "LOOSE_OR_STRUCTURED" } },
+    { contour_evidence: { original_surface: "UNCLEAR" } },
+    { contour_evidence: { result_surface: "LOOSE_OR_STRUCTURED" } },
+    { contour_evidence: { result_surface: "UNCLEAR" } },
+    { contour_evidence: { scale_and_pose_comparable: false } },
+    { contour_evidence: { landmark_corroboration: " " } },
+    { contour_evidence: { clothing_explanation_exclusion: " " } },
+    { contour_evidence: { region: " " } },
+    { confidence: "UNCERTAIN" },
+    { clothing_or_pose_explanation_ruled_out: false },
+    { original_observation: "" },
+    { result_observation: "" },
+  ]) {
+    const result = validateAssessmentVerification(verification(clean(), { findings: [contourFinding(unsupported)] }));
+    assert.equal(result.ok, true, JSON.stringify(unsupported));
+    assert.equal(result.rating.labels.artifact_error, "NONE", JSON.stringify(unsupported));
+    assert.equal(result.rating.quality_percent, 100); assert.equal(result.rating.successful, "YES");
+    assert.deepEqual(result.rating.critical_issues, []);
+    assert.equal(result.accepted_findings.length, 0); assert.equal(result.excluded_findings.length, 1);
+  }
+});
+
+test("the body-contour schema requires its evidence and cannot be relabelled as a garment or identity claim", () => {
+  const missingEvidence = contourFinding(); delete missingEvidence.contour_evidence;
+  const missingScale = contourFinding(); delete missingScale.contour_evidence.scale_and_pose_comparable;
+  for (const invalid of [
+    missingEvidence, missingScale,
+    contourFinding({ category: "fit_error" }),
+    contourFinding({ subject: "GARMENT" }),
+    contourFinding({ subject: "IDENTITY_OR_ANATOMY" }),
+  ]) {
+    assert.equal(validateAssessmentVerification(verification(clean(), { findings: [invalid] })).ok, false);
   }
 });
 
@@ -378,6 +455,31 @@ test("the default verification catches exposed arm damage even when clothing det
   });
 });
 
+test("balanced verification can add a missed torso-contour failure while retaining an independent garment detail", async () => {
+  const root = path.join(temporary, "missed-torso-contour"); makeCase(root);
+  const primary = clean();
+  primary.labels.construction_alignment_error = "MINOR";
+  primary.minor_issues = ["The target cuff stripe is misplaced."];
+  const torso = contourFinding({ contour_evidence: { result_surface: "INSUFFICIENT_SPACE_FOR_ORIGINAL_BODY" } });
+  const cuff = finding({ category: "construction_alignment_error", subject: "GARMENT", severity: "MINOR", comparison_basis: "VISIBLE_GARMENT", description: primary.minor_issues[0] });
+  const finalReview = verification(primary, { findings: [torso, structuredClone(torso), cuff] });
+  await withAnalyzer({ ANALYZE_SOURCE_DIR: root, ANALYZE_ENABLE_ARTIFACT_AUDIT: "true" }, async (module, output) => {
+    let calls = 0; globalThis.fetch = async () => response(++calls === 1 ? primary : finalReview);
+    const result = await module.main();
+    const record = result.report.results[0];
+    assert.equal(result.exitCode, 0); assert.equal(calls, 2);
+    assert.equal(record.primary_rating.labels.artifact_error, "NONE");
+    assert.equal(record.rating.labels.artifact_error, "MAJOR");
+    assert.equal(record.rating.labels.construction_alignment_error, "MINOR");
+    assert.equal(record.rating.labels.fit_error, "NONE");
+    assert.equal(record.rating.quality_percent, 45); assert.equal(record.rating.successful, "NO");
+    assert.deepEqual(record.rating.critical_issues, [torso.description]);
+    assert.deepEqual(record.rating.minor_issues, [cuff.description]);
+    const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
+    assert.match(html, /lower-abdomen contour/); assert.match(html, /target cuff stripe/);
+  });
+});
+
 test("failed verification never leaves a successful score", async () => {
   const root = path.join(temporary, "audit-failure"); makeCase(root);
   await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async (module, output) => {
@@ -528,6 +630,29 @@ test("review evidence is escaped and separate from scored findings while legacy 
     const legacyHtml = module.buildReviewHtml([reportEntry("Legacy coat.jpg", "Legacy model.png")],
       { total: 1, successful: 1, failed: 0, errors: 0, generation_failed: 0 }, { reportMode: "review", generatedAt: "2026-11-25" });
     assert(!legacyHtml.includes('class="review-evidence"'));
+  });
+});
+
+test("body-contour corroboration and clothing explanations appear escaped in the HTML evidence", async () => {
+  const root = path.join(temporary, "torso-contour-html"); makeCase(root);
+  const corroboration = 'Head & hands align; <script>alert("landmarks")</script> is untrusted text.';
+  const exclusion = 'Fabric ease cannot explain this <svg onload="alert(1)"> contour difference.';
+  const torso = contourFinding({ contour_evidence: { landmark_corroboration: corroboration, clothing_explanation_exclusion: exclusion } });
+  const finalReview = verification(clean(), { findings: [torso] });
+  await withAnalyzer({ ANALYZE_SOURCE_DIR: root }, async (module, output) => {
+    let calls = 0; globalThis.fetch = async () => response(++calls === 1 ? clean() : finalReview);
+    const result = await module.main();
+    assert.equal(result.exitCode, 0); assert.equal(calls, 2);
+    const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
+    const details = html.match(/<details class="review-evidence">[\s\S]*?<\/details>/);
+    assert(details);
+    assert.match(details[0], /Reference: The thin original shirt follows a rounded lower abdomen/);
+    assert.match(details[0], /Result: The corresponding abdomen is materially flatter and narrower/);
+    assert.match(details[0], /Head &amp; hands align; &lt;script&gt;alert\(&quot;landmarks&quot;\)&lt;\/script&gt;/);
+    assert.match(details[0], /Fabric ease cannot explain this &lt;svg onload=&quot;alert\(1\)&quot;&gt;/);
+    assert(!html.includes(corroboration)); assert(!html.includes(exclusion));
+    const verdict = html.replace(details[0], "");
+    assert(!verdict.includes("landmarks&quot;")); assert(!verdict.includes("Fabric ease cannot explain"));
   });
 });
 

@@ -11,21 +11,31 @@ INDEPENDENT COVERAGE BEFORE VERDICT
 Inspect the images yourself before evaluating the proposed claims. Complete all four checks, including when one already reveals a failure:
 - garment_design: clothing identity, intended pieces, silhouette/length, distinctive design/material, and visible construction.
 - fit_and_drape: plausible placement, fit, volume, and interaction with the person.
-- person_integrity: identity, comparable anatomy, hands/feet, and pose across the visible person.
+- person_integrity: identity, comparable anatomy and body proportions, hands/feet, and pose across the visible person. Include readable torso shape; a preserved face does not establish preservation elsewhere.
 - scene_and_other_items: boundaries, layering, remnants, non-target clothing/accessories, and the surrounding scene.
 Record a brief observation or visibility limitation for each check in coverage. These are a coverage checklist, not an exhaustive list of possible defects. Do not make any body region an expected finding.
 
-BODY SHAPE: REQUIRE COMPARABLE ANATOMY
+BODY SHAPE: REQUIRE DIRECT OR CORROBORATED CONTOUR EVIDENCE
 For each proposed body-width, size, or shape change:
-1. Identify the SAME exposed skin region or actual anatomical landmark visible in BOTH MODEL_ORIGINAL and GENERATED_RESULT. State what is visible in each image.
-2. Separate skin/anatomy from fabric. Loose sleeves, dropped shoulder seams, padded shoulders, jacket sides, folds, and chest drape are clothing contours. They cannot establish hidden body width or shape. A bulkier or narrower clothed silhouette alone is not evidence of body reshaping.
+1. Identify the SAME region and what can actually be read in each image: comparable exposed skin, actual anatomical landmarks, or the supported covered-body contour described below. Do not automatically exempt a clothed abdomen, waist, chest, or hips.
+2. Separate body contour from fabric volume. Loose sleeves, dropped shoulder seams, padded shoulders, jacket sides, hanging folds, and chest drape alone cannot establish body reshaping. A tighter cut can remove fabric ease without changing the person. The target being tighter or looser is not itself proof of damage or preservation.
 3. Allow for image scale, crop, perspective, pose, and changed coverage. Use stable visible head/joint landmarks rather than raw pixel width or the garment-reference model's body.
-4. Rule out ordinary clothing/pose explanations before confirming body damage. If a material change in genuinely comparable exposed anatomy remains clear, report it even when the result looks natural.
-5. When the relevant anatomy is hidden, newly exposed, unclear, or not comparable, record the limitation and reject the unsupported accusation. Do not claim hidden anatomy is preserved. Newly exposed skin may be plausibly synthesized if it was not visible originally.
+4. Rule out ordinary cut, ease, drape, padding, compression, pose, and occlusion explanations before confirming body damage. A material supported change in anatomy or readable body contour still matters when the result looks natural.
+5. When neither direct anatomy nor corroborated contour evidence supports the comparison, record the limitation and reject the unsupported accusation. Do not claim hidden anatomy is preserved. Newly exposed skin may be plausibly synthesized if it was not visible originally.
 
 Visibility is regional. Compare any shared exposed segment independently even if adjacent anatomy is newly exposed or hidden. In person_integrity, name the regions actually compared and give a brief original-versus-result observation; do not replace that comparison with a blanket assertion that the person's anatomy is preserved.
 
 Distinguish BODY_SHAPE from independently visible IDENTITY_OR_ANATOMY defects. Clear identity replacement, extra/missing limbs, fused fingers, or impossible joints can have direct visible evidence without inferring concealed body size. Do not invent such defects from a small or ambiguous image.
+
+COVERED BODY CONTOUR
+Use COMPARABLE_BODY_CONTOUR only for a BODY_SHAPE finding supported by ALL of these checks:
+- The original region is BODY_FOLLOWING: fabric follows the person closely enough to reveal the actual contour. Do not use an original loose, padded, structured, folded, or unclear clothing outline as a measurement of the body.
+- The same result region is either BODY_FOLLOWING, or meets the narrow INSUFFICIENT_SPACE_FOR_ORIGINAL_BODY condition: after stable scale/pose alignment, the generated boundary materially lies inside the original readable body volume, leaving insufficient room for it. For this exception the target must be soft and unstructured, without plausible shaping/compression or occlusion explaining the difference. An ordinary loose or structured silhouette does not qualify.
+- Corroborating head, hand, waistband, hip, or other stable observations establish comparable scale and pose and support the change. Identify the region and actual original/result difference. Explain the relevant gaps, waistband relationships, or coherent contour change; a single cloth line, new hem height, darker colour, flatter shading, or "looks thinner" is insufficient.
+- Explicitly explain why changing garment cut/ease, drape, padding, compression, pose, or coverage cannot account for the supported change. If that remains plausible, the body comparison is uncertain and must not receive a body penalty.
+
+For example, a body-following original shirt may clearly reveal a rounded abdomen. An oversized result tee may still become implausibly narrow around the waist/abdomen below its boxy chest, contradicting the readable original body volume. Examine the supported volume contradiction rather than automatically dismissing it as loose clothing. Conversely, normal sleeve bulk, padded shoulders, or a fitted garment merely removing fabric ease do not establish body reshaping.
+If only garment cinching, cut, or placement is demonstrably wrong, report the supported fit/design defect. Do not count the same narrowing again as body damage. Keep checking all other garment, person, and scene failures independently.
 
 GARMENT, FIT, AND OTHER FAILURES MATTER EQUALLY
 - Compare garment design and all intended pieces against TARGET_GARMENT. A different person's pose/body naturally changes folds, hem contours, and apparent looseness. Correct oversized, padded, or layered clothing may increase volume.
@@ -36,6 +46,7 @@ GARMENT, FIT, AND OTHER FAILURES MATTER EQUALLY
 - An existing underlayer may remain naturally visible beneath an open jacket or at its hem. Do not penalize it solely because the garment-reference model was styled without it. Assess actual remnants and implausible layering from the intended transfer.
 - A clean newly exposed neck, a source-supported inner layer, or a plausible waistband from visible tucking can be legitimate. Actual remnants, detached/floating geometry, or invented layers remain defects.
 - Ignore tiny edge noise, mild blur, ordinary drape, and inconclusive details.
+- Expected small generator/service branding in an otherwise empty corner is not an actionable artifact unless it obscures important person, garment, or scene content. This does not excuse a wrong logo on the clothing itself.
 
 EVIDENCE AND SEVERITY
 Return one finding per distinct defect. Do not count one defect in several categories.
@@ -45,10 +56,10 @@ Return one finding per distinct defect. Do not count one defect in several categ
 - MAJOR: an obvious material failure in garment identity/design/fit, person/identity/anatomy, or scene/non-target items.
 Normal variation and unsupported comparisons are not findings. An empty findings array is valid.
 
-For BODY_SHAPE, comparison_basis must be COMPARABLE_EXPOSED_SKIN or COMPARABLE_ANATOMICAL_LANDMARKS, with actual anatomy visible in BOTH images, and clothing_or_pose_explanation_ruled_out must be true before the finding can be confirmed. Clothing seams/contours are never anatomical landmarks. NOT_COMPARABLE or clothing-only evidence cannot support body-shape damage.
+For BODY_SHAPE, use COMPARABLE_EXPOSED_SKIN or COMPARABLE_ANATOMICAL_LANDMARKS when the same actual anatomy is visible in BOTH images. Alternatively use COMPARABLE_BODY_CONTOUR only with the full contour_evidence checks above. clothing_or_pose_explanation_ruled_out must be true before either kind can be confirmed. Clothing seams are not anatomical landmarks. NOT_COMPARABLE or generic VISIBLE_GARMENT evidence cannot establish body-shape damage. A confirmed material change in body volume or proportions is MAJOR.
 Any claim that the person's body became wider, slimmer, stretched, or reshaped must use BODY_SHAPE and meet that evidence requirement. Do not relabel a body-size accusation as GARMENT or IDENTITY_OR_ANATOMY to avoid checking comparable anatomy.
 For a garment defect use VISIBLE_GARMENT. For other directly visible damage use VISIBLE_OTHER, or a genuine comparable-anatomy basis when appropriate. State any original visibility limitation rather than inventing an original observation.
-All BODY_SHAPE, IDENTITY_OR_ANATOMY, NON_TARGET_ITEM, and SCENE_OR_BOUNDARY findings use category artifact_error. GARMENT findings use garment_structure_error for design/length/silhouette, construction_alignment_error for misplaced/missing design details, fit_error for actual garment fit/placement, or artifact_error for directly visible rendering/blending damage to the clothing. Clothing-only evidence never establishes a change in hidden anatomy.
+All BODY_SHAPE, IDENTITY_OR_ANATOMY, NON_TARGET_ITEM, and SCENE_OR_BOUNDARY findings use category artifact_error. GARMENT findings use garment_structure_error for design/length/silhouette, construction_alignment_error for misplaced/missing design details, fit_error for actual garment fit/placement, or artifact_error for directly visible rendering/blending damage to the clothing. A generic clothing-outline difference never establishes hidden body damage; only the explicit corroborated contour route can support a covered-body finding.
 
 OUTPUT
 Return only valid JSON matching the supplied schema. Do not return labels, score, successful, or critical/minor issue arrays; the application derives those from supported confirmed findings.
@@ -63,11 +74,19 @@ Required fields:
   subject: BODY_SHAPE, IDENTITY_OR_ANATOMY, GARMENT, NON_TARGET_ITEM, or SCENE_OR_BOUNDARY.
   severity: MINOR or MAJOR.
   confidence: CONFIRMED or UNCERTAIN.
-  comparison_basis: COMPARABLE_EXPOSED_SKIN, COMPARABLE_ANATOMICAL_LANDMARKS, VISIBLE_GARMENT, VISIBLE_OTHER, or NOT_COMPARABLE.
+  comparison_basis: COMPARABLE_EXPOSED_SKIN, COMPARABLE_ANATOMICAL_LANDMARKS, COMPARABLE_BODY_CONTOUR, VISIBLE_GARMENT, VISIBLE_OTHER, or NOT_COMPARABLE.
   original_observation: concrete visible evidence in the relevant reference image, or its visibility limitation.
   result_observation: concrete visible evidence in GENERATED_RESULT.
   clothing_or_pose_explanation_ruled_out: boolean; true only when the legitimate clothing/pose explanation has actually been ruled out.
   description: concise statement of the defect supported by those observations.
+  ONLY when comparison_basis is COMPARABLE_BODY_CONTOUR, also include contour_evidence with ALL fields:
+    region: the specific body region compared.
+    original_surface: BODY_FOLLOWING, LOOSE_OR_STRUCTURED, or UNCLEAR.
+    result_surface: BODY_FOLLOWING, INSUFFICIENT_SPACE_FOR_ORIGINAL_BODY, LOOSE_OR_STRUCTURED, or UNCLEAR.
+    scale_and_pose_comparable: boolean.
+    landmark_corroboration: concrete stable-landmark and contour/space observations supporting the comparison.
+    clothing_explanation_exclusion: concrete explanation ruling out ordinary cut/ease, drape, padding, compression, pose, and occlusion.
+  For every other comparison_basis use only the original finding fields above; do not add contour_evidence. The new contour basis is allowed only with subject BODY_SHAPE and category artifact_error.
 - positives: short strings describing specific supported TARGET_GARMENT strengths. Keep correct garment features even if real body or scene damage exists. Put person/scene observations and their limits in coverage; avoid generic claims that all anatomy or all non-target items are intact.
 - notes: at most 350 characters summarizing the most consequential confirmed findings and relevant comparison limitations. Cover garment fidelity as well as person integrity; avoid an arm-only verdict.
 - rejected_claims: short strings identifying unsupported preliminary claims and the visible reason for rejecting them. Include normal-clothing-volume explanations where relevant. Empty is valid.

@@ -18,12 +18,14 @@ GARMENT DESIGN AND FIT
 - A pocket that was opened by the reference model's hand may lie flat when the result's hands are outside it. Occlusion or a different pose does not prove a detail disappeared.
 
 PERSON INTEGRITY: ESTABLISH WHAT CAN ACTUALLY BE COMPARED
-- First identify comparable exposed skin or actual anatomical landmarks visible in BOTH PERSON and GENERATED_RESULT. Check identity, head/neck, visible limbs and joints, hands/feet, and pose without treating any region as an expected defect.
-- Clothing-covered outlines are clothing, not measurements of hidden anatomy. A sleeve edge, dropped shoulder seam, puffy chest, jacket side, or padded shoulder is not an anatomical landmark. Do not infer body size from those contours, even if the silhouette changed substantially.
+- Check identity, head/neck, torso and body proportions, visible limbs and joints, hands/feet, and pose without treating any region as an expected defect. A preserved face or plausible garment does not establish preservation of the rest of the person.
+- Comparable exposed skin and actual anatomical landmarks are direct evidence. Body shape can also remain readable through body-following fabric; do not automatically exempt the abdomen, waist, chest, or hips because clothing covers them.
+- Separate fabric volume from readable body contour. A loose sleeve, dropped shoulder seam, puffy chest, hanging fold, jacket side, or padded shoulder alone cannot establish hidden body size. A tighter cut can remove fabric ease without changing the person. Neither a tighter nor a looser target garment automatically proves body preservation or damage.
 - Compare the same visible anatomical region after allowing for image scale, crop, perspective, and reasonable pose changes. Use stable visible head/joint landmarks; do not compare raw pixel widths across differently sized images.
 - Visibility is regional: compare the shared exposed segment even when adjacent anatomy is newly exposed or covered. One hidden area does not make the rest of the person unassessable. Describe actual comparable observations before asserting preservation or damage.
-- Claim body reshaping only when a material change in comparable exposed skin or actual anatomy remains clear after clothing, coverage, pose, and perspective explanations are ruled out. A real visible change can be MAJOR even when the result looks realistic.
-- When coverage or image quality prevents that comparison, leave the hidden region unassessed. Do not turn uncertainty into a defect or claim that hidden anatomy is perfectly preserved. Plausible newly exposed skin may be synthesized when it was hidden in PERSON.
+- For a covered-body comparison, first establish that the ORIGINAL fabric follows the body closely enough to reveal the region's shape, rather than merely adding folds or bulk. Confirm a material change only when the result also reveals comparable body contour, OR when its boundary leaves materially insufficient space for the original readable body volume after landmark alignment. Corroborate with stable head, hands, waistband, hips, or other comparable features and explain why cut, ease, drape, padding, compression, pose, and occlusion do not account for it.
+- For example, an original body-following shirt can reveal a rounded abdomen. An oversized tee in the result can still show an implausibly reduced waist/abdomen below a boxy chest. Inspect the actual supported contour and available space; do not dismiss the change solely because the new tee is loose. Darker fabric, flatter shading, or an ordinary hanging fold alone is insufficient evidence of changed body volume.
+- A confirmed material change in body volume or proportions is artifact_error=MAJOR even when it looks realistic. When neither direct anatomy nor supported contour evidence permits comparison, leave the region unassessed. Do not turn uncertainty into a defect or claim hidden anatomy is perfectly preserved. Plausible newly exposed skin may be synthesized when it was hidden in PERSON.
 - Also check identity, malformed or extra/missing anatomy, skin/hair boundaries, and implausible pose. A garment can be accurate while the person is damaged, or the person preserved while the garment is wrong.
 
 SCENE, LAYERING, AND NON-TARGET ITEMS
@@ -32,12 +34,14 @@ SCENE, LAYERING, AND NON-TARGET ITEMS
 - Compare non-target items with PERSON, not with shoes or styling on the garment-reference model.
 - Existing underlayers can remain naturally visible beneath an open jacket or at its hem. Their absence on the garment-reference model does not prove they are unwanted remnants. Judge whether the intended transfer and layering are plausible.
 - A clean newly exposed neck, an inner layer supported by TARGET_GARMENT, or a plausible waistband from a visibly tucked-in garment can be correct. Flag actual remnants, floating/detached geometry, or invented layers when clearly supported.
+- Expected small generator/service branding in an otherwise empty image corner is not a quality defect unless it obscures important person, clothing, or scene content. A wrong logo on the clothing itself remains a garment-design issue.
 
 SEVERITY AND LABELS
 - NONE: normal variation, an uncertain/occluded comparison, or an insignificant difference.
 - MINOR: a confirmed, localized defect that meaningfully reduces fidelity or trust.
 - MAJOR: an obvious material failure of garment identity/design/fit, visible body/identity preservation, anatomy, or other scene/items.
 - Give one defect one label: garment design/length/silhouette -> garment_structure_error; detail placement -> construction_alignment_error; actual clothing fit/placement -> fit_error; person damage, scene/boundary artifacts, or collateral damage -> artifact_error.
+- Do not count the same narrowing as both body damage and a fit/design defect. If the evidence establishes only a wrong clothing cut or fit, report that supported garment problem without inventing body damage.
 - Do not weaken a confirmed major defect because another area is good. Do not inflate a subtle or speculative difference into a major defect.
 - Include only supported issues. Every critical issue must correspond to a MAJOR label. Do not let one finding hide unrelated important defects.
 
